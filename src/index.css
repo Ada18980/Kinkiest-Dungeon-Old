@@ -8,8 +8,6 @@ body {
   #mainCanvas {
     width: 100%;
     height: 100%;
-    position: absolute;
-    top: 0%;
     background: #CCF;
     box-sizing: border-box;
     border: 1px black solid;

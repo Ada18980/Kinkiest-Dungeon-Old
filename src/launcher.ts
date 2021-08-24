@@ -21,7 +21,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		renderer.view.style.width = w + 'px';
 		renderer.view.style.height = h + 'px';
 
-		renderer.view.style.position = "absolute";
+		renderer.view.style.position = "relative";
 		renderer.view.style.left = ((window.innerWidth - w) >> 1) + 'px'
 		renderer.view.style.top = ((window.innerHeight - h) >> 1) + 'px';
 
