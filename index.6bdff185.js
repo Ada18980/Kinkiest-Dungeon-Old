@@ -485,7 +485,7 @@ function LauncherLaunchGame(width, height) {
         }
         renderer.view.style.width = w + 'px';
         renderer.view.style.height = h + 'px';
-        renderer.view.style.position = "relative";
+        renderer.view.style.position = "absolute";
         renderer.view.style.left = (window.innerWidth - w >> 1) + 'px';
         renderer.view.style.top = (window.innerHeight - h >> 1) + 'px';
     }
@@ -496,6 +496,7 @@ function LauncherLaunchGame(width, height) {
     app = new _pixiJs.Application({
         width,
         height,
+        view: document.getElementById("mainCanvas"),
         autoDensity: true,
         backgroundColor: 1087931,
         resolution: window.devicePixelRatio || 1,
