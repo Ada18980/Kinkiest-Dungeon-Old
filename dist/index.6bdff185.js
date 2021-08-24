@@ -499,7 +499,7 @@ function LauncherLaunchGame(width, height) {
         height,
         autoDensity: true,
         backgroundColor: 1087931,
-        antialias: true
+        antialias: false
     });
     app.view.setAttribute("id", "mainCanvas");
     _pixiJs.settings.SCALE_MODE = _pixiJs.SCALE_MODES.NEAREST;

@@ -38,7 +38,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	app = new PIXI.Application({ width, height,
 		autoDensity: true,
 		backgroundColor: 0x1099bb,
-		antialias: true,
+		antialias: false,
 	});
 	app.view.setAttribute("id", "mainCanvas");
 
