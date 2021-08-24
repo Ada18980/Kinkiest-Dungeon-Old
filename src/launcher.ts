@@ -21,7 +21,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		renderer.view.style.width = w + 'px';
 		renderer.view.style.height = h + 'px';
 
-		renderer.view.style.position = "relative";
+		renderer.view.style.position = "absolute";
 		renderer.view.style.left = ((window.innerWidth - w) >> 1) + 'px'
 		renderer.view.style.top = ((window.innerHeight - h) >> 1) + 'px';
 
@@ -34,6 +34,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	// Creates the document
 	app = new PIXI.Application({ width, height,
+		view: document.getElementById("mainCanvas") as HTMLCanvasElement,
 		autoDensity: true,
 		backgroundColor: 0x1099bb,
 		resolution: window.devicePixelRatio || 1,
