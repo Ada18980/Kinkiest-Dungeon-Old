@@ -1,5 +1,2 @@
 /node_modules
-/dist
 .parcel-cache
-.parcel-cache/*.*
-.parcel-cache/data.mdb
