@@ -11,19 +11,21 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	ratio = windowSize.width / windowSize.height;
 
 	function resize() {
+		let zoom = (( window.outerWidth) / window.innerWidth);
+
 		if (window.innerWidth / window.innerHeight >= ratio) {
-			var w = window.innerHeight * ratio;
-			var h = window.innerHeight;
+			var w = window.innerHeight * ratio * zoom;
+			var h = window.innerHeight * zoom;
 		} else {
-			var w = window.innerWidth;
-			var h = window.innerWidth / ratio;
+			var w = window.innerWidth * zoom;
+			var h = window.innerWidth / ratio * zoom;
 		}
 		renderer.view.style.width = w + 'px';
 		renderer.view.style.height = h + 'px';
 
-		renderer.view.style.position = "absolute";
-		renderer.view.style.left = ((window.innerWidth - w) >> 1) + 'px'
-		renderer.view.style.top = ((window.innerHeight - h) >> 1) + 'px';
+		//renderer.view.style.position = "relative";
+		//renderer.view.style.left = ((window.innerWidth - w) >> 1) + 'px'
+		//renderer.view.style.top = ((window.innerHeight - h) >> 1) + 'px';
 
 	}
 	window.onresize = function(event) {
@@ -34,10 +36,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	// Creates the document
 	app = new PIXI.Application({ width, height,
-		view: document.getElementById("mainCanvas") as HTMLCanvasElement,
 		autoDensity: true,
 		backgroundColor: 0x1099bb,
-		resolution: window.devicePixelRatio || 1,
 		antialias: true,
 	});
 	app.view.setAttribute("id", "mainCanvas");
@@ -69,8 +69,6 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	block.anchor.y = .5;
 	stage.addChild(block);
 	resize();
-
-	var scaleFactor = 2;
 
 	// Listen for animate update
 	var lastTick = performance.now();
