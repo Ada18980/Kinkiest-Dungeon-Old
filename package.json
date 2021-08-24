@@ -22,7 +22,7 @@
     "webpack-cli": "^4.7.2"
   },
   "scripts": {
-    "build": "parcel build index.html --public-url ./ --no-scope-hoist",
+    "build": "parcel build src/index.html --public-url ./ --no-scope-hoist",
     "start": "parcel index.html",
     "lint": "eslint --max-warnings 0 ./src",
     "lint:fix": "eslint --fix ./src",
