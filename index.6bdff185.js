@@ -455,17 +455,9 @@ function hmrAcceptRun(bundle, id) {
 }
 
 },{}],"xpO2s":[function(require,module,exports) {
-/*
-        <script src="./externals/pixi.min.js"></script>
-        <script src="./dist/bundle.js"></script>
-*/ // import * as PIXI from 'pixi.js';
 var _launcher = require("./launcher");
 'use strict';
-// let type = 'WebGL';
-// if (!PIXI.utils.isWebGLSupported()) {
-// 	type = 'canvas';
-// }
-_launcher.LauncherLaunchGame(1440, 1080);
+_launcher.LauncherLaunchGame(1440, 1080); // git subtree push --prefix dist origin gh-pages
 
 },{"./launcher":"7Wuwz"}],"7Wuwz":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
@@ -493,7 +485,7 @@ function LauncherLaunchGame(width, height) {
         }
         renderer.view.style.width = w + 'px';
         renderer.view.style.height = h + 'px';
-        renderer.view.style.position = "absolute";
+        renderer.view.style.position = "relative";
         renderer.view.style.left = (window.innerWidth - w >> 1) + 'px';
         renderer.view.style.top = (window.innerHeight - h >> 1) + 'px';
     }
