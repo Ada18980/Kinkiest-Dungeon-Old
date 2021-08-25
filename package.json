@@ -17,7 +17,8 @@
   "devDependencies": {
     "@types/pixi.js": "^5.0.0",
     "brfs": "^2.0.2",
-    "source-map-loader": "^3.0.0",
+    "parcel-plugin-nuke-dist": "^1.0.1",
+    "parcel-plugin-r": "^3.0.0",
     "transform-loader": "^0.2.4",
     "ts-loader": "^9.2.5",
     "webpack-cli": "^4.7.2"
