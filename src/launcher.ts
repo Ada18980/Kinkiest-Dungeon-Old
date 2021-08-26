@@ -1,16 +1,13 @@
 import * as PIXI from 'pixi.js';
+import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, loadSprites } from './sprites';
 import { AbstractRenderer } from 'pixi.js';
 import { Viewport } from 'pixi-viewport'
 
-let app: PIXI.Application;
-let renderer: PIXI.Renderer;
-let viewport: Viewport;
-let windowSize = {width: 1920, height: 1080};
-let ratio = windowSize.width / windowSize.height;
-
-const TILE_SIZE = 64;
-const MIN_ZOOM = 7; // In tiles
-const MAX_ZOOM = 25; // In Tiles
+export let app: PIXI.Application;
+export let renderer: PIXI.Renderer;
+export let viewport: Viewport;
+export let windowSize = {width: 1920, height: 1080};
+export let ratio = windowSize.width / windowSize.height;
 
 export function LauncherLaunchGame(width: number, height: number): void {
 	setWindowSize(width, height);
@@ -89,6 +86,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	resize();
 
+	loadSprites();
+
 	// Listen for animate update
 	var lastTick = performance.now();
 
@@ -140,13 +139,6 @@ function resize() {
 }
 
 function clampZoomOptions() {
-
-	console.log({
-		minWidth: MIN_ZOOM * TILE_SIZE,
-		minHeight: MIN_ZOOM * TILE_SIZE,
-		maxWidth: MAX_ZOOM * TILE_SIZE * Math.max(1, ratio),
-		maxHeight: MAX_ZOOM * TILE_SIZE / Math.min(1, ratio),
-	});
 	return {
 		minWidth: MIN_ZOOM * TILE_SIZE,
 		minHeight: MIN_ZOOM * TILE_SIZE,

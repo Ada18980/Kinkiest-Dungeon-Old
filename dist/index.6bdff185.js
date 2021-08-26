@@ -462,11 +462,22 @@ _launcher.LauncherLaunchGame(1440, 1080); // git subtree push --prefix dist orig
 },{"./launcher":"7Wuwz"}],"7Wuwz":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "app", ()=>app
+);
+parcelHelpers.export(exports, "renderer", ()=>renderer
+);
+parcelHelpers.export(exports, "viewport", ()=>viewport
+);
+parcelHelpers.export(exports, "windowSize", ()=>windowSize
+);
+parcelHelpers.export(exports, "ratio", ()=>ratio
+);
 parcelHelpers.export(exports, "LauncherLaunchGame", ()=>LauncherLaunchGame
 );
 parcelHelpers.export(exports, "changeResolution", ()=>changeResolution
 );
 var _pixiJs = require("pixi.js");
+var _sprites = require("./sprites");
 var _pixiViewport = require("pixi-viewport");
 let app;
 let renderer;
@@ -476,9 +487,6 @@ let windowSize = {
     height: 1080
 };
 let ratio = windowSize.width / windowSize.height;
-const TILE_SIZE = 64;
-const MIN_ZOOM = 7; // In tiles
-const MAX_ZOOM = 25; // In Tiles
 function LauncherLaunchGame(width, height) {
     setWindowSize(width, height);
     window.onresize = function(event) {
@@ -537,6 +545,7 @@ function LauncherLaunchGame(width, height) {
         viewport.addChild(block);
     }
     resize();
+    _sprites.loadSprites();
     // Listen for animate update
     var lastTick = performance.now();
     viewport.addListener("clicked", (event)=>{
@@ -585,17 +594,11 @@ function resize() {
 //viewport.drag();
 }
 function clampZoomOptions() {
-    console.log({
-        minWidth: MIN_ZOOM * TILE_SIZE,
-        minHeight: MIN_ZOOM * TILE_SIZE,
-        maxWidth: MAX_ZOOM * TILE_SIZE * Math.max(1, ratio),
-        maxHeight: MAX_ZOOM * TILE_SIZE / Math.min(1, ratio)
-    });
     return {
-        minWidth: MIN_ZOOM * TILE_SIZE,
-        minHeight: MIN_ZOOM * TILE_SIZE,
-        maxWidth: MAX_ZOOM * TILE_SIZE * Math.max(1, ratio),
-        maxHeight: MAX_ZOOM * TILE_SIZE / Math.min(1, ratio)
+        minWidth: _sprites.MIN_ZOOM * _sprites.TILE_SIZE,
+        minHeight: _sprites.MIN_ZOOM * _sprites.TILE_SIZE,
+        maxWidth: _sprites.MAX_ZOOM * _sprites.TILE_SIZE * Math.max(1, ratio),
+        maxHeight: _sprites.MAX_ZOOM * _sprites.TILE_SIZE / Math.min(1, ratio)
     };
 }
 function setWindowSize(width, height) {
@@ -609,7 +612,7 @@ function changeResolution(width, height) {
     viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -43279,6 +43282,105 @@ const PLUGIN_ORDER = [
     umd(penner);
 }).call(this);
 
-},{}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
+},{}],"gcKZH":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
+);
+parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
+);
+parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
+);
+parcelHelpers.export(exports, "Image", ()=>Image1
+);
+parcelHelpers.export(exports, "getSprite", ()=>getSprite
+);
+parcelHelpers.export(exports, "addSprite", ()=>addSprite
+);
+parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
+) /*
+
+  // creating new instance of PXI.texure
+  var texture = new PIXI.Texture.fromImage('my-start-frame-name');
+  // creating sprite
+  var runner = new PIXI.Sprite(texture);
+
+
+  // this is the frame I'm using to change the picture in sprite sheet
+  var frame = new PIXI.Rectangle(0, 0, 100, 100);
+
+  // animating the sprite
+  var interval = setInterval(function () {
+    // moving frame one unit to right
+    frame.position.x += 100;
+    runner.texture.frame = frame;
+
+    //  ending animation
+    if (frame.position.x == 1000) {
+       frame.position.x = 0;
+       clearInterval(interval);
+    }
+  }, 50);*/ ;
+var _pixiJs = require("pixi.js");
+var _launcher = require("./launcher");
+const TILE_SIZE = 64;
+const MIN_ZOOM = 7; // In tiles
+const MAX_ZOOM = 25; // In Tiles
+let spriteResources = [
+    {
+        name: "player_mage",
+        path: "img/player/mage.png"
+    },
+    {
+        name: "player_mage2",
+        path: "img/player/mage_2.png"
+    }, 
+];
+let sprites = new Map();
+class Image1 {
+    constructor(sprite, columns = 1, width = 50, height = 64){
+        this.columns = 1;
+        this.width = 50;
+        this.height = 64;
+        this.sprite = sprite;
+        this.columns = columns;
+        this.width = width;
+        this.height = height;
+    }
+}
+function getSprite(name, frame) {
+    return sprites.get(name);
+}
+function addSprite(name, path, columns1, width1, height1) {
+    _pixiJs.Loader.shared.add(name, path);
+}
+function loadSprites() {
+    spriteResources.forEach((element)=>{
+        _pixiJs.Loader.shared.add(element.name, element.path);
+    });
+    _pixiJs.Loader.shared.load((loader, resources)=>{
+        spriteResources.forEach((element)=>{
+            let resource = resources[element.name];
+            if (typeof resource !== "undefined") sprites.set(element.name, new Image1(new _pixiJs.Sprite(resource.texture), element.columns, element.width, element.height));
+        });
+    });
+    console.log(sprites);
+    _pixiJs.Loader.shared.onComplete.add(()=>{
+        let sprite1 = getSprite("player_mage");
+        if (sprite1) {
+            sprite1.sprite.anchor.set(0.5);
+            sprite1.sprite.position.set(1024, 1024);
+            _launcher.viewport.addChild(sprite1.sprite);
+        }
+        sprite1 = getSprite("player_mage2");
+        if (sprite1) {
+            sprite1.sprite.anchor.set(0.5);
+            sprite1.sprite.position.set(1124, 1024);
+            _launcher.viewport.addChild(sprite1.sprite);
+        }
+    }); // called once when the queued resources all load.
+}
+
+},{"pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./launcher":"7Wuwz"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
 
 //# sourceMappingURL=index.6bdff185.js.map
