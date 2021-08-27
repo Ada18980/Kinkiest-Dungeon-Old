@@ -43339,12 +43339,27 @@ let sprites = new Map();
 class Image1 {
     constructor(){
         this.currentAnimation = "";
+        this.playing = false;
         this.animations = new Map();
     }
     addSprite(layer, animation, sprite) {
         let anim = this.animations.get(animation) || new Map();
         if (!this.animations.has(animation)) this.animations.set(animation, anim);
         anim.set(layer, sprite);
+    }
+    animate(start, stop, setFrame, loop) {
+        let currRender = this.animations.get(this.currentAnimation);
+        if (currRender) {
+            this.playing = false;
+            currRender.forEach((element)=>{
+                if (setFrame && start) element.sprite.gotoAndPlay(setFrame);
+                else if (setFrame && stop) element.sprite.gotoAndStop(setFrame);
+                else if (start) element.sprite.play();
+                else if (stop) element.sprite.stop();
+                if (loop) element.sprite.loop = loop;
+                if (!this.playing && element.sprite.playing) this.playing = true;
+            });
+        }
     }
     render(viewport, animation, x, y, rotation = 0) {
         let currRender = animation != this.currentAnimation ? this.animations.get(this.currentAnimation) : null;
@@ -43423,7 +43438,10 @@ function loadSprites() {
                             });
                             if (frames1) {
                                 let sprite1 = new _pixiJs.AnimatedSprite(frames1);
-                                //sprite.anchor.set(0.5);
+                                let time = 1000;
+                                if (loader1?.data?.frames[frameKeys[0] || 0]?.duration) time = loader1?.data?.frames[frameKeys[0] || 0]?.duration;
+                                sprite1.animationSpeed = 16.7 / time;
+                                sprite1.anchor.set(0.5);
                                 image.addSprite(layer, animation, new KDSprite(sprite1, frames1.length, loader1?.data?.meta?.frameTags[animation]?.noLoop));
                             }
                         }
@@ -43436,7 +43454,10 @@ function loadSprites() {
     console.log(_pixiJs.Loader.shared);
     _pixiJs.Loader.shared.onComplete.add(()=>{
         let sprite1 = getSprite("player_mage");
-        if (sprite1) sprite1.render(_launcher.viewport, "walkdown", 1024, 1024);
+        if (sprite1) {
+            sprite1.render(_launcher.viewport, "walkdown", 1024, 1024);
+            if (!sprite1.playing) sprite1.animate(true);
+        }
     }); // called once when the queued resources all load.
 }
 
