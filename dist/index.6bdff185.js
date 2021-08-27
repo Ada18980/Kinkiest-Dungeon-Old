@@ -466,8 +466,6 @@ parcelHelpers.export(exports, "app", ()=>app
 );
 parcelHelpers.export(exports, "renderer", ()=>renderer
 );
-parcelHelpers.export(exports, "viewport", ()=>viewport
-);
 parcelHelpers.export(exports, "windowSize", ()=>windowSize
 );
 parcelHelpers.export(exports, "ratio", ()=>ratio
@@ -479,6 +477,9 @@ parcelHelpers.export(exports, "changeResolution", ()=>changeResolution
 var _pixiJs = require("pixi.js");
 var _sprites = require("./sprites");
 var _pixiViewport = require("pixi-viewport");
+var _actor = require("./actor");
+var _world = require("./world");
+"use strict";
 let app;
 let renderer;
 let viewport;
@@ -556,9 +557,19 @@ function LauncherLaunchGame(width, height) {
             removeOnInterrupt: true
         });
     });
+    let world = new _world.Floor();
+    world.addActor(new _actor.Actor(1024, 1024, {
+        sprite: "player_mage",
+        max_hp: 5
+    }));
+    world.addActor(new _actor.Actor(1124, 1024, {
+        sprite: "player_mage",
+        max_hp: 5
+    }));
     app.ticker.add((delta)=>{
         let d = performance.now() - lastTick;
         lastTick = performance.now();
+        world.render(viewport);
     });
 }
 function resize() {
@@ -612,7 +623,7 @@ function changeResolution(width, height) {
     viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH","./world":"h3nIe","./actor":"dLfJ7"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -43291,11 +43302,15 @@ parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
 );
 parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
 );
+parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
+);
 parcelHelpers.export(exports, "Image", ()=>Image1
 );
 parcelHelpers.export(exports, "KDSprite", ()=>KDSprite
 );
 parcelHelpers.export(exports, "getSprite", ()=>getSprite
+);
+parcelHelpers.export(exports, "getNewSprite", ()=>getNewSprite
 );
 parcelHelpers.export(exports, "addSprite", ()=>addSprite
 );
@@ -43324,9 +43339,9 @@ parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
     }
   }, 50);*/ ;
 var _pixiJs = require("pixi.js");
-var _launcher = require("./launcher");
+"use strict";
 const TILE_SIZE = 64;
-const MIN_ZOOM = 7; // In tiles
+const MIN_ZOOM = 5; // In tiles
 const MAX_ZOOM = 25; // In Tiles
 let nullTexture = _pixiJs.Texture.from("img/null.png");
 let spriteResources = [
@@ -43336,10 +43351,9 @@ let spriteResources = [
     }, 
 ];
 let sprites = new Map();
-class Image1 {
-    constructor(){
-        this.currentAnimation = "";
-        this.playing = false;
+class BaseImage {
+    constructor(name){
+        this.name = name;
         this.animations = new Map();
     }
     addSprite(layer, animation, sprite) {
@@ -43347,13 +43361,28 @@ class Image1 {
         if (!this.animations.has(animation)) this.animations.set(animation, anim);
         anim.set(layer, sprite);
     }
+}
+class Image1 {
+    constructor(image){
+        this.currentAnimation = "";
+        this.playing = false;
+        this.animations = new Map();
+        image.animations.forEach((v, k)=>{
+            let map = new Map();
+            v.forEach((v1, k1)=>{
+                map.set(k1, new KDSprite(image.name, v1));
+            });
+            this.animations.set(k, map);
+        });
+    }
     animate(start, stop, setFrame, loop) {
         let currRender = this.animations.get(this.currentAnimation);
         if (currRender) {
             this.playing = false;
             currRender.forEach((element)=>{
-                if (setFrame && start) element.sprite.gotoAndPlay(setFrame);
-                else if (setFrame && stop) element.sprite.gotoAndStop(setFrame);
+                //let sf = setFrame ? Math.round(setFrame * element.sprite.totalFrames) : 0;
+                if (setFrame != undefined && start) element.sprite.gotoAndPlay(setFrame);
+                else if (setFrame != undefined && stop) element.sprite.gotoAndStop(setFrame);
                 else if (start) element.sprite.play();
                 else if (stop) element.sprite.stop();
                 if (loop) element.sprite.loop = loop;
@@ -43383,84 +43412,158 @@ class Image1 {
     }
 }
 class KDSprite {
-    constructor(sprite, frames = 1, noLoop = false){
+    constructor(name1, template){
         this.viewport = null;
+        let sprite = new _pixiJs.AnimatedSprite(template.frames, template.frames.length > 0);
+        let loader = _pixiJs.Loader.shared.resources[name1];
+        sprite.animationSpeed = 16.7 / template.time;
+        sprite.anchor.set(0.5);
         this.sprite = sprite;
-        this.frames = frames;
-        this.noLoop = noLoop;
+        this.frames = template.count;
+        this.noLoop = template.noLoop;
     }
 }
-function getSprite(name, frame) {
-    return sprites.get(name);
+function getSprite(name2) {
+    return sprites.get(name2);
 }
-function addSprite(name, path, columns, width, height) {
-    _pixiJs.Loader.shared.add(name, path);
+function getNewSprite(name2) {
+    let sprite1 = sprites.get(name2);
+    if (!sprite1) return undefined;
+    return new Image1(sprite1);
+}
+function addSprite(name2, path, columns, width, height) {
+    _pixiJs.Loader.shared.add(name2, path);
 }
 function loadSprites() {
     spriteResources.forEach((element)=>{
         _pixiJs.Loader.shared.add(element.name, element.path);
     });
-    _pixiJs.Loader.shared.load((loader, resources)=>{
+    _pixiJs.Loader.shared.load((loader1, resources)=>{
         spriteResources.forEach((element)=>{
             let resource = resources[element.name];
-            let image = new Image1();
+            let image1 = new BaseImage(element.name);
             if (typeof resource !== "undefined") {
-                let loader1 = _pixiJs.Loader.shared.resources[element.name];
+                let loader2 = _pixiJs.Loader.shared.resources[element.name];
                 let anims = [];
                 let layers = [];
                 // Seed animations and layers from metatada
-                if (loader1?.data?.meta?.frameTags) loader1?.data?.meta?.frameTags.forEach((tag)=>{
+                if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
                     if (tag.name) anims.push(tag.name);
                 });
-                if (loader1?.data?.meta?.layers) loader1?.data?.meta?.layers.forEach((layer)=>{
+                if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
                     if (layer.name) layers.push(layer.name);
                 });
                 // Default layer and animation
                 if (anims.length == 0) anims.push("idle");
                 if (layers.length == 0) layers.push("base");
+                let frameData = loader2?.spritesheet?.textures;
                 // Load the sprites in the internal format
                 anims.forEach((animation)=>{
                     layers.forEach((layer)=>{
-                        let frameData = loader1?.spritesheet?.textures;
                         if (frameData) {
                             let keys = Object.keys(frameData);
                             let frameKeys = keys.filter((frame)=>{
-                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader1?.data.meta.frameTags?.some((tag)=>{
+                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
                                     if (tag.name != animation) return false;
-                                    let indexStr = frame.split(" ")[2]?.split(".")[0];
+                                    let indexStr = frame.split("|")[1];
                                     if (!indexStr) return false;
                                     let index = parseInt(indexStr);
                                     return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
                                 });
                             });
-                            let frames1 = frameKeys.map((frame)=>{
+                            let frames = frameKeys.map((frame)=>{
                                 return frameData && frameData[frame] || nullTexture;
                             });
-                            if (frames1) {
-                                let sprite1 = new _pixiJs.AnimatedSprite(frames1);
+                            if (frames) {
                                 let time = 1000;
-                                if (loader1?.data?.frames[frameKeys[0] || 0]?.duration) time = loader1?.data?.frames[frameKeys[0] || 0]?.duration;
-                                sprite1.animationSpeed = 16.7 / time;
-                                sprite1.anchor.set(0.5);
-                                image.addSprite(layer, animation, new KDSprite(sprite1, frames1.length, loader1?.data?.meta?.frameTags[animation]?.noLoop));
+                                if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
+                                image1.addSprite(layer, animation, {
+                                    frames: frames,
+                                    time: time,
+                                    count: frames.length,
+                                    noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop
+                                });
                             }
                         }
                     });
                 });
-                sprites.set(element.name, image);
+                if (image1.animations.size > 0) sprites.set(element.name, image1);
             }
         });
     });
     console.log(_pixiJs.Loader.shared);
-    _pixiJs.Loader.shared.onComplete.add(()=>{
-        let sprite1 = getSprite("player_mage");
-        if (sprite1) {
-            sprite1.render(_launcher.viewport, "walkdown", 1024, 1024);
-            if (!sprite1.playing) sprite1.animate(true);
+/*PIXI.Loader.shared.onComplete.add(() => {
+        let sprite = getSprite("player_mage");
+        if (sprite) {
+            sprite.render(viewport, "walkdown", 1024, 1024);
+            if (!sprite.playing) sprite.animate(true);
         }
-    }); // called once when the queued resources all load.
+    }); */ // called once when the queued resources all load.
 }
 
-},{"pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./launcher":"7Wuwz"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
+},{"pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"h3nIe":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Floor", ()=>Floor
+);
+var _actor = require("./actor");
+"use strict";
+class Floor {
+    constructor(){
+        this.actors = [];
+    }
+    update(delta) {
+        this.actors.forEach((ac)=>{
+            ac.update(delta);
+        });
+    }
+    render(viewport) {
+        this.actors.forEach((ac)=>{
+            ac.render(viewport);
+        });
+    }
+    addActor(actor) {
+        this.actors.push(new _actor.ActorContainer(actor));
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./actor":"dLfJ7"}],"dLfJ7":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Actor", ()=>Actor
+);
+parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
+);
+var _sprites = require("./sprites");
+"use strict";
+class Actor {
+    constructor(x, y, type){
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.hp = type.max_hp;
+    }
+    get sprite() {
+        return this.type.sprite;
+    }
+}
+class ActorContainer {
+    constructor(actor){
+        this.sprite = undefined;
+        this.actor = actor;
+    }
+    update(delta) {
+    // TODO actor go brr
+    }
+    render(viewport) {
+        if (!this.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
+        if (this.sprite) {
+            this.sprite.render(viewport, "walkdown", this.actor.x, this.actor.y);
+            if (!this.sprite.playing) this.sprite.animate(true);
+        }
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
 
 //# sourceMappingURL=index.6bdff185.js.map

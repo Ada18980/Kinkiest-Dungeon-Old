@@ -1,11 +1,15 @@
+"use strict";
+
 import * as PIXI from 'pixi.js';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, loadSprites } from './sprites';
 import { AbstractRenderer } from 'pixi.js';
 import { Viewport } from 'pixi-viewport'
+import { Actor, ActorContainer } from './actor';
+import { Floor } from './world';
 
 export let app: PIXI.Application;
 export let renderer: PIXI.Renderer;
-export let viewport: Viewport;
+let viewport: Viewport;
 export let windowSize = {width: 1920, height: 1080};
 export let ratio = windowSize.width / windowSize.height;
 
@@ -93,10 +97,24 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	viewport.addListener("clicked", (event) => {viewport.snap(event.world.x, event.world.y, {ease: "easeInOutSine", time: 1000, removeOnComplete: true, removeOnInterrupt: true});})
 
+
+
+	let world = new Floor();
+	world.addActor(new Actor(1024, 1024, {
+		sprite: "player_mage",
+		max_hp: 5
+	}));
+	world.addActor(new Actor(1124, 1024, {
+		sprite: "player_mage",
+		max_hp: 5
+	}));
+
+
 	app.ticker.add((delta: number) => {
 		let d = performance.now() - lastTick;
 		lastTick = performance.now();
 
+		world.render(viewport);
 
 	});
 }
