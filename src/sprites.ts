@@ -5,25 +5,49 @@ export const TILE_SIZE = 64;
 export const MIN_ZOOM = 7; // In tiles
 export const MAX_ZOOM = 25; // In Tiles
 
+let nullTexture = PIXI.Texture.from("img/null.png");
+
 let spriteResources : SpriteResource[] = [
     {
         name: "player_mage",
-        path: "img/player/mage.png",
-    },
-    {
-        name: "player_mage2",
-        path: "img/player/mage_2.png",
+        path: "img/player/mage.json",
     },
 ];
 
 let sprites : Map<string, Image> = new Map<string, Image>();
 
 interface SpriteResource {
+    /**
+     * Internal name of the sprite
+     */
     name: string,
+
+    /**
+     * Path of the sprite
+     */
     path: string,
-    columns? : number,
-    width? : number,
-    height? : number,
+
+    /**
+     * Animations. One for the whole sprite. Columns are determined by the sum of the frame count of each animation
+     */
+    animations? : SpriteAnimation[],
+    columns?: number;
+
+    /**
+     * Layers. One for each row in the sprite sheet
+     */
+    layers? : SpriteLayer[],
+    rows?: number;
+}
+
+interface SpriteAnimation {
+    name: string; // Internal name of the animation
+    frameCount: number; // Number of frames in the animation
+    frameDelay: number; // Delay between each frame
+    loop?: boolean; // If true, it loops
+}
+
+interface SpriteLayer {
 }
 
 export class Image {
@@ -61,24 +85,43 @@ export function loadSprites() {
         spriteResources.forEach((element) => {
             let resource = resources[element.name];
             if (typeof resource !== "undefined") {
-                sprites.set(element.name, new Image(new PIXI.Sprite(resource.texture), element.columns, element.width, element.height));
+                let loader = PIXI.Loader.shared.resources[element.name];
+                let animation = "walkdown";
+                let layer = "hair";
+                let frameData = loader?.spritesheet?.textures;
+                if (frameData) {
+                    let keys = Object.keys(frameData);
+                    let frameKeys = keys.filter((frame : string) => {
+                        return (frameData && frameData[frame] && frame.includes(`(${layer})`) && loader?.data.meta.frameTags?.some((tag: any) => {
+                                if (tag.name != animation) return false;
+                                let indexStr = frame.split(" ")[2]?.split(".")[0];
+                                if (!indexStr) return false;
+                                let index = parseInt(indexStr);
+                                console.log(tag.from);
+                                console.log(tag.to);
+                                console.log(tag.from != null && tag.to != null && index >= tag.from && index <= tag.to);
+                                return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                            })
+                        );})
+                    let frames = frameKeys.map((frame: string) => {return (frameData && frameData[frame]) || nullTexture;});
+                    console.log(frameData);
+                    console.log(keys);
+                    console.log(frameKeys);
+                    console.log(frames);
+                    if (frames)
+                        sprites.set(element.name, new Image(new PIXI.AnimatedSprite(frames)));
+                }
             }
         })
     });
 
-    console.log(sprites);
+    console.log(PIXI.Loader.shared);
 
     PIXI.Loader.shared.onComplete.add(() => {
         let sprite = getSprite("player_mage");
         if (sprite) {
             sprite.sprite.anchor.set(0.5);
             sprite.sprite.position.set(1024,1024);
-            viewport.addChild(sprite.sprite);
-        }
-        sprite = getSprite("player_mage2");
-        if (sprite) {
-            sprite.sprite.anchor.set(0.5);
-            sprite.sprite.position.set(1124,1024);
             viewport.addChild(sprite.sprite);
         }
     }); // called once when the queued resources all load.
