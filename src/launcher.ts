@@ -1,11 +1,13 @@
 "use strict";
 
 import * as PIXI from 'pixi.js';
-import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, loadSprites } from './sprites';
+import { loadSprites } from './sprites';
+import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE } from './render';
 import { AbstractRenderer } from 'pixi.js';
 import { Viewport } from 'pixi-viewport'
 import { Actor, ActorContainer } from './actor';
 import { Floor } from './world';
+import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls } from './control';
 
 export let app: PIXI.Application;
 export let renderer: PIXI.Renderer;
@@ -14,6 +16,8 @@ export let windowSize = {width: 1920, height: 1080};
 export let ratio = windowSize.width / windowSize.height;
 
 export function LauncherLaunchGame(width: number, height: number): void {
+	initControls();
+
 	setWindowSize(width, height);
 
 	window.onresize = function(event) {
@@ -28,8 +32,12 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		antialias: false,
 	});
 
+	// Set up the renderer and properties
 	renderer = app.renderer as PIXI.Renderer;
 	app.view.setAttribute("id", "mainCanvas");
+	renderer.plugins.interaction.autoPreventDefault = true;
+	PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
+
 
 	// create viewport
 	viewport = new Viewport({
@@ -52,21 +60,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		.pinch()
 		.wheel({smooth: 5})
 		.decelerate({friction: .9})
-		.clamp({direction: "all"})
-		.clampZoom(clampZoomOptions());
-
-
-
-
-	PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
-
-
-
-
-
-
-
-
+		//.clamp({direction: "all", })
+		.clampZoom(clampZoomOptions())
 
 	let stage = app.stage;
 	document.body.appendChild(renderer.view);
@@ -100,14 +95,18 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 
 	let world = new Floor();
-	world.addActor(new Actor(1024, 1024, {
+	world.addActor(new Actor(4, 4, {
 		sprite: "player_mage",
 		max_hp: 5
 	}));
-	world.addActor(new Actor(1124, 1024, {
+	world.addActor(new Actor(5, 5, {
 		sprite: "player_mage",
 		max_hp: 5
 	}));
+
+	let snapBack = false;
+	viewport.addListener('moved-end', (event) => {snapBack = false;});
+	viewport.addListener('drag-start', (event) => {snapBack = false;});
 
 
 	app.ticker.add((delta: number) => {
@@ -116,6 +115,13 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 		world.render(viewport);
 
+		if ((viewport.center.x > viewport.worldWidth || viewport.center.x < 0 || viewport.center.y > viewport.worldHeight || viewport.center.y < 0)) {
+			if (!mouseLeftDown) {
+				if (!snapBack)
+					viewport.snap(Math.max(0, Math.min(viewport.center.x, viewport.worldWidth)), Math.max(0, Math.min(viewport.center.y, viewport.worldHeight)), {ease: "easeInOutSine", time: 500, removeOnComplete: true, removeOnInterrupt: true});
+				snapBack = true;
+			}
+		} else snapBack = false;
 	});
 }
 

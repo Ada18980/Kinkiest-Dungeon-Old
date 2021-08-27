@@ -476,9 +476,11 @@ parcelHelpers.export(exports, "changeResolution", ()=>changeResolution
 );
 var _pixiJs = require("pixi.js");
 var _sprites = require("./sprites");
+var _render = require("./render");
 var _pixiViewport = require("pixi-viewport");
 var _actor = require("./actor");
 var _world = require("./world");
+var _control = require("./control");
 "use strict";
 let app;
 let renderer;
@@ -489,6 +491,7 @@ let windowSize = {
 };
 let ratio = windowSize.width / windowSize.height;
 function LauncherLaunchGame(width, height) {
+    _control.initControls();
     setWindowSize(width, height);
     window.onresize = function(event) {
         resize();
@@ -500,8 +503,11 @@ function LauncherLaunchGame(width, height) {
         backgroundColor: 1087931,
         antialias: false
     });
+    // Set up the renderer and properties
     renderer = app.renderer;
     app.view.setAttribute("id", "mainCanvas");
+    renderer.plugins.interaction.autoPreventDefault = true;
+    _pixiJs.settings.SCALE_MODE = _pixiJs.SCALE_MODES.NEAREST;
     // create viewport
     viewport = new _pixiViewport.Viewport({
         screenWidth: width,
@@ -520,10 +526,8 @@ function LauncherLaunchGame(width, height) {
         smooth: 5
     }).decelerate({
         friction: 0.9
-    }).clamp({
-        direction: "all"
-    }).clampZoom(clampZoomOptions());
-    _pixiJs.settings.SCALE_MODE = _pixiJs.SCALE_MODES.NEAREST;
+    })//.clamp({direction: "all", })
+    .clampZoom(clampZoomOptions());
     let stage = app.stage;
     document.body.appendChild(renderer.view);
     for(let i = 0; i < 16; i += 1)for(let ii = 0; ii <= 32; ii += 1){
@@ -558,18 +562,36 @@ function LauncherLaunchGame(width, height) {
         });
     });
     let world = new _world.Floor();
-    world.addActor(new _actor.Actor(1024, 1024, {
+    world.addActor(new _actor.Actor(4, 4, {
         sprite: "player_mage",
         max_hp: 5
     }));
-    world.addActor(new _actor.Actor(1124, 1024, {
+    world.addActor(new _actor.Actor(5, 5, {
         sprite: "player_mage",
         max_hp: 5
     }));
+    let snapBack = false;
+    viewport.addListener('moved-end', (event)=>{
+        snapBack = false;
+    });
+    viewport.addListener('drag-start', (event)=>{
+        snapBack = false;
+    });
     app.ticker.add((delta)=>{
         let d = performance.now() - lastTick;
         lastTick = performance.now();
         world.render(viewport);
+        if (viewport.center.x > viewport.worldWidth || viewport.center.x < 0 || viewport.center.y > viewport.worldHeight || viewport.center.y < 0) {
+            if (!_control.mouseLeftDown) {
+                if (!snapBack) viewport.snap(Math.max(0, Math.min(viewport.center.x, viewport.worldWidth)), Math.max(0, Math.min(viewport.center.y, viewport.worldHeight)), {
+                    ease: "easeInOutSine",
+                    time: 500,
+                    removeOnComplete: true,
+                    removeOnInterrupt: true
+                });
+                snapBack = true;
+            }
+        } else snapBack = false;
     });
 }
 function resize() {
@@ -606,10 +628,10 @@ function resize() {
 }
 function clampZoomOptions() {
     return {
-        minWidth: _sprites.MIN_ZOOM * _sprites.TILE_SIZE,
-        minHeight: _sprites.MIN_ZOOM * _sprites.TILE_SIZE,
-        maxWidth: _sprites.MAX_ZOOM * _sprites.TILE_SIZE * Math.max(1, ratio),
-        maxHeight: _sprites.MAX_ZOOM * _sprites.TILE_SIZE / Math.min(1, ratio)
+        minWidth: _render.MIN_ZOOM * _render.TILE_SIZE,
+        minHeight: _render.MIN_ZOOM * _render.TILE_SIZE,
+        maxWidth: _render.MAX_ZOOM * _render.TILE_SIZE * Math.max(1, ratio),
+        maxHeight: _render.MAX_ZOOM * _render.TILE_SIZE / Math.min(1, ratio)
     };
 }
 function setWindowSize(width, height) {
@@ -623,7 +645,7 @@ function changeResolution(width, height) {
     viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH","./world":"h3nIe","./actor":"dLfJ7"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH","./world":"h3nIe","./actor":"dLfJ7","./render":"dn2g0","./control":"dg4zu"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -43511,40 +43533,79 @@ var _actor = require("./actor");
 class Floor {
     constructor(){
         this.actors = [];
+        this.player = undefined;
+        this.containers = [];
     }
     update(delta) {
-        this.actors.forEach((ac)=>{
+        this.containers.forEach((ac)=>{
             ac.update(delta);
         });
     }
     render(viewport) {
-        this.actors.forEach((ac)=>{
+        this.containers.forEach((ac)=>{
             ac.render(viewport);
         });
     }
     addActor(actor) {
-        this.actors.push(new _actor.ActorContainer(actor));
+        this.actors.push(actor);
+        this.addActorContainer(actor);
+    }
+    addActorContainer(actor) {
+        let ac = new _actor.ActorContainer(actor);
+        if (!this.player && actor.type.player) this.player = actor;
+        this.containers.push(ac);
+    }
+    populateContainers() {
+        this.actors.forEach((actor)=>{
+            if (!this.containers.some((element)=>{
+                return element.actor == actor;
+            })) this.addActorContainer(actor);
+        });
+    }
+    serialize() {
+        let oldContainers = this.containers;
+        this.containers = [];
+        // TODO actually serialize
+        this.containers = oldContainers;
+    }
+    deserialize(data) {
+        this.populateContainers();
     }
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./actor":"dLfJ7"}],"dLfJ7":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Entity", ()=>Entity
+);
 parcelHelpers.export(exports, "Actor", ()=>Actor
 );
 parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
 );
 var _sprites = require("./sprites");
+var _render = require("./render");
 "use strict";
-class Actor {
+class Entity {
     constructor(x, y, type){
         this.x = x;
         this.y = y;
         this.type = type;
-        this.hp = type.max_hp;
     }
     get sprite() {
         return this.type.sprite;
+    }
+    get xx() {
+        return this.x * _render.TILE_SIZE + _render.TILE_SIZE / 2;
+    }
+    get yy() {
+        return this.y * _render.TILE_SIZE + _render.TILE_SIZE / 2;
+    }
+}
+class Actor extends Entity {
+    constructor(x1, y1, type1){
+        super(x1, y1, type1);
+        this.type = type1;
+        this.hp = type1.max_hp;
     }
 }
 class ActorContainer {
@@ -43558,12 +43619,54 @@ class ActorContainer {
     render(viewport) {
         if (!this.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
         if (this.sprite) {
-            this.sprite.render(viewport, "walkdown", this.actor.x, this.actor.y);
+            this.sprite.render(viewport, "walkdown", this.actor.xx, this.actor.yy);
             if (!this.sprite.playing) this.sprite.animate(true);
         }
     }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH","./render":"dn2g0"}],"dn2g0":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
+);
+parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
+);
+parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
+);
+const TILE_SIZE = 64;
+const MIN_ZOOM = 5; // In tiles
+const MAX_ZOOM = 25; // In Tiles
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"dg4zu":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
+);
+parcelHelpers.export(exports, "mouseRightDown", ()=>mouseRightDown
+);
+parcelHelpers.export(exports, "mouseMiddleDown", ()=>mouseMiddleDown
+);
+parcelHelpers.export(exports, "initControls", ()=>initControls
+);
+let mouseLeftDown = false;
+let mouseRightDown = false;
+let mouseMiddleDown = false;
+function initControls() {
+    window.addEventListener('mousedown', (event)=>{
+        if (event.button == 0) mouseLeftDown = true;
+        else if (event.button == 1) mouseMiddleDown = true;
+        else if (event.button == 2) mouseRightDown = true;
+        console.log(mouseLeftDown);
+    });
+    window.addEventListener('mouseup', (event)=>{
+        if (event.button == 0) mouseLeftDown = false;
+        else if (event.button == 1) mouseMiddleDown = false;
+        else if (event.button == 2) mouseRightDown = false;
+        console.log(mouseLeftDown);
+    });
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
 
 //# sourceMappingURL=index.6bdff185.js.map
