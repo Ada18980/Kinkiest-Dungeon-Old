@@ -43326,14 +43326,11 @@ var _launcher = require("./launcher");
 const TILE_SIZE = 64;
 const MIN_ZOOM = 7; // In tiles
 const MAX_ZOOM = 25; // In Tiles
+let nullTexture = _pixiJs.Texture.from("img/null.png");
 let spriteResources = [
     {
         name: "player_mage",
-        path: "img/player/mage.png"
-    },
-    {
-        name: "player_mage2",
-        path: "img/player/mage_2.png"
+        path: "img/player/mage.json"
     }, 
 ];
 let sprites = new Map();
@@ -43361,21 +43358,43 @@ function loadSprites() {
     _pixiJs.Loader.shared.load((loader, resources)=>{
         spriteResources.forEach((element)=>{
             let resource = resources[element.name];
-            if (typeof resource !== "undefined") sprites.set(element.name, new Image1(new _pixiJs.Sprite(resource.texture), element.columns, element.width, element.height));
+            if (typeof resource !== "undefined") {
+                let loader1 = _pixiJs.Loader.shared.resources[element.name];
+                let animation = "walkdown";
+                let layer = "hair";
+                let frameData = loader1?.spritesheet?.textures;
+                if (frameData) {
+                    let keys = Object.keys(frameData);
+                    let frameKeys = keys.filter((frame)=>{
+                        return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader1?.data.meta.frameTags?.some((tag)=>{
+                            if (tag.name != animation) return false;
+                            let indexStr = frame.split(" ")[2]?.split(".")[0];
+                            if (!indexStr) return false;
+                            let index = parseInt(indexStr);
+                            console.log(tag.from);
+                            console.log(tag.to);
+                            console.log(tag.from != null && tag.to != null && index >= tag.from && index <= tag.to);
+                            return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                        });
+                    });
+                    let frames = frameKeys.map((frame)=>{
+                        return frameData && frameData[frame] || nullTexture;
+                    });
+                    console.log(frameData);
+                    console.log(keys);
+                    console.log(frameKeys);
+                    console.log(frames);
+                    if (frames) sprites.set(element.name, new Image1(new _pixiJs.AnimatedSprite(frames)));
+                }
+            }
         });
     });
-    console.log(sprites);
+    console.log(_pixiJs.Loader.shared);
     _pixiJs.Loader.shared.onComplete.add(()=>{
         let sprite1 = getSprite("player_mage");
         if (sprite1) {
             sprite1.sprite.anchor.set(0.5);
             sprite1.sprite.position.set(1024, 1024);
-            _launcher.viewport.addChild(sprite1.sprite);
-        }
-        sprite1 = getSprite("player_mage2");
-        if (sprite1) {
-            sprite1.sprite.anchor.set(0.5);
-            sprite1.sprite.position.set(1124, 1024);
             _launcher.viewport.addChild(sprite1.sprite);
         }
     }); // called once when the queued resources all load.
