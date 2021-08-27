@@ -55,6 +55,7 @@ export class Image {
     // Contains animations and layers
     animations : Map<string, Map<string, KDSprite>>;
     currentAnimation : string = "";
+    playing: boolean = false;
 
     constructor() {
         this.animations = new Map<string, Map<string, KDSprite>>();
@@ -64,6 +65,23 @@ export class Image {
         let anim : Map<string, KDSprite> = this.animations.get(animation) || new Map<string, KDSprite>();
         if (!this.animations.has(animation)) this.animations.set(animation, anim);
         anim.set(layer, sprite);
+    }
+
+    animate(start?: boolean, stop?: boolean, setFrame?: number, loop?: boolean) {
+
+        let currRender = this.animations.get(this.currentAnimation);
+        if (currRender) {
+            this.playing = false;
+            currRender.forEach((element) => {
+                if (setFrame && start) element.sprite.gotoAndPlay(setFrame);
+                else if (setFrame && stop) element.sprite.gotoAndStop(setFrame);
+                else if (start) element.sprite.play();
+                else if (stop) element.sprite.stop();
+
+                if (loop) element.sprite.loop = loop;
+                if (!this.playing && element.sprite.playing) this.playing = true;
+            });
+        }
     }
 
     render(viewport : Viewport, animation : string, x : number, y : number, rotation : number = 0) {
@@ -95,12 +113,12 @@ export class Image {
 }
 
 export class KDSprite {
-    sprite : PIXI.Sprite;
+    sprite : PIXI.AnimatedSprite;
     frames : number;
     noLoop : boolean;
     viewport : Viewport | null = null;
 
-    constructor(sprite : PIXI.Sprite, frames : number = 1, noLoop : boolean = false) {
+    constructor(sprite : PIXI.AnimatedSprite, frames : number = 1, noLoop : boolean = false) {
         this.sprite = sprite;
         this.frames = frames;
         this.noLoop = noLoop;
@@ -165,7 +183,10 @@ export function loadSprites() {
                             let frames = frameKeys.map((frame: string) => {return (frameData && frameData[frame]) || nullTexture;});
                             if (frames) {
                                 let sprite = new PIXI.AnimatedSprite(frames);
-                                //sprite.anchor.set(0.5);
+                                let time = 1000;
+                                if (loader?.data?.frames[frameKeys[0] || 0]?.duration) time = loader?.data?.frames[frameKeys[0] || 0]?.duration;
+                                sprite.animationSpeed = 16.7/time;
+                                sprite.anchor.set(0.5);
 
                                 image.addSprite(layer, animation, new KDSprite(sprite, frames.length, loader?.data?.meta?.frameTags[animation]?.noLoop));
                             }
@@ -184,6 +205,7 @@ export function loadSprites() {
         let sprite = getSprite("player_mage");
         if (sprite) {
             sprite.render(viewport, "walkdown", 1024, 1024);
+            if (!sprite.playing) sprite.animate(true);
         }
     }); // called once when the queued resources all load.
 
