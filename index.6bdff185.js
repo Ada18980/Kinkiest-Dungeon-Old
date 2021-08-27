@@ -43293,6 +43293,8 @@ parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
 );
 parcelHelpers.export(exports, "Image", ()=>Image1
 );
+parcelHelpers.export(exports, "KDSprite", ()=>KDSprite
+);
 parcelHelpers.export(exports, "getSprite", ()=>getSprite
 );
 parcelHelpers.export(exports, "addSprite", ()=>addSprite
@@ -43335,20 +43337,48 @@ let spriteResources = [
 ];
 let sprites = new Map();
 class Image1 {
-    constructor(sprite, columns = 1, width = 50, height = 64){
-        this.columns = 1;
-        this.width = 50;
-        this.height = 64;
+    constructor(){
+        this.currentAnimation = "";
+        this.animations = new Map();
+    }
+    addSprite(layer, animation, sprite) {
+        let anim = this.animations.get(animation) || new Map();
+        if (!this.animations.has(animation)) this.animations.set(animation, anim);
+        anim.set(layer, sprite);
+    }
+    render(viewport, animation, x, y, rotation = 0) {
+        let currRender = animation != this.currentAnimation ? this.animations.get(this.currentAnimation) : null;
+        let toRender = this.animations.get(animation);
+        if (currRender) currRender.forEach((element)=>{
+            element.sprite.visible = false;
+        });
+        if (toRender) {
+            toRender.forEach((element)=>{
+                element.sprite.visible = true;
+                element.sprite.position.set(x, y);
+                element.sprite.rotation = rotation;
+                if (element.viewport != viewport) {
+                    if (element.viewport) element.viewport.removeChild(element.sprite);
+                    viewport.addChild(element.sprite);
+                    element.viewport = viewport;
+                }
+            });
+            this.currentAnimation = animation;
+        }
+    }
+}
+class KDSprite {
+    constructor(sprite, frames = 1, noLoop = false){
+        this.viewport = null;
         this.sprite = sprite;
-        this.columns = columns;
-        this.width = width;
-        this.height = height;
+        this.frames = frames;
+        this.noLoop = noLoop;
     }
 }
 function getSprite(name, frame) {
     return sprites.get(name);
 }
-function addSprite(name, path, columns1, width1, height1) {
+function addSprite(name, path, columns, width, height) {
     _pixiJs.Loader.shared.add(name, path);
 }
 function loadSprites() {
@@ -43358,45 +43388,55 @@ function loadSprites() {
     _pixiJs.Loader.shared.load((loader, resources)=>{
         spriteResources.forEach((element)=>{
             let resource = resources[element.name];
+            let image = new Image1();
             if (typeof resource !== "undefined") {
                 let loader1 = _pixiJs.Loader.shared.resources[element.name];
-                let animation = "walkdown";
-                let layer = "hair";
-                let frameData = loader1?.spritesheet?.textures;
-                if (frameData) {
-                    let keys = Object.keys(frameData);
-                    let frameKeys = keys.filter((frame)=>{
-                        return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader1?.data.meta.frameTags?.some((tag)=>{
-                            if (tag.name != animation) return false;
-                            let indexStr = frame.split(" ")[2]?.split(".")[0];
-                            if (!indexStr) return false;
-                            let index = parseInt(indexStr);
-                            console.log(tag.from);
-                            console.log(tag.to);
-                            console.log(tag.from != null && tag.to != null && index >= tag.from && index <= tag.to);
-                            return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
-                        });
+                let anims = [];
+                let layers = [];
+                // Seed animations and layers from metatada
+                if (loader1?.data?.meta?.frameTags) loader1?.data?.meta?.frameTags.forEach((tag)=>{
+                    if (tag.name) anims.push(tag.name);
+                });
+                if (loader1?.data?.meta?.layers) loader1?.data?.meta?.layers.forEach((layer)=>{
+                    if (layer.name) layers.push(layer.name);
+                });
+                // Default layer and animation
+                if (anims.length == 0) anims.push("idle");
+                if (layers.length == 0) layers.push("base");
+                // Load the sprites in the internal format
+                anims.forEach((animation)=>{
+                    layers.forEach((layer)=>{
+                        let frameData = loader1?.spritesheet?.textures;
+                        if (frameData) {
+                            let keys = Object.keys(frameData);
+                            let frameKeys = keys.filter((frame)=>{
+                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader1?.data.meta.frameTags?.some((tag)=>{
+                                    if (tag.name != animation) return false;
+                                    let indexStr = frame.split(" ")[2]?.split(".")[0];
+                                    if (!indexStr) return false;
+                                    let index = parseInt(indexStr);
+                                    return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                                });
+                            });
+                            let frames1 = frameKeys.map((frame)=>{
+                                return frameData && frameData[frame] || nullTexture;
+                            });
+                            if (frames1) {
+                                let sprite1 = new _pixiJs.AnimatedSprite(frames1);
+                                //sprite.anchor.set(0.5);
+                                image.addSprite(layer, animation, new KDSprite(sprite1, frames1.length, loader1?.data?.meta?.frameTags[animation]?.noLoop));
+                            }
+                        }
                     });
-                    let frames = frameKeys.map((frame)=>{
-                        return frameData && frameData[frame] || nullTexture;
-                    });
-                    console.log(frameData);
-                    console.log(keys);
-                    console.log(frameKeys);
-                    console.log(frames);
-                    if (frames) sprites.set(element.name, new Image1(new _pixiJs.AnimatedSprite(frames)));
-                }
+                });
+                sprites.set(element.name, image);
             }
         });
     });
     console.log(_pixiJs.Loader.shared);
     _pixiJs.Loader.shared.onComplete.add(()=>{
         let sprite1 = getSprite("player_mage");
-        if (sprite1) {
-            sprite1.sprite.anchor.set(0.5);
-            sprite1.sprite.position.set(1024, 1024);
-            _launcher.viewport.addChild(sprite1.sprite);
-        }
+        if (sprite1) sprite1.render(_launcher.viewport, "walkdown", 1024, 1024);
     }); // called once when the queued resources all load.
 }
 
