@@ -9,13 +9,14 @@ export class Floor {
     actors : Actor[] = [];
     player : Actor | undefined = undefined;
     containers : ActorContainer[] = [];
+    id_inc = 0; // Increment by one each time an actor is added
 
     constructor() {
 
     }
 
     update(delta: number) {
-        this.containers.forEach((ac) => {
+        this.actors.forEach((ac) => {
             ac.update(delta);
         });
     }
@@ -29,6 +30,7 @@ export class Floor {
     addActor(actor : Actor) {
         this.actors.push(actor);
         this.addActorContainer(actor);
+        actor.id = this.id_inc++;
     }
     addActorContainer(actor : Actor) {
         let ac = new ActorContainer(actor);

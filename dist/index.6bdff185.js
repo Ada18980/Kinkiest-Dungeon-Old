@@ -525,15 +525,15 @@ function LauncherLaunchGame(width, height) {
     }).pinch().wheel({
         smooth: 5
     }).decelerate({
-        friction: 0.9
+        friction: 0.87
     })//.clamp({direction: "all", })
     .clampZoom(clampZoomOptions());
     let stage = app.stage;
     document.body.appendChild(renderer.view);
-    for(let i = 0; i < 16; i += 1)for(let ii = 0; ii <= 32; ii += 1){
+    for(let i = 0; i < 1024 / _render.TILE_SIZE; i += 1)for(let ii = 0; ii <= 2048 / _render.TILE_SIZE; ii += 1){
         let texture = _pixiJs.RenderTexture.create({
-            width: 64,
-            height: 64
+            width: _render.TILE_SIZE,
+            height: _render.TILE_SIZE
         });
         let r1 = new _pixiJs.Graphics();
         r1.beginFill(0);
@@ -543,8 +543,8 @@ function LauncherLaunchGame(width, height) {
             renderTexture: texture
         });
         let block = new _pixiJs.Sprite(texture);
-        block.position.x = 128 * i + (ii % 2 == 0 ? 0 : 64);
-        block.position.y = 64 * ii;
+        block.position.x = 2 * _render.TILE_SIZE * i + (ii % 2 == 0 ? 0 : _render.TILE_SIZE);
+        block.position.y = _render.TILE_SIZE * ii;
         block.anchor.x = 0;
         block.anchor.y = 0;
         viewport.addChild(block);
@@ -553,22 +553,13 @@ function LauncherLaunchGame(width, height) {
     _sprites.loadSprites();
     // Listen for animate update
     var lastTick = performance.now();
-    viewport.addListener("clicked", (event)=>{
-        viewport.snap(event.world.x, event.world.y, {
-            ease: "easeInOutSine",
-            time: 1000,
-            removeOnComplete: true,
-            removeOnInterrupt: true
-        });
-    });
     let world = new _world.Floor();
     world.addActor(new _actor.Actor(4, 4, {
-        sprite: "player_mage",
-        max_hp: 5
+        sprite: "player_body",
+        player: true
     }));
     world.addActor(new _actor.Actor(5, 5, {
-        sprite: "player_mage",
-        max_hp: 5
+        sprite: "player_mage"
     }));
     let snapBack = false;
     viewport.addListener('moved-end', (event)=>{
@@ -576,6 +567,19 @@ function LauncherLaunchGame(width, height) {
     });
     viewport.addListener('drag-start', (event)=>{
         snapBack = false;
+    });
+    console.log(world.player);
+    viewport.snap(world.player?.xx || 0, world.player?.yy || 0, {
+        ease: "easeInOutSine",
+        time: 1000,
+        removeOnComplete: true
+    });
+    viewport.snapZoom({
+        ease: "easeInOutSine",
+        time: 1000,
+        removeOnComplete: true,
+        height: ratio > 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined,
+        width: ratio <= 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined
     });
     app.ticker.add((delta)=>{
         let d = performance.now() - lastTick;
@@ -43318,12 +43322,6 @@ const PLUGIN_ORDER = [
 },{}],"gcKZH":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
-);
-parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
-);
-parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
-);
 parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
 );
 parcelHelpers.export(exports, "Image", ()=>Image1
@@ -43362,13 +43360,14 @@ parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
   }, 50);*/ ;
 var _pixiJs = require("pixi.js");
 "use strict";
-const TILE_SIZE = 64;
-const MIN_ZOOM = 5; // In tiles
-const MAX_ZOOM = 25; // In Tiles
 let nullTexture = _pixiJs.Texture.from("img/null.png");
 let spriteResources = [
     {
-        name: "player_mage",
+        name: "player_body",
+        path: "img/player/body.json"
+    },
+    {
+        name: "outfit_mage",
         path: "img/player/mage.json"
     }, 
 ];
@@ -43514,6 +43513,7 @@ function loadSprites() {
         });
     });
     console.log(_pixiJs.Loader.shared);
+    console.log(sprites);
 /*PIXI.Loader.shared.onComplete.add(() => {
         let sprite = getSprite("player_mage");
         if (sprite) {
@@ -43535,9 +43535,11 @@ class Floor {
         this.actors = [];
         this.player = undefined;
         this.containers = [];
+        this.id_inc // Increment by one each time an actor is added
+         = 0;
     }
     update(delta) {
-        this.containers.forEach((ac)=>{
+        this.actors.forEach((ac)=>{
             ac.update(delta);
         });
     }
@@ -43549,6 +43551,7 @@ class Floor {
     addActor(actor) {
         this.actors.push(actor);
         this.addActorContainer(actor);
+        actor.id = this.id_inc++;
     }
     addActorContainer(actor) {
         let ac = new _actor.ActorContainer(actor);
@@ -43576,7 +43579,7 @@ class Floor {
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./actor":"dLfJ7"}],"dLfJ7":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Entity", ()=>Entity
+parcelHelpers.export(exports, "ActorTag", ()=>ActorTag
 );
 parcelHelpers.export(exports, "Actor", ()=>Actor
 );
@@ -43585,11 +43588,24 @@ parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
 var _sprites = require("./sprites");
 var _render = require("./render");
 "use strict";
-class Entity {
-    constructor(x, y, type){
+class ActorTag {
+    update(actor, delta) {
+    }
+    render(actor, viewport) {
+    }
+}
+class Actor {
+    constructor(x, y, type, actorTags){
+        this.id = 0;
         this.x = x;
         this.y = y;
         this.type = type;
+        if (actorTags) this.tags = actorTags;
+        else this.tags = [];
+        this.data = new Map();
+    }
+    update(delta) {
+        if (this.tags) for (const tag of this.tags)tag.update(this, delta);
     }
     get sprite() {
         return this.type.sprite;
@@ -43601,25 +43617,16 @@ class Entity {
         return this.y * _render.TILE_SIZE + _render.TILE_SIZE / 2;
     }
 }
-class Actor extends Entity {
-    constructor(x1, y1, type1){
-        super(x1, y1, type1);
-        this.type = type1;
-        this.hp = type1.max_hp;
-    }
-}
 class ActorContainer {
     constructor(actor){
         this.sprite = undefined;
         this.actor = actor;
     }
-    update(delta) {
-    // TODO actor go brr
-    }
     render(viewport) {
-        if (!this.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
+        if (!this.sprite && this.actor.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
+        // TODO if actor is player, get player outfit
         if (this.sprite) {
-            this.sprite.render(viewport, "walkdown", this.actor.xx, this.actor.yy);
+            this.sprite.render(viewport, "walk_down", this.actor.xx, this.actor.yy);
             if (!this.sprite.playing) this.sprite.animate(true);
         }
     }
@@ -43634,7 +43641,7 @@ parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
 );
 parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
 );
-const TILE_SIZE = 64;
+const TILE_SIZE = 63;
 const MIN_ZOOM = 5; // In tiles
 const MAX_ZOOM = 25; // In Tiles
 
@@ -43647,11 +43654,60 @@ parcelHelpers.export(exports, "mouseRightDown", ()=>mouseRightDown
 );
 parcelHelpers.export(exports, "mouseMiddleDown", ()=>mouseMiddleDown
 );
+parcelHelpers.export(exports, "keys", ()=>keys
+);
+parcelHelpers.export(exports, "keyBindings", ()=>keyBindings
+);
 parcelHelpers.export(exports, "initControls", ()=>initControls
 );
 let mouseLeftDown = false;
 let mouseRightDown = false;
 let mouseMiddleDown = false;
+let keys = {
+    moveU: false,
+    moveD: false,
+    moveL: false,
+    moveR: false,
+    spell: -1,
+    wait: false,
+    return: false
+};
+let keyBindings = {
+    moveU: [
+        'W',
+        'ARROWUP'
+    ],
+    moveD: [
+        'S',
+        'ARROWDOWN'
+    ],
+    moveL: [
+        'A',
+        'ARROWLEFT'
+    ],
+    moveR: [
+        'D',
+        'ARROWRIGHT'
+    ],
+    spell: [
+        '0',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9'
+    ],
+    wait: [
+        ' ', 
+    ],
+    return: [
+        'ENTER', 
+    ]
+};
 function initControls() {
     window.addEventListener('mousedown', (event)=>{
         if (event.button == 0) mouseLeftDown = true;
@@ -43664,6 +43720,8 @@ function initControls() {
         else if (event.button == 1) mouseMiddleDown = false;
         else if (event.button == 2) mouseRightDown = false;
         console.log(mouseLeftDown);
+    });
+    window.addEventListener('keydown', (event)=>{
     });
 }
 

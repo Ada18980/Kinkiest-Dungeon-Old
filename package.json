@@ -26,7 +26,7 @@
   },
   "scripts": {
     "build": "parcel build src/index.html --public-url ./ --no-scope-hoist",
-    "start": "parcel src/index.html",
+    "start": "rm -rf dist && parcel src/index.html",
     "lint": "eslint --max-warnings 0 ./src",
     "lint:fix": "eslint --fix ./src",
     "test": "echo \"Error: no test specified\" && exit 1"

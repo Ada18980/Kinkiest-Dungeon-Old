@@ -4,15 +4,16 @@ import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { app } from './launcher';
 
-export const TILE_SIZE = 64;
-export const MIN_ZOOM = 5; // In tiles
-export const MAX_ZOOM = 25; // In Tiles
 
 let nullTexture = PIXI.Texture.from("img/null.png");
 
 let spriteResources : SpriteResource[] = [
     {
-        name: "player_mage",
+        name: "player_body",
+        path: "img/player/body.json",
+    },
+    {
+        name: "outfit_mage",
         path: "img/player/mage.json",
     },
 ];
@@ -90,7 +91,6 @@ export class Image {
     }
 
     animate(start?: boolean, stop?: boolean, setFrame?: number, loop?: boolean) {
-
         let currRender = this.animations.get(this.currentAnimation);
         if (currRender) {
             this.playing = false;
@@ -245,6 +245,7 @@ export function loadSprites() {
     });
 
     console.log(PIXI.Loader.shared);
+    console.log(sprites);
 
     /*PIXI.Loader.shared.onComplete.add(() => {
         let sprite = getSprite("player_mage");

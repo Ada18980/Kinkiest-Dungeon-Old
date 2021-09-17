@@ -59,24 +59,24 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		.drag({mouseButtons: "left"})
 		.pinch()
 		.wheel({smooth: 5})
-		.decelerate({friction: .9})
+		.decelerate({friction: .87})
 		//.clamp({direction: "all", })
 		.clampZoom(clampZoomOptions())
 
 	let stage = app.stage;
 	document.body.appendChild(renderer.view);
 
-	for (let i = 0; i < 2048/128; i += 1) {
-		for (let ii = 0; ii <= 2048/64; ii += 1) {
-			let texture = PIXI.RenderTexture.create({ width: 64, height: 64 });
+	for (let i = 0; i < 1024/TILE_SIZE; i += 1) {
+		for (let ii = 0; ii <= 2048/TILE_SIZE; ii += 1) {
+			let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
 			let r1 = new PIXI.Graphics();
 			r1.beginFill(0x000000);
 			r1.drawRect(0, 0, 64, 64);
 			r1.endFill();
 			renderer.render(r1,{renderTexture: texture})
 			let block = new PIXI.Sprite(texture);
-			block.position.x = 128*i + (ii % 2 == 0 ? 0 : 64);
-			block.position.y = 64*ii;
+			block.position.x = 2*TILE_SIZE*i + (ii % 2 == 0 ? 0 : TILE_SIZE);
+			block.position.y = TILE_SIZE*ii;
 			block.anchor.x = 0;
 			block.anchor.y = 0;
 			viewport.addChild(block);
@@ -90,24 +90,24 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	// Listen for animate update
 	var lastTick = performance.now();
 
-	viewport.addListener("clicked", (event) => {viewport.snap(event.world.x, event.world.y, {ease: "easeInOutSine", time: 1000, removeOnComplete: true, removeOnInterrupt: true});})
-
 
 
 	let world = new Floor();
 	world.addActor(new Actor(4, 4, {
-		sprite: "player_mage",
-		max_hp: 5
+		sprite: "player_body",
+		player: true,
 	}));
 	world.addActor(new Actor(5, 5, {
 		sprite: "player_mage",
-		max_hp: 5
 	}));
 
 	let snapBack = false;
 	viewport.addListener('moved-end', (event) => {snapBack = false;});
 	viewport.addListener('drag-start', (event) => {snapBack = false;});
 
+	console.log(world.player)
+	viewport.snap(world.player?.xx || 0, world.player?.yy || 0, {ease: "easeInOutSine", time: 1000, removeOnComplete: true});
+	viewport.snapZoom({ease: "easeInOutSine", time: 1000, removeOnComplete: true, height: ratio > 1 ? (MIN_ZOOM * TILE_SIZE) : undefined, width: ratio <= 1 ? (MIN_ZOOM * TILE_SIZE) : undefined});
 
 	app.ticker.add((delta: number) => {
 		let d = performance.now() - lastTick;

@@ -5,26 +5,47 @@ import { Viewport } from "pixi-viewport";
 import { getNewSprite, Image } from './sprites';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE } from './render';
 
-// Generic entity
-export interface EntityType {
-    sprite: string,
-}
-
 // A few things must be defined for actors
-export interface ActorType extends EntityType  {
-    max_hp: number,
+export interface ActorType  {
     player?: boolean,
+    sprite?: string,
 }
 
-export class Entity {
+export abstract class ActorTag {
+    update(actor: Actor, delta : number) {}
+    render(actor: Actor, viewport : Viewport) {}
+}
+
+export interface ActorData {
+    value? : number;
+    values? : number[];
+    string? : string;
+    strings? : string[];
+}
+
+export class Actor {
     x : number;
     y : number;
-    type : EntityType;
+    type : ActorType;
+    tags: ActorTag[];
+    data: Map<string, ActorData>;
+    id : number = 0;
 
-    constructor(x : number, y: number, type : EntityType) {
+    constructor(x : number, y: number, type : ActorType, actorTags?: ActorTag[]) {
         this.x = x;
         this.y = y;
         this.type = type;
+        if (actorTags) {
+            this.tags = actorTags;
+        } else this.tags = [];
+        this.data = new Map<string, ActorData>();
+    }
+
+    update(delta: number) {
+        if (this.tags)
+            for (const tag of this.tags) {
+                tag.update(this, delta);
+            }
     }
 
     get sprite() {
@@ -39,18 +60,6 @@ export class Entity {
     }
 }
 
-
-export class Actor extends Entity {
-    hp : number;
-    override type : ActorType;
-
-    constructor(x : number, y: number, type : ActorType) {
-        super(x, y, type);
-        this.type = type;
-        this.hp = type.max_hp;
-    }
-}
-
 export class ActorContainer {
     actor : Actor;
     sprite : Image | undefined = undefined;
@@ -59,17 +68,14 @@ export class ActorContainer {
         this.actor = actor;
     }
 
-    update(delta: number) {
-        // TODO actor go brr
-    }
-
     render(viewport : Viewport) {
-        if (!this.sprite) {
+        if (!this.sprite && this.actor.sprite) {
             this.sprite = getNewSprite(this.actor.sprite);
         }
 
+        // TODO if actor is player, get player outfit
         if (this.sprite) {
-            this.sprite.render(viewport, "walkdown", this.actor.xx, this.actor.yy);
+            this.sprite.render(viewport, "walk_down", this.actor.xx, this.actor.yy);
             if (!this.sprite.playing) this.sprite.animate(true);
         }
     }
