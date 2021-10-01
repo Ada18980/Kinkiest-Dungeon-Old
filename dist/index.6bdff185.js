@@ -649,7 +649,7 @@ function changeResolution(width, height) {
     viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH","./world":"h3nIe","./actor":"dLfJ7","./render":"dn2g0","./control":"dg4zu"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","./sprites":"gcKZH","./render":"dn2g0","pixi-viewport":"272YU","./actor":"dLfJ7","./world":"h3nIe","./control":"dg4zu","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -40001,7 +40001,224 @@ function __extends(d, b) {
     return AnimatedSprite2;
 }(_sprite.Sprite);
 
-},{"@pixi/core":"d0INm","@pixi/sprite":"aeiZG","@pixi/ticker":"5j6Uq","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"272YU":[function(require,module,exports) {
+},{"@pixi/core":"d0INm","@pixi/sprite":"aeiZG","@pixi/ticker":"5j6Uq","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"gcKZH":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
+);
+parcelHelpers.export(exports, "Image", ()=>Image1
+);
+parcelHelpers.export(exports, "KDSprite", ()=>KDSprite
+);
+parcelHelpers.export(exports, "getSprite", ()=>getSprite
+);
+parcelHelpers.export(exports, "getNewSprite", ()=>getNewSprite
+);
+parcelHelpers.export(exports, "addSprite", ()=>addSprite
+);
+parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
+) /*
+
+  // creating new instance of PXI.texure
+  var texture = new PIXI.Texture.fromImage('my-start-frame-name');
+  // creating sprite
+  var runner = new PIXI.Sprite(texture);
+
+
+  // this is the frame I'm using to change the picture in sprite sheet
+  var frame = new PIXI.Rectangle(0, 0, 100, 100);
+
+  // animating the sprite
+  var interval = setInterval(function () {
+    // moving frame one unit to right
+    frame.position.x += 100;
+    runner.texture.frame = frame;
+
+    //  ending animation
+    if (frame.position.x == 1000) {
+       frame.position.x = 0;
+       clearInterval(interval);
+    }
+  }, 50);*/ ;
+var _pixiJs = require("pixi.js");
+"use strict";
+let nullTexture = _pixiJs.Texture.from("img/null.png");
+let spriteResources = [
+    {
+        name: "player_body",
+        path: "img/player/body.json"
+    },
+    {
+        name: "outfit_mage",
+        path: "img/player/mage.json"
+    }, 
+];
+let sprites = new Map();
+class BaseImage {
+    constructor(name){
+        this.name = name;
+        this.animations = new Map();
+    }
+    addSprite(layer, animation, sprite) {
+        let anim = this.animations.get(animation) || new Map();
+        if (!this.animations.has(animation)) this.animations.set(animation, anim);
+        anim.set(layer, sprite);
+    }
+}
+class Image1 {
+    constructor(image){
+        this.currentAnimation = "";
+        this.playing = false;
+        this.animations = new Map();
+        image.animations.forEach((v, k)=>{
+            let map = new Map();
+            v.forEach((v1, k1)=>{
+                map.set(k1, new KDSprite(image.name, v1));
+            });
+            this.animations.set(k, map);
+        });
+    }
+    animate(start, stop, setFrame, loop) {
+        let currRender = this.animations.get(this.currentAnimation);
+        if (currRender) {
+            this.playing = false;
+            currRender.forEach((element)=>{
+                //let sf = setFrame ? Math.round(setFrame * element.sprite.totalFrames) : 0;
+                if (setFrame != undefined && start) element.sprite.gotoAndPlay(setFrame);
+                else if (setFrame != undefined && stop) element.sprite.gotoAndStop(setFrame);
+                else if (start) element.sprite.play();
+                else if (stop) element.sprite.stop();
+                if (loop) element.sprite.loop = loop;
+                if (!this.playing && element.sprite.playing) this.playing = true;
+            });
+        }
+    }
+    render(viewport, animation, x, y, rotation = 0) {
+        let currRender = animation != this.currentAnimation ? this.animations.get(this.currentAnimation) : null;
+        let toRender = this.animations.get(animation);
+        if (currRender) currRender.forEach((element)=>{
+            element.sprite.visible = false;
+        });
+        if (toRender) {
+            toRender.forEach((element)=>{
+                element.sprite.visible = true;
+                element.sprite.position.set(x, y);
+                element.sprite.rotation = rotation;
+                if (element.viewport != viewport) {
+                    if (element.viewport) element.viewport.removeChild(element.sprite);
+                    viewport.addChild(element.sprite);
+                    element.viewport = viewport;
+                }
+            });
+            this.currentAnimation = animation;
+        }
+    }
+}
+class KDSprite {
+    constructor(name1, template){
+        this.viewport = null;
+        let sprite = new _pixiJs.AnimatedSprite(template.frames, template.frames.length > 0);
+        let loader = _pixiJs.Loader.shared.resources[name1];
+        sprite.animationSpeed = 16.7 / template.time;
+        sprite.anchor.set(0.5);
+        this.sprite = sprite;
+        this.frames = template.count;
+        this.noLoop = template.noLoop;
+    }
+}
+function getSprite(name2) {
+    return sprites.get(name2);
+}
+function getNewSprite(name2) {
+    let sprite1 = sprites.get(name2);
+    if (!sprite1) return undefined;
+    return new Image1(sprite1);
+}
+function addSprite(name2, path, columns, width, height) {
+    _pixiJs.Loader.shared.add(name2, path);
+}
+function loadSprites() {
+    spriteResources.forEach((element)=>{
+        _pixiJs.Loader.shared.add(element.name, element.path);
+    });
+    _pixiJs.Loader.shared.load((loader1, resources)=>{
+        spriteResources.forEach((element)=>{
+            let resource = resources[element.name];
+            let image1 = new BaseImage(element.name);
+            if (typeof resource !== "undefined") {
+                let loader2 = _pixiJs.Loader.shared.resources[element.name];
+                let anims = [];
+                let layers = [];
+                // Seed animations and layers from metatada
+                if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
+                    if (tag.name) anims.push(tag.name);
+                });
+                if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
+                    if (layer.name) layers.push(layer.name);
+                });
+                // Default layer and animation
+                if (anims.length == 0) anims.push("idle");
+                if (layers.length == 0) layers.push("base");
+                let frameData = loader2?.spritesheet?.textures;
+                // Load the sprites in the internal format
+                anims.forEach((animation)=>{
+                    layers.forEach((layer)=>{
+                        if (frameData) {
+                            let keys = Object.keys(frameData);
+                            let frameKeys = keys.filter((frame)=>{
+                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
+                                    if (tag.name != animation) return false;
+                                    let indexStr = frame.split("|")[1];
+                                    if (!indexStr) return false;
+                                    let index = parseInt(indexStr);
+                                    return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                                });
+                            });
+                            let frames = frameKeys.map((frame)=>{
+                                return frameData && frameData[frame] || nullTexture;
+                            });
+                            if (frames) {
+                                let time = 1000;
+                                if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
+                                image1.addSprite(layer, animation, {
+                                    frames: frames,
+                                    time: time,
+                                    count: frames.length,
+                                    noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop
+                                });
+                            }
+                        }
+                    });
+                });
+                if (image1.animations.size > 0) sprites.set(element.name, image1);
+            }
+        });
+    });
+    console.log(_pixiJs.Loader.shared);
+    console.log(sprites);
+/*PIXI.Loader.shared.onComplete.add(() => {
+        let sprite = getSprite("player_mage");
+        if (sprite) {
+            sprite.render(viewport, "walkdown", 1024, 1024);
+            if (!sprite.playing) sprite.animate(true);
+        }
+    }); */ // called once when the queued resources all load.
+}
+
+},{"pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"dn2g0":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
+);
+parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
+);
+parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
+);
+const TILE_SIZE = 63;
+const MIN_ZOOM = 5; // In tiles
+const MAX_ZOOM = 25; // In Tiles
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"272YU":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 /**
@@ -43319,264 +43536,7 @@ const PLUGIN_ORDER = [
     umd(penner);
 }).call(this);
 
-},{}],"gcKZH":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
-);
-parcelHelpers.export(exports, "Image", ()=>Image1
-);
-parcelHelpers.export(exports, "KDSprite", ()=>KDSprite
-);
-parcelHelpers.export(exports, "getSprite", ()=>getSprite
-);
-parcelHelpers.export(exports, "getNewSprite", ()=>getNewSprite
-);
-parcelHelpers.export(exports, "addSprite", ()=>addSprite
-);
-parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
-) /*
-
-  // creating new instance of PXI.texure
-  var texture = new PIXI.Texture.fromImage('my-start-frame-name');
-  // creating sprite
-  var runner = new PIXI.Sprite(texture);
-
-
-  // this is the frame I'm using to change the picture in sprite sheet
-  var frame = new PIXI.Rectangle(0, 0, 100, 100);
-
-  // animating the sprite
-  var interval = setInterval(function () {
-    // moving frame one unit to right
-    frame.position.x += 100;
-    runner.texture.frame = frame;
-
-    //  ending animation
-    if (frame.position.x == 1000) {
-       frame.position.x = 0;
-       clearInterval(interval);
-    }
-  }, 50);*/ ;
-var _pixiJs = require("pixi.js");
-"use strict";
-let nullTexture = _pixiJs.Texture.from("img/null.png");
-let spriteResources = [
-    {
-        name: "player_body",
-        path: "img/player/body.json"
-    },
-    {
-        name: "outfit_mage",
-        path: "img/player/mage.json"
-    }, 
-];
-let sprites = new Map();
-class BaseImage {
-    constructor(name){
-        this.name = name;
-        this.animations = new Map();
-    }
-    addSprite(layer, animation, sprite) {
-        let anim = this.animations.get(animation) || new Map();
-        if (!this.animations.has(animation)) this.animations.set(animation, anim);
-        anim.set(layer, sprite);
-    }
-}
-class Image1 {
-    constructor(image){
-        this.currentAnimation = "";
-        this.playing = false;
-        this.animations = new Map();
-        image.animations.forEach((v, k)=>{
-            let map = new Map();
-            v.forEach((v1, k1)=>{
-                map.set(k1, new KDSprite(image.name, v1));
-            });
-            this.animations.set(k, map);
-        });
-    }
-    animate(start, stop, setFrame, loop) {
-        let currRender = this.animations.get(this.currentAnimation);
-        if (currRender) {
-            this.playing = false;
-            currRender.forEach((element)=>{
-                //let sf = setFrame ? Math.round(setFrame * element.sprite.totalFrames) : 0;
-                if (setFrame != undefined && start) element.sprite.gotoAndPlay(setFrame);
-                else if (setFrame != undefined && stop) element.sprite.gotoAndStop(setFrame);
-                else if (start) element.sprite.play();
-                else if (stop) element.sprite.stop();
-                if (loop) element.sprite.loop = loop;
-                if (!this.playing && element.sprite.playing) this.playing = true;
-            });
-        }
-    }
-    render(viewport, animation, x, y, rotation = 0) {
-        let currRender = animation != this.currentAnimation ? this.animations.get(this.currentAnimation) : null;
-        let toRender = this.animations.get(animation);
-        if (currRender) currRender.forEach((element)=>{
-            element.sprite.visible = false;
-        });
-        if (toRender) {
-            toRender.forEach((element)=>{
-                element.sprite.visible = true;
-                element.sprite.position.set(x, y);
-                element.sprite.rotation = rotation;
-                if (element.viewport != viewport) {
-                    if (element.viewport) element.viewport.removeChild(element.sprite);
-                    viewport.addChild(element.sprite);
-                    element.viewport = viewport;
-                }
-            });
-            this.currentAnimation = animation;
-        }
-    }
-}
-class KDSprite {
-    constructor(name1, template){
-        this.viewport = null;
-        let sprite = new _pixiJs.AnimatedSprite(template.frames, template.frames.length > 0);
-        let loader = _pixiJs.Loader.shared.resources[name1];
-        sprite.animationSpeed = 16.7 / template.time;
-        sprite.anchor.set(0.5);
-        this.sprite = sprite;
-        this.frames = template.count;
-        this.noLoop = template.noLoop;
-    }
-}
-function getSprite(name2) {
-    return sprites.get(name2);
-}
-function getNewSprite(name2) {
-    let sprite1 = sprites.get(name2);
-    if (!sprite1) return undefined;
-    return new Image1(sprite1);
-}
-function addSprite(name2, path, columns, width, height) {
-    _pixiJs.Loader.shared.add(name2, path);
-}
-function loadSprites() {
-    spriteResources.forEach((element)=>{
-        _pixiJs.Loader.shared.add(element.name, element.path);
-    });
-    _pixiJs.Loader.shared.load((loader1, resources)=>{
-        spriteResources.forEach((element)=>{
-            let resource = resources[element.name];
-            let image1 = new BaseImage(element.name);
-            if (typeof resource !== "undefined") {
-                let loader2 = _pixiJs.Loader.shared.resources[element.name];
-                let anims = [];
-                let layers = [];
-                // Seed animations and layers from metatada
-                if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
-                    if (tag.name) anims.push(tag.name);
-                });
-                if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
-                    if (layer.name) layers.push(layer.name);
-                });
-                // Default layer and animation
-                if (anims.length == 0) anims.push("idle");
-                if (layers.length == 0) layers.push("base");
-                let frameData = loader2?.spritesheet?.textures;
-                // Load the sprites in the internal format
-                anims.forEach((animation)=>{
-                    layers.forEach((layer)=>{
-                        if (frameData) {
-                            let keys = Object.keys(frameData);
-                            let frameKeys = keys.filter((frame)=>{
-                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
-                                    if (tag.name != animation) return false;
-                                    let indexStr = frame.split("|")[1];
-                                    if (!indexStr) return false;
-                                    let index = parseInt(indexStr);
-                                    return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
-                                });
-                            });
-                            let frames = frameKeys.map((frame)=>{
-                                return frameData && frameData[frame] || nullTexture;
-                            });
-                            if (frames) {
-                                let time = 1000;
-                                if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
-                                image1.addSprite(layer, animation, {
-                                    frames: frames,
-                                    time: time,
-                                    count: frames.length,
-                                    noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop
-                                });
-                            }
-                        }
-                    });
-                });
-                if (image1.animations.size > 0) sprites.set(element.name, image1);
-            }
-        });
-    });
-    console.log(_pixiJs.Loader.shared);
-    console.log(sprites);
-/*PIXI.Loader.shared.onComplete.add(() => {
-        let sprite = getSprite("player_mage");
-        if (sprite) {
-            sprite.render(viewport, "walkdown", 1024, 1024);
-            if (!sprite.playing) sprite.animate(true);
-        }
-    }); */ // called once when the queued resources all load.
-}
-
-},{"pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"h3nIe":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Floor", ()=>Floor
-);
-var _actor = require("./actor");
-"use strict";
-class Floor {
-    constructor(){
-        this.actors = [];
-        this.player = undefined;
-        this.containers = [];
-        this.id_inc // Increment by one each time an actor is added
-         = 0;
-    }
-    update(delta) {
-        this.actors.forEach((ac)=>{
-            ac.update(delta);
-        });
-    }
-    render(viewport) {
-        this.containers.forEach((ac)=>{
-            ac.render(viewport);
-        });
-    }
-    addActor(actor) {
-        this.actors.push(actor);
-        this.addActorContainer(actor);
-        actor.id = this.id_inc++;
-    }
-    addActorContainer(actor) {
-        let ac = new _actor.ActorContainer(actor);
-        if (!this.player && actor.type.player) this.player = actor;
-        this.containers.push(ac);
-    }
-    populateContainers() {
-        this.actors.forEach((actor)=>{
-            if (!this.containers.some((element)=>{
-                return element.actor == actor;
-            })) this.addActorContainer(actor);
-        });
-    }
-    serialize() {
-        let oldContainers = this.containers;
-        this.containers = [];
-        // TODO actually serialize
-        this.containers = oldContainers;
-    }
-    deserialize(data) {
-        this.populateContainers();
-    }
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./actor":"dLfJ7"}],"dLfJ7":[function(require,module,exports) {
+},{}],"dLfJ7":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "ActorTag", ()=>ActorTag
@@ -43632,20 +43592,60 @@ class ActorContainer {
     }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./sprites":"gcKZH","./render":"dn2g0"}],"dn2g0":[function(require,module,exports) {
+},{"./sprites":"gcKZH","./render":"dn2g0","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"h3nIe":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
+parcelHelpers.export(exports, "Floor", ()=>Floor
 );
-parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
-);
-parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
-);
-const TILE_SIZE = 63;
-const MIN_ZOOM = 5; // In tiles
-const MAX_ZOOM = 25; // In Tiles
+var _actor = require("./actor");
+"use strict";
+class Floor {
+    constructor(){
+        this.actors = [];
+        this.player = undefined;
+        this.containers = [];
+        this.id_inc // Increment by one each time an actor is added
+         = 0;
+    }
+    update(delta) {
+        this.actors.forEach((ac)=>{
+            ac.update(delta);
+        });
+    }
+    render(viewport) {
+        this.containers.forEach((ac)=>{
+            ac.render(viewport);
+        });
+    }
+    addActor(actor) {
+        this.actors.push(actor);
+        this.addActorContainer(actor);
+        actor.id = this.id_inc++;
+    }
+    addActorContainer(actor) {
+        let ac = new _actor.ActorContainer(actor);
+        if (!this.player && actor.type.player) this.player = actor;
+        this.containers.push(ac);
+    }
+    populateContainers() {
+        this.actors.forEach((actor)=>{
+            if (!this.containers.some((element)=>{
+                return element.actor == actor;
+            })) this.addActorContainer(actor);
+        });
+    }
+    serialize() {
+        let oldContainers = this.containers;
+        this.containers = [];
+        // TODO actually serialize
+        this.containers = oldContainers;
+    }
+    deserialize(data) {
+        this.populateContainers();
+    }
+}
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"dg4zu":[function(require,module,exports) {
+},{"./actor":"dLfJ7","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"dg4zu":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
@@ -43725,6 +43725,6 @@ function initControls() {
     });
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequirebb28")
 
 //# sourceMappingURL=index.6bdff185.js.map
