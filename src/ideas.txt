@@ -1,0 +1,7 @@
+Ideas for turn based:
+-On your turn you get 4 action points
+-On enemy turns they get 4 action points
+-In Auto Move mode, you select a location and you move automatically, running turns for enemies every 4 moves of your own
+-In Auto Move mode, when you stop auto-moving it ends your turn, starting a new turn for you. It creates a partial turn for the enemies in which they have reduced move points.
+-Game is cordoned off into rooms
+-Auto-move ends and it forces turn based mode when enemies appear
