@@ -52,6 +52,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		interaction: app.renderer.plugins.interaction // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
 	});
 
+	viewport.sortableChildren = true;
+
 	// add the viewport to the stage
 	app.stage.addChild(viewport);
 	// activate plugins
@@ -94,11 +96,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	let world = new Floor();
 	world.addActor(new Actor(4, 4, {
-		sprite: "player_body",
+		sprite: "player_default",
 		player: true,
-	}));
-	world.addActor(new Actor(4, 4, {
-		sprite: "outfit_mage",
 	}));
 
 	let snapBack = false;

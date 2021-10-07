@@ -5,6 +5,13 @@ import { Viewport } from "pixi-viewport";
 import { getNewSprite, Image } from './sprites';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE } from './render';
 
+export enum Dir {
+    UP = "_up",
+    DOWN = "_down",
+    LEFT = "_left",
+    RIGHT = "_right",
+}
+
 // A few things must be defined for actors
 export interface ActorType  {
     player?: boolean,
@@ -26,6 +33,7 @@ export interface ActorData {
 export class Actor {
     x : number;
     y : number;
+    direction : Dir;
     type : ActorType;
     tags: ActorTag[];
     data: Map<string, ActorData>;
@@ -35,6 +43,7 @@ export class Actor {
         this.x = x;
         this.y = y;
         this.type = type;
+        this.direction = Dir.DOWN;
         if (actorTags) {
             this.tags = actorTags;
         } else this.tags = [];
@@ -75,7 +84,7 @@ export class ActorContainer {
 
         // TODO if actor is player, get player outfit
         if (this.sprite) {
-            this.sprite.render(viewport, "walk_down", this.actor.xx, this.actor.yy);
+            this.sprite.render(viewport, this.actor.direction, ["walk", "cuffed_f"], this.actor.xx, this.actor.yy);
             if (!this.sprite.playing) this.sprite.animate(true);
         }
     }

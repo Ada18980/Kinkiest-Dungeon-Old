@@ -3,18 +3,15 @@
 import { Viewport } from 'pixi-viewport';
 import * as PIXI from 'pixi.js';
 import { app } from './launcher';
+import {Dir} from './actor';
 
 
 let nullTexture = PIXI.Texture.from("img/null.png");
 
 let spriteResources : SpriteResource[] = [
     {
-        name: "player_body",
-        path: "img/player/body.json",
-    },
-    {
-        name: "outfit_mage",
-        path: "img/player/mage.json",
+        name: "player_default",
+        path: "img/player/default.json",
     },
 ];
 
@@ -75,7 +72,8 @@ export class BaseImage {
 export class Image {
     // Contains animations and layers
     animations : Map<string, Map<string, KDSprite>>;
-    currentAnimation : string = "";
+    currentPoses : string[] = [];
+    currentRender : Map<string, KDSprite> = new Map<string, KDSprite>();
     playing: boolean = false;
 
     constructor(image : BaseImage) {
@@ -88,10 +86,12 @@ export class Image {
 
             this.animations.set(k, map);
         });
+
+        console.log(this.animations);
     }
 
     animate(start?: boolean, stop?: boolean, setFrame?: number, loop?: boolean) {
-        let currRender = this.animations.get(this.currentAnimation);
+        let currRender = this.currentRender;
         if (currRender) {
             this.playing = false;
             currRender.forEach((element) => {
@@ -107,30 +107,49 @@ export class Image {
         }
     }
 
-    render(viewport : Viewport, animation : string, x : number, y : number, rotation : number = 0) {
-        let currRender = (animation != this.currentAnimation) ? this.animations.get(this.currentAnimation) : null;
-        let toRender = this.animations.get(animation);
+    render(viewport : Viewport, direction : Dir, poses : string[], x : number, y : number, rotation : number = 0) {
+        let currRender = (poses != this.currentPoses) ? this.currentRender : null;
+        let toRender = new Map<string, KDSprite>();
+
+        let renderedLayers : string[] = [];
+
+        for (let I = poses.length-1; I >= 0; I--) {
+            let pose = poses[I];
+            let anim = pose + direction;
+            let animStore = this.animations.get(anim);
+            if (animStore) {
+                for (let layer of animStore) {
+                    if (!renderedLayers.includes(layer[0])) {
+                        toRender.set(layer[0], layer[1]);
+                        renderedLayers.push(layer[0]);
+                    }
+
+                }
+            }
+        }
 
         if (currRender) {
-            currRender.forEach((element) => {
-                element.sprite.visible = false;
-            });
+            for (let element of currRender) {
+                element[1].sprite.visible = false;
+            }
         }
 
         if (toRender) {
-            toRender.forEach((element) => {
-                element.sprite.visible = true;
-                element.sprite.position.set(x, y);
-                element.sprite.rotation = rotation;
+            for (let element of toRender) {
+                element[1].sprite.visible = true;
+                element[1].sprite.position.set(x, y);
+                element[1].sprite.rotation = rotation;
+                element[1].sprite.zIndex = element[1].getZ(this.currentPoses) || 0;
 
-                if (element.viewport != viewport) {
-                    if (element.viewport) element.viewport.removeChild(element.sprite);
-                    viewport.addChild(element.sprite);
-                    element.viewport = viewport;
+                if (element[1].viewport != viewport) {
+                    if (element[1].viewport) element[1].viewport.removeChild(element[1].sprite);
+                    viewport.addChild(element[1].sprite);
+                    element[1].viewport = viewport;
                 }
-            });
+            }
 
-            this.currentAnimation = animation;
+            this.currentPoses = poses;
+            this.currentRender = toRender;
         }
     }
 }
@@ -140,6 +159,12 @@ interface KDSpriteTemplate {
     time : number;
     count : number;
     noLoop : boolean;
+    zIndex : Record<string, number>;
+}
+
+interface SpriteZIndex {
+    base: number,
+    animation: string,
 }
 
 export class KDSprite {
@@ -147,6 +172,7 @@ export class KDSprite {
     frames : number;
     noLoop : boolean;
     viewport : Viewport | null = null;
+    zIndex : Record<string, number>;
 
     constructor(name: string, template: KDSpriteTemplate) {
         let sprite = new PIXI.AnimatedSprite(template.frames, template.frames.length > 0);
@@ -157,7 +183,23 @@ export class KDSprite {
         this.sprite = sprite;
         this.frames = template.count;
         this.noLoop = template.noLoop;
+        this.zIndex = template.zIndex;
     }
+
+    getZ(animation : string[]) {
+        let current = 0;
+        let I = animation.length - 1;
+        while(I >= 0) {
+            let anim = animation[I] || "default";
+            if (this.zIndex[anim]) {
+                return this.zIndex[anim];
+            }
+            I--;
+        }
+        if (this.zIndex["default"]) return this.zIndex["default"];
+        return 0;
+    }
+
 }
 
 export function getSprite(name : string) {
@@ -179,13 +221,13 @@ export function addSprite(name: string, path: string, columns? : number, width? 
 
 export function loadSprites() {
 
-    spriteResources.forEach((element) => {
+    for (let element of spriteResources) {
         PIXI.Loader.shared.add(element.name, element.path)
-    })
+    }
 
 
     PIXI.Loader.shared.load((loader, resources) => {
-        spriteResources.forEach((element) => {
+        for (let element of spriteResources) {
             let resource = resources[element.name];
             let image = new BaseImage(element.name);
             if (typeof resource !== "undefined") {
@@ -209,10 +251,14 @@ export function loadSprites() {
                 let frameData = loader?.spritesheet?.textures;
 
                 // Load the sprites in the internal format
-                anims.forEach((animation : string) => {
-                    layers.forEach((layer : string) => {
-                        if (frameData) {
-                            let keys = Object.keys(frameData);
+                if (frameData) {
+                    let keys = Object.keys(frameData);
+                    console.log(keys)
+                    console.log(frameData)
+                    for (let animation of anims) {
+                        let zInd = 0;
+                        for (let layer of layers) {
+                            zInd += 1;
                             let frameKeys = keys.filter((frame : string) => {
                                 return (frameData && frameData[frame] && frame.includes(`(${layer})`) && loader?.data.meta.frameTags?.some((tag: any) => {
                                         if (tag.name != animation) return false;
@@ -221,27 +267,35 @@ export function loadSprites() {
                                         let index = parseInt(indexStr);
                                         return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
                                     })
-                                );})
-                            let frames = frameKeys.map((frame: string) => {return (frameData && frameData[frame]) || nullTexture;});
-                            if (frames) {
+                                );});
+                            let frames : PIXI.Texture<PIXI.Resource>[] = [];
+                            for (let frame of frameKeys) {
+                                let data = frameData[frame];
+                                if (data) frames.push(data); // && (data.trim.width > 1 || data.trim.height > 1)
+                            }
+                            if (frames && frames.length > 0) {
                                 let time = 1000;
+                                let zIndex = {
+                                    default: 1+zInd,
+                                };
                                 if (loader?.data?.frames[frameKeys[0] || 0]?.duration) time = loader?.data?.frames[frameKeys[0] || 0]?.duration;
 
                                 image.addSprite(layer, animation, {
                                     frames: frames,
                                     time: time,
                                     count: frames.length,
-                                    noLoop: loader?.data?.meta?.frameTags[animation]?.noLoop
+                                    noLoop: loader?.data?.meta?.frameTags[animation]?.noLoop,
+                                    zIndex: zIndex,
                                 });
                             }
                         }
-                    });
-                });
+                    }
+                }
 
                 if (image.animations.size > 0)
                     sprites.set(element.name, image);
             }
-        })
+        }
     });
 
     console.log(PIXI.Loader.shared);
