@@ -97,8 +97,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		sprite: "player_body",
 		player: true,
 	}));
-	world.addActor(new Actor(5, 5, {
-		sprite: "player_mage",
+	world.addActor(new Actor(4, 4, {
+		sprite: "outfit_mage",
 	}));
 
 	let snapBack = false;

@@ -558,8 +558,8 @@ function LauncherLaunchGame(width, height) {
         sprite: "player_body",
         player: true
     }));
-    world.addActor(new _actor.Actor(5, 5, {
-        sprite: "player_mage"
+    world.addActor(new _actor.Actor(4, 4, {
+        sprite: "outfit_mage"
     }));
     let snapBack = false;
     viewport.addListener('moved-end', (event)=>{
