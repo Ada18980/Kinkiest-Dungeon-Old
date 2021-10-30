@@ -28,7 +28,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	app = new PIXI.Application({
 		resizeTo: window,
 		autoDensity: true,
-		backgroundColor: 0x1099bb,
+		backgroundColor: 0x000000,
 		antialias: false,
 	});
 
@@ -44,8 +44,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		screenWidth: width,
 		screenHeight: height,
 
-		worldWidth: 2048,
-		worldHeight: 2048,
+		worldWidth: TILE_SIZE * 100,
+		worldHeight: TILE_SIZE * 100,
 
 		disableOnContextMenu: true,
 
@@ -74,7 +74,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	loadSprites();
 
 	let world = new World();
-	let player = new Actor(20, 20, {
+	let player = new Actor(50, 50, {
 		sprite: "player_default",
 		player: true,
 	});

@@ -11,16 +11,49 @@ export interface WorldDir {
     y : number,
 }
 
+export class Zone {
+    walls: Uint16Array[];
+    width : number;
+    height : number;
+
+    constructor(width: number, height: number) {
+        this.walls = [];
+        this.width = width;
+        this.height = height;
+        for (let y = 0; y < height; y++) {
+            this.walls.push(new Uint16Array(width));
+        }
+    }
+
+    createMaze(width: number = this.width, height: number = this.height) {
+        if (width > this.width) width = this.width;
+        if (height > this.height) height = this.height;
+        for (let y = 0; y < height; y++) {
+            let row = this.walls[y];
+            if (row)
+                for (let x = 0; x < width; x++) {
+                    row[x] = (Math.random() > 0.75) ? 1 : 0;
+                }
+        }
+    }
+}
+
 export class World {
     actors : Map<number, Actor> = new Map<number, Actor>();
     player : Actor | undefined = undefined;
     containers : Map<number, ActorContainer> = new Map<number, ActorContainer>();
     tree_actors : QuadTree<Actor> = new QuadTree<Actor>(1);
     id_inc = 0; // Increment by one each time an actor is added
+    zones : Zone[];
+    currentZone : number = 0;
 
     constructor() {
-
+        let zone = new Zone(100, 100);
+        this.zones = [zone];
+        zone.createMaze();
     }
+
+
 
     moveActor(actor : Actor, dir : WorldDir) : number {
         if (this.actors.get(actor.id)) {

@@ -15,7 +15,6 @@
     "brfs": "^2.0.2",
     "nwjs-packager": "^1.5.0",
     "parcel-plugin-nuke-dist": "^1.0.1",
-    "parcel-plugin-r": "^3.0.0",
     "transform-loader": "^0.2.4",
     "ts-loader": "^9.2.5",
     "webpack-cli": "^4.7.2",

@@ -81,7 +81,9 @@ export function controlTicker(delta : number, world : World, camera : Player) {
         }
 
         if (controlMove && controlDiagGrace > controlDiagGraceTime) {
+            // Replace with WorldSendAIMoveRequest(world.player, dir)
             world.moveActor(world.player, dir);
+            // Replace with WorldRequestUpdateTick(1)
             world.update(1);
             controlTick = false;
             controlTime = 270;

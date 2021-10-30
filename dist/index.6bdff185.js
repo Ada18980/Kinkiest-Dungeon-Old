@@ -498,7 +498,7 @@ function LauncherLaunchGame(width, height) {
     app = new _pixiJs.Application({
         resizeTo: window,
         autoDensity: true,
-        backgroundColor: 1087931,
+        backgroundColor: 0,
         antialias: false
     });
     // Set up the renderer and properties
@@ -510,8 +510,8 @@ function LauncherLaunchGame(width, height) {
     _render.setViewport(new _pixiViewport.Viewport({
         screenWidth: width,
         screenHeight: height,
-        worldWidth: 2048,
-        worldHeight: 2048,
+        worldWidth: _render.TILE_SIZE * 100,
+        worldHeight: _render.TILE_SIZE * 100,
         disableOnContextMenu: true,
         interaction: app.renderer.plugins.interaction // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
     }));
@@ -532,7 +532,7 @@ function LauncherLaunchGame(width, height) {
     resize();
     _sprites.loadSprites();
     let world = new _world.World();
-    let player = new _actor.Actor(20, 20, {
+    let player = new _actor.Actor(50, 50, {
         sprite: "player_default",
         player: true
     });
@@ -43864,11 +43864,29 @@ class QuadCell {
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Zone", ()=>Zone
+);
 parcelHelpers.export(exports, "World", ()=>World
 );
 var _actor = require("./actor");
 var _quadtree = require("./quadtree");
 "use strict";
+class Zone {
+    constructor(width1, height1){
+        this.walls = [];
+        this.width = width1;
+        this.height = height1;
+        for(let y = 0; y < height1; y++)this.walls.push(new Uint16Array(width1));
+    }
+    createMaze(width = this.width, height = this.height) {
+        if (width > this.width) width = this.width;
+        if (height > this.height) height = this.height;
+        for(let y1 = 0; y1 < height; y1++){
+            let row = this.walls[y1];
+            if (row) for(let x = 0; x < width; x++)row[x] = Math.random() > 0.75 ? 1 : 0;
+        }
+    }
+}
 class World {
     constructor(){
         this.actors = new Map();
@@ -43877,6 +43895,12 @@ class World {
         this.tree_actors = new _quadtree.QuadTree(1);
         this.id_inc // Increment by one each time an actor is added
          = 0;
+        this.currentZone = 0;
+        let zone = new Zone(100, 100);
+        this.zones = [
+            zone
+        ];
+        zone.createMaze();
     }
     moveActor(actor, dir) {
         if (this.actors.get(actor.id)) {
@@ -43961,6 +43985,7 @@ class UI {
     constructor(player, world){
         this.player = new _player.Player(player);
         this.world = world;
+        this.walls = new _pixiJs.Container();
     }
     initialize(app) {
         // Listen for animate update
@@ -43974,7 +43999,7 @@ class UI {
         });
         if (this.player.cameraActor) _render.viewport.snap(this.player.cameraActor.xx || 0, this.player.cameraActor.yy || 0, {
             ease: "easeInOutSine",
-            time: 1000,
+            time: 0,
             removeOnComplete: true
         });
         _render.viewport.snapZoom({
@@ -43988,6 +44013,7 @@ class UI {
             let d = performance.now() - lastTick;
             lastTick = performance.now();
             _control.controlTicker(d, this.world, this.player);
+            this.updateWorld();
             this.world.render(d);
             if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
                 if (!_control.mouseLeftDown) {
@@ -44003,25 +44029,48 @@ class UI {
         });
     }
     loadWorld() {
-        for(let i = 0; i < 1024 / _render.TILE_SIZE; i += 1)for(let ii = 0; ii <= 2048 / _render.TILE_SIZE; ii += 1){
-            let texture = _pixiJs.RenderTexture.create({
-                width: _render.TILE_SIZE,
-                height: _render.TILE_SIZE
-            });
-            let r1 = new _pixiJs.Graphics();
-            r1.beginFill(0);
-            r1.drawRect(0, 0, 64, 64);
-            r1.endFill();
-            _render.renderer.render(r1, {
-                renderTexture: texture
-            });
-            let block = new _pixiJs.Sprite(texture);
-            block.position.x = 2 * _render.TILE_SIZE * i + (ii % 2 == 0 ? 0 : _render.TILE_SIZE);
-            block.position.y = _render.TILE_SIZE * ii;
-            block.anchor.x = 0;
-            block.anchor.y = 0;
-            _render.viewport.addChild(block);
+        if (this.world) {
+            let zone = this.world.zones[this.world.currentZone];
+            if (zone) {
+                if (this.walls) _render.viewport.removeChild(this.walls);
+                delete this.walls;
+                this.walls = new _pixiJs.Container();
+                for(let i = 0; i < zone.height; i += 1)for(let ii = 0; ii < zone.width; ii += 1){
+                    let row = zone.walls[i];
+                    if (row && row[ii]) {
+                        let wall = row[ii];
+                        if (wall > 0) {
+                            let texture = _pixiJs.RenderTexture.create({
+                                width: _render.TILE_SIZE,
+                                height: _render.TILE_SIZE
+                            });
+                            let r1 = new _pixiJs.Graphics();
+                            r1.beginFill(16777215);
+                            r1.drawRect(0, 0, 64, 64);
+                            r1.endFill();
+                            _render.renderer.render(r1, {
+                                renderTexture: texture
+                            });
+                            let block = new _pixiJs.Sprite(texture);
+                            block.position.x = _render.TILE_SIZE * i;
+                            block.position.y = _render.TILE_SIZE * ii;
+                            block.anchor.x = 0;
+                            block.anchor.y = 0;
+                            this.walls.addChild(block);
+                        }
+                    }
+                }
+                _render.viewport.addChild(this.walls);
+                _render.viewport.worldWidth = _render.TILE_SIZE * zone.width;
+                _render.viewport.worldHeight = _render.TILE_SIZE * zone.height;
+            }
         }
+    }
+    updateWorld() {
+        // Update the walls
+        let bounds = _render.viewport.getVisibleBounds().pad(_render.TILE_SIZE, _render.TILE_SIZE);
+        let walls = this.walls?.children;
+        if (walls) for (let S of walls)S.visible = bounds.contains(S.x, S.y);
     }
 }
 
@@ -44150,7 +44199,9 @@ function controlTicker(delta, world, camera) {
             controlMove = true;
         }
         if (controlMove && controlDiagGrace > controlDiagGraceTime) {
+            // Replace with WorldSendAIMoveRequest(world.player, dir)
             world.moveActor(world.player, dir);
+            // Replace with WorldRequestUpdateTick(1)
             world.update(1);
             controlTick = false;
             controlTime = 270;
