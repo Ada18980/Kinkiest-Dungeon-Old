@@ -1,17 +1,17 @@
 "use strict";
 
 import * as PIXI from 'pixi.js';
-import { loadSprites } from './sprites';
-import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE } from './render';
-import { AbstractRenderer } from 'pixi.js';
 import { Viewport } from 'pixi-viewport'
-import { Actor, ActorContainer } from './actor';
-import { Floor } from './world';
-import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls } from './control';
+import { loadSprites } from './gfx/sprites';
+import { AbstractRenderer } from 'pixi.js';
+import { Actor, ActorContainer } from './world/actor';
+import { World } from './world/world';
+import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport, setRenderer, setViewport } from './gfx/render';
+import { UI } from './ui/ui';
+import { initControls }  from './ui/control';
+import { Player } from './ui/player';
 
 export let app: PIXI.Application;
-export let renderer: PIXI.Renderer;
-let viewport: Viewport;
 export let windowSize = {width: 1920, height: 1080};
 export let ratio = windowSize.width / windowSize.height;
 
@@ -33,14 +33,14 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	});
 
 	// Set up the renderer and properties
-	renderer = app.renderer as PIXI.Renderer;
+	setRenderer(app.renderer as PIXI.Renderer);
 	app.view.setAttribute("id", "mainCanvas");
 	renderer.plugins.interaction.autoPreventDefault = true;
 	PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
 
 	// create viewport
-	viewport = new Viewport({
+	setViewport(new Viewport({
 		screenWidth: width,
 		screenHeight: height,
 
@@ -50,7 +50,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		disableOnContextMenu: true,
 
 		interaction: app.renderer.plugins.interaction // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
-	});
+	}));
 
 	viewport.sortableChildren = true;
 
@@ -68,60 +68,31 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	let stage = app.stage;
 	document.body.appendChild(renderer.view);
 
-	for (let i = 0; i < 1024/TILE_SIZE; i += 1) {
-		for (let ii = 0; ii <= 2048/TILE_SIZE; ii += 1) {
-			let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
-			let r1 = new PIXI.Graphics();
-			r1.beginFill(0x000000);
-			r1.drawRect(0, 0, 64, 64);
-			r1.endFill();
-			renderer.render(r1,{renderTexture: texture})
-			let block = new PIXI.Sprite(texture);
-			block.position.x = 2*TILE_SIZE*i + (ii % 2 == 0 ? 0 : TILE_SIZE);
-			block.position.y = TILE_SIZE*ii;
-			block.anchor.x = 0;
-			block.anchor.y = 0;
-			viewport.addChild(block);
-		}
-	}
 
 	resize();
 
 	loadSprites();
 
-	// Listen for animate update
-	var lastTick = performance.now();
-
-
-
-	let world = new Floor();
-	world.addActor(new Actor(4, 4, {
+	let world = new World();
+	let player = new Actor(20, 20, {
 		sprite: "player_default",
 		player: true,
-	}));
-
-	let snapBack = false;
-	viewport.addListener('moved-end', (event) => {snapBack = false;});
-	viewport.addListener('drag-start', (event) => {snapBack = false;});
-
-	console.log(world.player)
-	viewport.snap(world.player?.xx || 0, world.player?.yy || 0, {ease: "easeInOutSine", time: 1000, removeOnComplete: true});
-	viewport.snapZoom({ease: "easeInOutSine", time: 1000, removeOnComplete: true, height: ratio > 1 ? (MIN_ZOOM * TILE_SIZE) : undefined, width: ratio <= 1 ? (MIN_ZOOM * TILE_SIZE) : undefined});
-
-	app.ticker.add((delta: number) => {
-		let d = performance.now() - lastTick;
-		lastTick = performance.now();
-
-		world.render(viewport);
-
-		if ((viewport.center.x > viewport.worldWidth || viewport.center.x < 0 || viewport.center.y > viewport.worldHeight || viewport.center.y < 0)) {
-			if (!mouseLeftDown) {
-				if (!snapBack)
-					viewport.snap(Math.max(0, Math.min(viewport.center.x, viewport.worldWidth)), Math.max(0, Math.min(viewport.center.y, viewport.worldHeight)), {ease: "easeInOutSine", time: 500, removeOnComplete: true, removeOnInterrupt: true});
-				snapBack = true;
-			}
-		} else snapBack = false;
 	});
+	world.addActor(player);
+
+	//for (let i = 0; i < 100; i++) {
+	//	let x = Math.random() *20 - 10;
+	//	let y = Math.random() *20 - 10;
+	//
+	//	world.addActor(new Actor(x, y, {sprite: "player_default"}));
+	//}
+
+	console.log(world.tree_actors);
+
+	let GUI = new UI(player, world);
+	GUI.initialize(app);
+	GUI.loadWorld();
+	GUI.player = new Player(player);
 }
 
 function resize() {

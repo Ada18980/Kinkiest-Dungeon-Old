@@ -415,8 +415,16 @@
     "sourceSize": { "w": 50, "h": 64 },
     "duration": 200
    },
+   "(feet)|16": {
+    "frame": { "x": 230, "y": 28, "w": 13, "h": 2 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 19, "y": 47, "w": 13, "h": 2 },
+    "sourceSize": { "w": 50, "h": 64 },
+    "duration": 200
+   },
    "(feet)|17": {
-    "frame": { "x": 230, "y": 28, "w": 6, "h": 7 },
+    "frame": { "x": 243, "y": 28, "w": 6, "h": 7 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 13, "y": 47, "w": 6, "h": 7 },
@@ -424,7 +432,7 @@
     "duration": 200
    },
    "(feet)|18": {
-    "frame": { "x": 236, "y": 28, "w": 6, "h": 7 },
+    "frame": { "x": 249, "y": 28, "w": 6, "h": 7 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 30, "y": 47, "w": 6, "h": 7 },
@@ -432,7 +440,7 @@
     "duration": 200
    },
    "(feet)|19": {
-    "frame": { "x": 242, "y": 28, "w": 11, "h": 7 },
+    "frame": { "x": 255, "y": 28, "w": 11, "h": 7 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 20, "y": 48, "w": 11, "h": 7 },
@@ -567,8 +575,16 @@
     "sourceSize": { "w": 50, "h": 64 },
     "duration": 200
    },
+   "(shoes)|16": {
+    "frame": { "x": 246, "y": 38, "w": 13, "h": 2 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 19, "y": 47, "w": 13, "h": 2 },
+    "sourceSize": { "w": 50, "h": 64 },
+    "duration": 200
+   },
    "(shoes)|17": {
-    "frame": { "x": 246, "y": 38, "w": 9, "h": 8 },
+    "frame": { "x": 259, "y": 38, "w": 9, "h": 8 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 12, "y": 46, "w": 9, "h": 8 },
@@ -576,7 +592,7 @@
     "duration": 200
    },
    "(shoes)|18": {
-    "frame": { "x": 255, "y": 38, "w": 9, "h": 8 },
+    "frame": { "x": 268, "y": 38, "w": 9, "h": 8 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 28, "y": 46, "w": 9, "h": 8 },
@@ -584,7 +600,7 @@
     "duration": 200
    },
    "(shoes)|19": {
-    "frame": { "x": 264, "y": 38, "w": 11, "h": 8 },
+    "frame": { "x": 277, "y": 38, "w": 11, "h": 8 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 20, "y": 48, "w": 11, "h": 8 },

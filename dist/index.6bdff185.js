@@ -464,8 +464,6 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "app", ()=>app
 );
-parcelHelpers.export(exports, "renderer", ()=>renderer
-);
 parcelHelpers.export(exports, "windowSize", ()=>windowSize
 );
 parcelHelpers.export(exports, "ratio", ()=>ratio
@@ -475,16 +473,16 @@ parcelHelpers.export(exports, "LauncherLaunchGame", ()=>LauncherLaunchGame
 parcelHelpers.export(exports, "changeResolution", ()=>changeResolution
 );
 var _pixiJs = require("pixi.js");
-var _sprites = require("./sprites");
-var _render = require("./render");
 var _pixiViewport = require("pixi-viewport");
-var _actor = require("./actor");
-var _world = require("./world");
-var _control = require("./control");
+var _sprites = require("./gfx/sprites");
+var _actor = require("./world/actor");
+var _world = require("./world/world");
+var _render = require("./gfx/render");
+var _ui = require("./ui/ui");
+var _control = require("./ui/control");
+var _player = require("./ui/player");
 "use strict";
 let app;
-let renderer;
-let viewport;
 let windowSize = {
     width: 1920,
     height: 1080
@@ -504,24 +502,24 @@ function LauncherLaunchGame(width, height) {
         antialias: false
     });
     // Set up the renderer and properties
-    renderer = app.renderer;
+    _render.setRenderer(app.renderer);
     app.view.setAttribute("id", "mainCanvas");
-    renderer.plugins.interaction.autoPreventDefault = true;
+    _render.renderer.plugins.interaction.autoPreventDefault = true;
     _pixiJs.settings.SCALE_MODE = _pixiJs.SCALE_MODES.NEAREST;
     // create viewport
-    viewport = new _pixiViewport.Viewport({
+    _render.setViewport(new _pixiViewport.Viewport({
         screenWidth: width,
         screenHeight: height,
         worldWidth: 2048,
         worldHeight: 2048,
         disableOnContextMenu: true,
         interaction: app.renderer.plugins.interaction // the interaction module is important for wheel to work properly when renderer.view is placed or scaled
-    });
-    viewport.sortableChildren = true;
+    }));
+    _render.viewport.sortableChildren = true;
     // add the viewport to the stage
-    app.stage.addChild(viewport);
+    app.stage.addChild(_render.viewport);
     // activate plugins
-    viewport.drag({
+    _render.viewport.drag({
         mouseButtons: "left"
     }).pinch().wheel({
         smooth: 5
@@ -530,76 +528,31 @@ function LauncherLaunchGame(width, height) {
     })//.clamp({direction: "all", })
     .clampZoom(clampZoomOptions());
     let stage = app.stage;
-    document.body.appendChild(renderer.view);
-    for(let i = 0; i < 1024 / _render.TILE_SIZE; i += 1)for(let ii = 0; ii <= 2048 / _render.TILE_SIZE; ii += 1){
-        let texture = _pixiJs.RenderTexture.create({
-            width: _render.TILE_SIZE,
-            height: _render.TILE_SIZE
-        });
-        let r1 = new _pixiJs.Graphics();
-        r1.beginFill(0);
-        r1.drawRect(0, 0, 64, 64);
-        r1.endFill();
-        renderer.render(r1, {
-            renderTexture: texture
-        });
-        let block = new _pixiJs.Sprite(texture);
-        block.position.x = 2 * _render.TILE_SIZE * i + (ii % 2 == 0 ? 0 : _render.TILE_SIZE);
-        block.position.y = _render.TILE_SIZE * ii;
-        block.anchor.x = 0;
-        block.anchor.y = 0;
-        viewport.addChild(block);
-    }
+    document.body.appendChild(_render.renderer.view);
     resize();
     _sprites.loadSprites();
-    // Listen for animate update
-    var lastTick = performance.now();
-    let world = new _world.Floor();
-    world.addActor(new _actor.Actor(4, 4, {
+    let world = new _world.World();
+    let player = new _actor.Actor(20, 20, {
         sprite: "player_default",
         player: true
-    }));
-    let snapBack = false;
-    viewport.addListener('moved-end', (event)=>{
-        snapBack = false;
     });
-    viewport.addListener('drag-start', (event)=>{
-        snapBack = false;
-    });
-    console.log(world.player);
-    viewport.snap(world.player?.xx || 0, world.player?.yy || 0, {
-        ease: "easeInOutSine",
-        time: 1000,
-        removeOnComplete: true
-    });
-    viewport.snapZoom({
-        ease: "easeInOutSine",
-        time: 1000,
-        removeOnComplete: true,
-        height: ratio > 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined,
-        width: ratio <= 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined
-    });
-    app.ticker.add((delta)=>{
-        let d = performance.now() - lastTick;
-        lastTick = performance.now();
-        world.render(viewport);
-        if (viewport.center.x > viewport.worldWidth || viewport.center.x < 0 || viewport.center.y > viewport.worldHeight || viewport.center.y < 0) {
-            if (!_control.mouseLeftDown) {
-                if (!snapBack) viewport.snap(Math.max(0, Math.min(viewport.center.x, viewport.worldWidth)), Math.max(0, Math.min(viewport.center.y, viewport.worldHeight)), {
-                    ease: "easeInOutSine",
-                    time: 500,
-                    removeOnComplete: true,
-                    removeOnInterrupt: true
-                });
-                snapBack = true;
-            }
-        } else snapBack = false;
-    });
+    world.addActor(player);
+    //for (let i = 0; i < 100; i++) {
+    //	let x = Math.random() *20 - 10;
+    //	let y = Math.random() *20 - 10;
+    //
+    //	world.addActor(new Actor(x, y, {sprite: "player_default"}));
+    //}
+    console.log(world.tree_actors);
+    let GUI = new _ui.UI(player, world);
+    GUI.initialize(app);
+    GUI.loadWorld();
+    GUI.player = new _player.Player(player);
 }
 function resize() {
-    renderer.view.style.position = "absolute";
-    renderer.view.style.left = "0px";
-    renderer.view.style.top = "0px";
+    _render.renderer.view.style.position = "absolute";
+    _render.renderer.view.style.left = "0px";
+    _render.renderer.view.style.top = "0px";
     setWindowSize(window.innerWidth, window.innerHeight);
     /*
 	if (window.innerWidth / window.innerHeight >= ratio) {
@@ -615,14 +568,14 @@ function resize() {
 	renderer.view.style.position = "absolute";
 	renderer.view.style.left = ((window.innerWidth - w) >> 1) + 'px'
 	renderer.view.style.top = ((window.innerHeight - h) >> 1) + 'px';
-	*/ viewport.screenWidth = window.innerWidth;
-    viewport.screenHeight = window.innerHeight;
-    viewport.clampZoom(clampZoomOptions());
-    viewport.snap(viewport.center.x + 1, viewport.center.y, {
+	*/ _render.viewport.screenWidth = window.innerWidth;
+    _render.viewport.screenHeight = window.innerHeight;
+    _render.viewport.clampZoom(clampZoomOptions());
+    _render.viewport.snap(_render.viewport.center.x + 1, _render.viewport.center.y, {
         time: 0,
         removeOnComplete: true
     });
-    viewport.snap(viewport.center.x - 1, viewport.center.y, {
+    _render.viewport.snap(_render.viewport.center.x - 1, _render.viewport.center.y, {
         time: 0,
         removeOnComplete: true
     });
@@ -644,10 +597,10 @@ function setWindowSize(width, height) {
 }
 function changeResolution(width, height) {
     setWindowSize(width, height);
-    viewport.clampZoom(clampZoomOptions());
+    _render.viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","./sprites":"gcKZH","./render":"dn2g0","pixi-viewport":"272YU","./actor":"dLfJ7","./world":"h3nIe","./control":"dg4zu","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","./gfx/sprites":"7UxjD","./world/actor":"hVA85","./world/world":"hywN6","./gfx/render":"jTB3f","./ui/ui":"iwMNm","./ui/control":"eAdAj","./ui/player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -39999,224 +39952,7 @@ function __extends(d, b) {
     return AnimatedSprite2;
 }(_sprite.Sprite);
 
-},{"@pixi/core":"d0INm","@pixi/sprite":"aeiZG","@pixi/ticker":"5j6Uq","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"gcKZH":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
-);
-parcelHelpers.export(exports, "Image", ()=>Image1
-);
-parcelHelpers.export(exports, "KDSprite", ()=>KDSprite
-);
-parcelHelpers.export(exports, "getSprite", ()=>getSprite
-);
-parcelHelpers.export(exports, "getNewSprite", ()=>getNewSprite
-);
-parcelHelpers.export(exports, "addSprite", ()=>addSprite
-);
-parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
-) /*
-
-  // creating new instance of PXI.texure
-  var texture = new PIXI.Texture.fromImage('my-start-frame-name');
-  // creating sprite
-  var runner = new PIXI.Sprite(texture);
-
-
-  // this is the frame I'm using to change the picture in sprite sheet
-  var frame = new PIXI.Rectangle(0, 0, 100, 100);
-
-  // animating the sprite
-  var interval = setInterval(function () {
-    // moving frame one unit to right
-    frame.position.x += 100;
-    runner.texture.frame = frame;
-
-    //  ending animation
-    if (frame.position.x == 1000) {
-       frame.position.x = 0;
-       clearInterval(interval);
-    }
-  }, 50);*/ ;
-var _pixiJs = require("pixi.js");
-"use strict";
-let nullTexture = _pixiJs.Texture.from("img/null.png");
-let spriteResources = [
-    {
-        name: "player_body",
-        path: "img/player/body.json"
-    },
-    {
-        name: "outfit_mage",
-        path: "img/player/mage.json"
-    },
-];
-let sprites = new Map();
-class BaseImage {
-    constructor(name){
-        this.name = name;
-        this.animations = new Map();
-    }
-    addSprite(layer, animation, sprite) {
-        let anim = this.animations.get(animation) || new Map();
-        if (!this.animations.has(animation)) this.animations.set(animation, anim);
-        anim.set(layer, sprite);
-    }
-}
-class Image1 {
-    constructor(image){
-        this.currentAnimation = "";
-        this.playing = false;
-        this.animations = new Map();
-        image.animations.forEach((v, k)=>{
-            let map = new Map();
-            v.forEach((v1, k1)=>{
-                map.set(k1, new KDSprite(image.name, v1));
-            });
-            this.animations.set(k, map);
-        });
-    }
-    animate(start, stop, setFrame, loop) {
-        let currRender = this.animations.get(this.currentAnimation);
-        if (currRender) {
-            this.playing = false;
-            currRender.forEach((element)=>{
-                //let sf = setFrame ? Math.round(setFrame * element.sprite.totalFrames) : 0;
-                if (setFrame != undefined && start) element.sprite.gotoAndPlay(setFrame);
-                else if (setFrame != undefined && stop) element.sprite.gotoAndStop(setFrame);
-                else if (start) element.sprite.play();
-                else if (stop) element.sprite.stop();
-                if (loop) element.sprite.loop = loop;
-                if (!this.playing && element.sprite.playing) this.playing = true;
-            });
-        }
-    }
-    render(viewport, animation, x, y, rotation = 0) {
-        let currRender = animation != this.currentAnimation ? this.animations.get(this.currentAnimation) : null;
-        let toRender = this.animations.get(animation);
-        if (currRender) currRender.forEach((element)=>{
-            element.sprite.visible = false;
-        });
-        if (toRender) {
-            toRender.forEach((element)=>{
-                element.sprite.visible = true;
-                element.sprite.position.set(x, y);
-                element.sprite.rotation = rotation;
-                if (element.viewport != viewport) {
-                    if (element.viewport) element.viewport.removeChild(element.sprite);
-                    viewport.addChild(element.sprite);
-                    element.viewport = viewport;
-                }
-            });
-            this.currentAnimation = animation;
-        }
-    }
-}
-class KDSprite {
-    constructor(name1, template){
-        this.viewport = null;
-        let sprite = new _pixiJs.AnimatedSprite(template.frames, template.frames.length > 0);
-        let loader = _pixiJs.Loader.shared.resources[name1];
-        sprite.animationSpeed = 16.7 / template.time;
-        sprite.anchor.set(0.5);
-        this.sprite = sprite;
-        this.frames = template.count;
-        this.noLoop = template.noLoop;
-    }
-}
-function getSprite(name2) {
-    return sprites.get(name2);
-}
-function getNewSprite(name2) {
-    let sprite1 = sprites.get(name2);
-    if (!sprite1) return undefined;
-    return new Image1(sprite1);
-}
-function addSprite(name2, path, columns, width, height) {
-    _pixiJs.Loader.shared.add(name2, path);
-}
-function loadSprites() {
-    spriteResources.forEach((element)=>{
-        _pixiJs.Loader.shared.add(element.name, element.path);
-    });
-    _pixiJs.Loader.shared.load((loader1, resources)=>{
-        spriteResources.forEach((element)=>{
-            let resource = resources[element.name];
-            let image1 = new BaseImage(element.name);
-            if (typeof resource !== "undefined") {
-                let loader2 = _pixiJs.Loader.shared.resources[element.name];
-                let anims = [];
-                let layers = [];
-                // Seed animations and layers from metatada
-                if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
-                    if (tag.name) anims.push(tag.name);
-                });
-                if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
-                    if (layer.name) layers.push(layer.name);
-                });
-                // Default layer and animation
-                if (anims.length == 0) anims.push("idle");
-                if (layers.length == 0) layers.push("base");
-                let frameData = loader2?.spritesheet?.textures;
-                // Load the sprites in the internal format
-                anims.forEach((animation)=>{
-                    layers.forEach((layer)=>{
-                        if (frameData) {
-                            let keys = Object.keys(frameData);
-                            let frameKeys = keys.filter((frame)=>{
-                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
-                                    if (tag.name != animation) return false;
-                                    let indexStr = frame.split("|")[1];
-                                    if (!indexStr) return false;
-                                    let index = parseInt(indexStr);
-                                    return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
-                                });
-                            });
-                            let frames = frameKeys.map((frame)=>{
-                                return frameData && frameData[frame] || nullTexture;
-                            });
-                            if (frames) {
-                                let time = 1000;
-                                if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
-                                image1.addSprite(layer, animation, {
-                                    frames: frames,
-                                    time: time,
-                                    count: frames.length,
-                                    noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop
-                                });
-                            }
-                        }
-                    });
-                });
-                if (image1.animations.size > 0) sprites.set(element.name, image1);
-            }
-        });
-    });
-    console.log(_pixiJs.Loader.shared);
-    console.log(sprites);
-/*PIXI.Loader.shared.onComplete.add(() => {
-        let sprite = getSprite("player_mage");
-        if (sprite) {
-            sprite.render(viewport, "walkdown", 1024, 1024);
-            if (!sprite.playing) sprite.animate(true);
-        }
-    }); */ // called once when the queued resources all load.
-}
-
-},{"pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"dn2g0":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
-);
-parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
-);
-parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
-);
-const TILE_SIZE = 63;
-const MIN_ZOOM = 5; // In tiles
-const MAX_ZOOM = 25; // In Tiles
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"272YU":[function(require,module,exports) {
+},{"@pixi/core":"d0INm","@pixi/sprite":"aeiZG","@pixi/ticker":"5j6Uq","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"272YU":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 /**
@@ -40364,7 +40100,7 @@ parcelHelpers.export(exports, "Wheel", ()=>Wheel
  *
  * pixi-viewport is licensed under the MIT License.
  * http://www.opensource.org/licenses/mit-license
- *
+ * 
  * Copyright 2019-2020, David Figatner, All Rights Reserved
  */ var _math = require("@pixi/math");
 var _penner = require("penner");
@@ -42381,7 +42117,7 @@ const PLUGIN_ORDER = [
     'snap-zoom',
     'clamp-zoom',
     'snap',
-    'clamp',
+    'clamp', 
 ];
 /**
  * Use this to access current plugins or add user-defined plugins
@@ -43350,26 +43086,26 @@ const PLUGIN_ORDER = [
 	Copyright © 2001 Robert Penner
 	All rights reserved.
 
-	Redistribution and use in source and binary forms, with or without modification,
+	Redistribution and use in source and binary forms, with or without modification, 
 	are permitted provided that the following conditions are met:
 
-	Redistributions of source code must retain the above copyright notice, this list of
+	Redistributions of source code must retain the above copyright notice, this list of 
 	conditions and the following disclaimer.
-	Redistributions in binary form must reproduce the above copyright notice, this list
-	of conditions and the following disclaimer in the documentation and/or other materials
+	Redistributions in binary form must reproduce the above copyright notice, this list 
+	of conditions and the following disclaimer in the documentation and/or other materials 
 	provided with the distribution.
 
-	Neither the name of the author nor the names of contributors may be used to endorse
+	Neither the name of the author nor the names of contributors may be used to endorse 
 	or promote products derived from this software without specific prior written permission.
 
-	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY 
 	EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 	MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
 	COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 	EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-	GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+	GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED 
 	AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-	NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+	NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED 
 	OF THE POSSIBILITY OF SUCH DAMAGE.
  */ (function() {
     var penner, umd;
@@ -43534,36 +43270,360 @@ const PLUGIN_ORDER = [
     umd(penner);
 }).call(this);
 
-},{}],"dLfJ7":[function(require,module,exports) {
+},{}],"7UxjD":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "ActorTag", ()=>ActorTag
+parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
+);
+parcelHelpers.export(exports, "Image", ()=>Image1
+);
+parcelHelpers.export(exports, "KDSprite", ()=>KDSprite
+);
+parcelHelpers.export(exports, "getSprite", ()=>getSprite
+);
+parcelHelpers.export(exports, "getNewSprite", ()=>getNewSprite
+);
+parcelHelpers.export(exports, "addSprite", ()=>addSprite
+);
+parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
+) /*
+
+  // creating new instance of PXI.texure
+  var texture = new PIXI.Texture.fromImage('my-start-frame-name');
+  // creating sprite
+  var runner = new PIXI.Sprite(texture);
+
+
+  // this is the frame I'm using to change the picture in sprite sheet
+  var frame = new PIXI.Rectangle(0, 0, 100, 100);
+
+  // animating the sprite
+  var interval = setInterval(function () {
+    // moving frame one unit to right
+    frame.position.x += 100;
+    runner.texture.frame = frame;
+
+    //  ending animation
+    if (frame.position.x == 1000) {
+       frame.position.x = 0;
+       clearInterval(interval);
+    }
+  }, 50);*/ ;
+var _render = require("./render");
+var _pixiJs = require("pixi.js");
+"use strict";
+let nullTexture = _pixiJs.Texture.from("img/null.png");
+let spriteResources = [
+    {
+        name: "player_default",
+        path: "img/player/default.json"
+    }, 
+];
+let sprites = new Map();
+class BaseImage {
+    constructor(name){
+        this.name = name;
+        this.animations = new Map();
+    }
+    addSprite(layer, animation, sprite) {
+        let anim = this.animations.get(animation) || new Map();
+        if (!this.animations.has(animation)) this.animations.set(animation, anim);
+        anim.set(layer, sprite);
+    }
+}
+class Image1 {
+    constructor(image){
+        this.currentPoses = [];
+        this.currentRender = new Map();
+        this.playing = false;
+        this.frameTimer = 0;
+        this.animations = new Map();
+        image.animations.forEach((v, k)=>{
+            let map = new Map();
+            v.forEach((v1, k1)=>{
+                map.set(k1, new KDSprite(image.name, v1));
+            });
+            this.animations.set(k, map);
+        });
+    //console.log(this.animations);
+    }
+    animate(start, stop, setFrame, loop) {
+        let currRender = this.currentRender;
+        if (currRender) {
+            this.playing = false;
+            currRender.forEach((element)=>{
+                //let sf = setFrame ? Math.round(setFrame * element.sprite.totalFrames) : 0;
+                if (setFrame != undefined && start) element.sprite.gotoAndPlay(setFrame);
+                else if (setFrame != undefined && stop) element.sprite.gotoAndStop(setFrame);
+                else if (start) element.sprite.play();
+                else if (stop) element.sprite.stop();
+                if (loop) element.sprite.loop = loop;
+                if (!this.playing && element.sprite.playing) this.playing = true;
+            });
+        }
+    }
+    // Removes an actor from the viewport
+    destroy() {
+    }
+    // Renders the actor to the viewport
+    render(direction, poses, x, y, rotation = 0) {
+        let bounds = _render.viewport.getVisibleBounds().pad(_render.TILE_SIZE, _render.TILE_SIZE);
+        let visible = bounds.contains(x, y);
+        let currRender = poses != this.currentPoses || !visible ? this.currentRender : null;
+        if (currRender) for (let element of currRender)element[1].sprite.visible = false;
+        if (visible) {
+            // Render for this many frames to prevent weirdness
+            let toRender = new Map();
+            let renderedLayers = [];
+            for(let I = poses.length - 1; I >= 0; I--){
+                let pose = poses[I];
+                let anim = pose + direction;
+                let animStore = this.animations.get(anim);
+                if (animStore) {
+                    for (let layer of animStore)if (!renderedLayers.includes(layer[0])) {
+                        toRender.set(layer[0], layer[1]);
+                        renderedLayers.push(layer[0]);
+                    }
+                }
+            }
+            if (toRender) {
+                for (let element1 of toRender){
+                    element1[1].sprite.visible = visible;
+                    element1[1].sprite.position.set(x, y);
+                    element1[1].sprite.rotation = rotation;
+                    element1[1].sprite.zIndex = element1[1].getZ(this.currentPoses) || 0;
+                    if (element1[1].viewport != _render.viewport) {
+                        if (element1[1].viewport) element1[1].viewport.removeChild(element1[1].sprite);
+                        _render.viewport.addChild(element1[1].sprite);
+                        element1[1].viewport = _render.viewport;
+                    }
+                }
+                this.playing = false;
+                toRender.forEach((element2)=>{
+                    if (!this.playing && element2.sprite.playing) this.playing = true;
+                });
+                this.currentPoses = poses;
+                this.currentRender = toRender;
+            }
+        }
+    }
+}
+class KDSprite {
+    constructor(name1, template){
+        this.viewport = null;
+        let sprite = new _pixiJs.AnimatedSprite(template.frames, template.frames.length > 0);
+        let loader = _pixiJs.Loader.shared.resources[name1];
+        sprite.animationSpeed = 16.7 / template.time;
+        sprite.anchor.set(0.5);
+        this.sprite = sprite;
+        this.frames = template.count;
+        this.noLoop = template.noLoop;
+        this.zIndex = template.zIndex;
+    }
+    getZ(animation) {
+        let current = 0;
+        let I = animation.length - 1;
+        while(I >= 0){
+            let anim = animation[I] || "default";
+            if (this.zIndex[anim]) return this.zIndex[anim];
+            I--;
+        }
+        if (this.zIndex["default"]) return this.zIndex["default"];
+        return 0;
+    }
+}
+function getSprite(name2) {
+    return sprites.get(name2);
+}
+function getNewSprite(name2) {
+    let sprite1 = sprites.get(name2);
+    if (!sprite1) return undefined;
+    return new Image1(sprite1);
+}
+function addSprite(name2, path, columns, width, height) {
+    _pixiJs.Loader.shared.add(name2, path);
+}
+function loadSprites() {
+    for (let element of spriteResources)_pixiJs.Loader.shared.add(element.name, element.path);
+    _pixiJs.Loader.shared.load((loader1, resources)=>{
+        for (let element1 of spriteResources){
+            let resource = resources[element1.name];
+            let image1 = new BaseImage(element1.name);
+            if (typeof resource !== "undefined") {
+                let loader2 = _pixiJs.Loader.shared.resources[element1.name];
+                let anims = [];
+                let layers = [];
+                // Seed animations and layers from metatada
+                if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
+                    if (tag.name) anims.push(tag.name);
+                });
+                if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
+                    if (layer.name) layers.push(layer.name);
+                });
+                // Default layer and animation
+                if (anims.length == 0) anims.push("idle");
+                if (layers.length == 0) layers.push("base");
+                let frameData = loader2?.spritesheet?.textures;
+                // Load the sprites in the internal format
+                if (frameData) {
+                    let keys = Object.keys(frameData);
+                    //console.log(keys)
+                    //console.log(frameData)
+                    for (let animation of anims){
+                        let zInd = 0;
+                        for (let layer of layers){
+                            zInd += 1;
+                            let frameKeys = keys.filter((frame)=>{
+                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
+                                    if (tag.name != animation) return false;
+                                    let indexStr = frame.split("|")[1];
+                                    if (!indexStr) return false;
+                                    let index = parseInt(indexStr);
+                                    return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                                });
+                            });
+                            let frames = [];
+                            for (let frame of frameKeys){
+                                let data = frameData[frame];
+                                if (data) frames.push(data); // && (data.trim.width > 1 || data.trim.height > 1)
+                            }
+                            if (frames && frames.length > 0) {
+                                let time = 1000;
+                                let zIndex = {
+                                    default: 1 + zInd
+                                };
+                                if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
+                                image1.addSprite(layer, animation, {
+                                    frames: frames,
+                                    time: time,
+                                    count: frames.length,
+                                    noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop,
+                                    zIndex: zIndex
+                                });
+                            }
+                        }
+                    }
+                }
+                if (image1.animations.size > 0) sprites.set(element1.name, image1);
+            }
+        }
+    });
+    console.log(_pixiJs.Loader.shared);
+    console.log(sprites);
+/*PIXI.Loader.shared.onComplete.add(() => {
+        let sprite = getSprite("player_mage");
+        if (sprite) {
+            sprite.render(viewport, "walkdown", 1024, 1024);
+            if (!sprite.playing) sprite.animate(true);
+        }
+    }); */ // called once when the queued resources all load.
+}
+
+},{"./render":"jTB3f","pixi.js":"3ZUrV","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"jTB3f":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "TILE_SIZE", ()=>TILE_SIZE
+);
+parcelHelpers.export(exports, "MIN_ZOOM", ()=>MIN_ZOOM
+);
+parcelHelpers.export(exports, "MAX_ZOOM", ()=>MAX_ZOOM
+);
+parcelHelpers.export(exports, "renderer", ()=>renderer
+);
+parcelHelpers.export(exports, "viewport", ()=>viewport
+);
+parcelHelpers.export(exports, "setRenderer", ()=>setRenderer
+);
+parcelHelpers.export(exports, "setViewport", ()=>setViewport
+);
+const TILE_SIZE = 63;
+const MIN_ZOOM = 5; // In tiles
+const MAX_ZOOM = 25; // In Tiles
+let renderer;
+let viewport;
+function setRenderer(r) {
+    renderer = r;
+}
+function setViewport(v) {
+    viewport = v;
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hVA85":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Dir", ()=>Dir
 );
 parcelHelpers.export(exports, "Actor", ()=>Actor
 );
 parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
 );
-var _sprites = require("./sprites");
-var _render = require("./render");
+var _sprites = require("../gfx/sprites");
+var _render = require("../gfx/render");
+var _quadtree = require("./quadtree");
 "use strict";
-class ActorTag {
-    update(actor, delta) {
-    }
-    render(actor, viewport) {
-    }
-}
-class Actor {
-    constructor(x, y, type, actorTags){
-        this.id = 0;
-        this.x = x;
-        this.y = y;
+var Dir;
+(function(Dir1) {
+    Dir1["UP"] = "_up";
+    Dir1["DOWN"] = "_down";
+    Dir1["LEFT"] = "_left";
+    Dir1["RIGHT"] = "_right";
+})(Dir || (Dir = {
+}));
+class Actor extends _quadtree.WorldObject {
+    constructor(x, y, type){
+        super(x, y);
         this.type = type;
-        if (actorTags) this.tags = actorTags;
-        else this.tags = [];
+        this.direction = Dir.DOWN;
         this.data = new Map();
     }
     update(delta) {
-        if (this.tags) for (const tag of this.tags)tag.update(this, delta);
+        if (this.type.updateHooks) {
+            for(let H in this.type.updateHooks);
+        }
+    }
+    // Returns if the actor turned
+    faceDir(dir) {
+        let DirIdeal = Dir.DOWN;
+        let DirNonIdeal = [];
+        if (dir.y > 0) {
+            DirIdeal = Dir.DOWN;
+            if (dir.x > 0) DirNonIdeal = [
+                Dir.RIGHT
+            ];
+            else if (dir.x < 0) DirNonIdeal = [
+                Dir.LEFT
+            ];
+        } else if (dir.y < 0) {
+            DirIdeal = Dir.UP;
+            if (dir.x > 0) DirNonIdeal = [
+                Dir.RIGHT
+            ];
+            else if (dir.x < 0) DirNonIdeal = [
+                Dir.LEFT
+            ];
+        } else if (dir.x > 0) {
+            DirIdeal = Dir.RIGHT;
+            if (dir.y > 0) DirNonIdeal = [
+                Dir.UP
+            ];
+            else if (dir.y < 0) DirNonIdeal = [
+                Dir.DOWN
+            ];
+        } else if (dir.x < 0) {
+            DirIdeal = Dir.LEFT;
+            if (dir.y > 0) DirNonIdeal = [
+                Dir.UP
+            ];
+            else if (dir.y < 0) DirNonIdeal = [
+                Dir.DOWN
+            ];
+        }
+        if (DirNonIdeal.includes(this.direction)) return false;
+        else if (DirIdeal != this.direction) {
+            this.direction = DirIdeal;
+            return true;
+        }
+        return false;
     }
     get sprite() {
         return this.type.sprite;
@@ -43574,76 +43634,398 @@ class Actor {
     get yy() {
         return this.y * _render.TILE_SIZE + _render.TILE_SIZE / 2;
     }
+    // Trigger on destruction events
+    destroy(code = -1) {
+        if (code == -1) return; // Exit doing nothing if no return code is given
+    }
 }
 class ActorContainer {
     constructor(actor){
         this.sprite = undefined;
+        this.xx = 0;
+        this.yy = 0;
         this.actor = actor;
+        this.xx = actor.xx;
+        this.yy = actor.yy;
     }
-    render(viewport) {
+    render(delta) {
         if (!this.sprite && this.actor.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
+        let dx = this.actor.xx - this.xx;
+        let dy = this.actor.yy - this.yy;
+        let speed = 1;
+        if (Math.abs(dx) > Math.abs(dy) - 0.1 && Math.abs(dx) < Math.abs(dy) + 0.1) speed = 1.41;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) > _render.TILE_SIZE * 1.1) speed = Math.max(Math.abs(dx), Math.abs(dy)) / (_render.TILE_SIZE * 1.1);
+        if (dx != 0 || dy != 0) {
+            let speedMult = Math.min(_render.TILE_SIZE / 30 * speed, 30);
+            this.xx += speedMult * Math.cos(Math.atan2(dy, dx));
+            this.yy += speedMult * Math.sin(Math.atan2(dy, dx));
+            if (Math.abs(dx) < speedMult) this.xx = this.actor.xx;
+            if (Math.abs(dy) < speedMult) this.yy = this.actor.yy;
+        }
         // TODO if actor is player, get player outfit
         if (this.sprite) {
-            this.sprite.render(viewport, "walk_down", this.actor.xx, this.actor.yy);
-            if (!this.sprite.playing) this.sprite.animate(true);
+            let playAnim = this.actor.type.idleAnim || dx != 0 || dy != 0;
+            let pose = [
+                "walk"
+            ];
+            this.sprite.render(this.actor.direction, pose, this.xx, this.yy);
+            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 0);
+            if (!playAnim && this.sprite.playing) this.sprite.animate(false, true, 0);
         }
+    }
+    destroy(destroyActor, code = -1) {
+        if (this.sprite) this.sprite.destroy();
+        if (destroyActor) this.actor.destroy(code);
     }
 }
 
-},{"./sprites":"gcKZH","./render":"dn2g0","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"h3nIe":[function(require,module,exports) {
+},{"../gfx/sprites":"7UxjD","../gfx/render":"jTB3f","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"l75T3":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Floor", ()=>Floor
+parcelHelpers.export(exports, "WorldObject", ()=>WorldObject
+);
+parcelHelpers.export(exports, "QuadTree", ()=>QuadTree
+);
+"use strict";
+class WorldObject {
+    constructor(x1, y1){
+        this.id = 0;
+        this.x = x1;
+        this.y = y1;
+    }
+}
+class QuadTree {
+    constructor(radius1){
+        this.head = new QuadCell(0, 0, radius1);
+    }
+    // Checks all actors to make sure the x and y are correct
+    refresh() {
+        let refList = [];
+        for (let ref of this.head.refs){
+            let obj = ref[1];
+            let cell = this.getCell(obj.x, obj.y);
+            if (obj.x >= cell.x + cell.radius || obj.x < cell.x - cell.radius || obj.y >= cell.y + cell.radius || obj.y < cell.y - cell.radius) refList.push(obj);
+        }
+        for (let obj of refList){
+            this.remove(obj);
+            this.add(obj);
+        }
+    }
+    getAll(x, y, radius) {
+        return this.head.getAll(x, y, radius);
+    }
+    getCell(x, y) {
+        return this.head.getCell(x, y);
+    }
+    add(obj) {
+        let dir = -1;
+        let iter = 0;
+        let max = 1000;
+        while(this.getDir(obj.x, obj.y) > -1 && iter < max){
+            this.expand(this.getDir(obj.x, obj.y));
+            iter += 1;
+        }
+        if (iter >= max) console.log("Error, overflow when populating quad tree");
+        this.head.add(obj);
+    }
+    remove(obj) {
+        return this.head.remove(obj);
+    }
+    getDir(x, y) {
+        if (x >= this.head.x + this.head.radius) {
+            if (y >= this.head.y + this.head.radius) return 3;
+            else if (y <= this.head.y - this.head.radius) return 1;
+        } else if (x <= this.head.x - this.head.radius) {
+            if (y >= this.head.y + this.head.radius) return 2;
+            else if (y <= this.head.y - this.head.radius) return 0;
+        }
+        return -1;
+    }
+    // 0 = nw
+    // 1 = ne
+    // 2 = sw
+    // 3 = se
+    expand(dir) {
+        let radius2 = this.head.radius;
+        let x2 = this.head.x;
+        let y2 = this.head.y;
+        if (dir == 3) {
+            let newCell = new QuadCell(x2 + radius2, y2 + radius2, radius2 * 2);
+            newCell.nw = this.head;
+            newCell.ne = new QuadCell(x2 + radius2 * 2, y2, radius2);
+            newCell.sw = new QuadCell(x2, y2 + radius2 * 2, radius2);
+            newCell.se = new QuadCell(x2 + radius2 * 2, y2 + radius2 * 2, radius2);
+            this.head = newCell;
+        } else if (dir == 2) {
+            let newCell = new QuadCell(x2 - radius2, y2 + radius2, radius2 * 2);
+            newCell.nw = new QuadCell(x2 - radius2 * 2, y2, radius2);
+            newCell.ne = this.head;
+            newCell.sw = new QuadCell(x2 - radius2 * 2, y2 + radius2 * 2, radius2);
+            newCell.se = new QuadCell(x2, y2 + radius2 * 2, radius2);
+            this.head = newCell;
+        } else if (dir == 1) {
+            let newCell = new QuadCell(x2 + radius2, y2 - radius2, radius2 * 2);
+            newCell.nw = new QuadCell(x2, y2 - radius2 * 2, radius2);
+            newCell.ne = new QuadCell(x2 + radius2 * 2, y2 - radius2 * 2, radius2);
+            newCell.sw = this.head;
+            newCell.se = new QuadCell(x2 + radius2 * 2, y2, radius2);
+            this.head = newCell;
+        } else {
+            let newCell = new QuadCell(x2 - radius2, y2 - radius2, radius2 * 2);
+            newCell.nw = new QuadCell(x2 - radius2 * 2, y2 - radius2 * 2, radius2);
+            newCell.ne = new QuadCell(x2, y2 - radius2 * 2, radius2);
+            newCell.sw = new QuadCell(x2 - radius2 * 2, y2, radius2);
+            newCell.se = this.head;
+            this.head = newCell;
+        }
+    }
+}
+class QuadCell {
+    constructor(x2, y2, radius2, quad_max = 10){
+        this.nw = undefined;
+        this.ne = undefined;
+        this.sw = undefined;
+        this.se = undefined;
+        this.refs = new Map();
+        this.minRadius = 10;
+        this.x = x2;
+        this.y = y2;
+        this.radius = radius2;
+        this.quad_max = quad_max;
+    }
+    // Gets the current cell associated with the x, y point
+    getCell(x, y) {
+        if (this.se && x > this.x && y > this.y) return this.se.getCell(x, y);
+        if (this.sw && x <= this.x && y > this.y) return this.sw.getCell(x, y);
+        if (this.ne && x > this.x && y <= this.y) return this.ne.getCell(x, y);
+        if (this.nw && x <= this.x && y <= this.y) return this.nw.getCell(x, y);
+        return this;
+    }
+    getAll(x, y, radius) {
+        let ret = [];
+        let search = [];
+        if (this.se && x + radius > this.x && y + radius > this.y) search.push(this.se);
+        if (this.sw && x - radius <= this.x && y + radius > this.y) search.push(this.sw);
+        if (this.ne && x + radius > this.x && y - radius <= this.y) search.push(this.ne);
+        if (this.nw && x - radius <= this.x && y - radius <= this.y) search.push(this.nw);
+        if (search.length > 0) {
+            for (let s of search)for (let ss of s.getAll(x, y, radius))ret.push(ss);
+        } else {
+            for (let r of this.refs)if (r[1].x >= x - radius && r[1].x <= x + radius && r[1].y >= y - radius && r[1].y <= y + radius) ret.push(r[1]);
+        }
+        return ret;
+    }
+    add(obj) {
+        this.refs.set(obj.id, obj);
+        if (this.refs.size > this.quad_max && !this.nw && this.radius > this.minRadius) {
+            let radius3 = this.radius / 2;
+            this.nw = new QuadCell(this.x - radius3, this.y - radius3, radius3);
+            this.ne = new QuadCell(this.x + radius3, this.y - radius3, radius3);
+            this.sw = new QuadCell(this.x - radius3, this.y + radius3, radius3);
+            this.se = new QuadCell(this.x + radius3, this.y + radius3, radius3);
+            for (let r of this.refs){
+                if (r[1].x > this.x && r[1].y > this.y && this.se) this.se.add(r[1]);
+                else if (r[1].x <= this.x && r[1].y > this.y && this.sw) this.sw.add(r[1]);
+                else if (r[1].x > this.x && r[1].y <= this.y && this.ne) this.ne.add(r[1]);
+                else if (r[1].x <= this.x && r[1].y <= this.y && this.nw) this.nw.add(r[1]);
+            }
+        } else {
+            if (obj.x > this.x && obj.y > this.y && this.se) this.se.add(obj);
+            else if (obj.x <= this.x && obj.y > this.y && this.sw) this.sw.add(obj);
+            else if (obj.x > this.x && obj.y <= this.y && this.ne) this.ne.add(obj);
+            else if (obj.x <= this.x && obj.y <= this.y && this.nw) this.nw.add(obj);
+        }
+    }
+    remove(obj) {
+        if (this.refs.has(obj.id)) {
+            this.refs.delete(obj.id);
+            if (this.refs.size <= this.quad_max) {
+                delete this.nw;
+                delete this.sw;
+                delete this.ne;
+                delete this.se;
+                this.nw = undefined;
+                this.ne = undefined;
+                this.sw = undefined;
+                this.se = undefined;
+                return true;
+            } else {
+                if (obj.x > this.x && obj.y > this.y && this.se) return this.se.remove(obj);
+                else if (obj.x <= this.x && obj.y > this.y && this.sw) return this.sw.remove(obj);
+                else if (obj.x > this.x && obj.y <= this.y && this.ne) return this.ne.remove(obj);
+                else if (obj.x <= this.x && obj.y <= this.y && this.nw) return this.nw.remove(obj);
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "World", ()=>World
 );
 var _actor = require("./actor");
+var _quadtree = require("./quadtree");
 "use strict";
-class Floor {
+class World {
     constructor(){
-        this.actors = [];
+        this.actors = new Map();
         this.player = undefined;
-        this.containers = [];
+        this.containers = new Map();
+        this.tree_actors = new _quadtree.QuadTree(1);
         this.id_inc // Increment by one each time an actor is added
          = 0;
+    }
+    moveActor(actor, dir) {
+        if (this.actors.get(actor.id)) {
+            actor.x += dir.x;
+            actor.y += dir.y;
+            if (!actor.type.noFace) actor.faceDir(dir);
+            return Math.max(Math.abs(dir.x), Math.abs(dir.y));
+        }
+        return 0;
     }
     update(delta) {
         this.actors.forEach((ac)=>{
             ac.update(delta);
         });
+        this.tree_actors.refresh();
     }
-    render(viewport) {
+    render(delta) {
         this.containers.forEach((ac)=>{
-            ac.render(viewport);
+            ac.render(delta);
         });
     }
     addActor(actor) {
-        this.actors.push(actor);
+        let iterations = 0;
+        let max = 10000;
+        while(this.actors.has(this.id_inc))this.id_inc++;
+        actor.id = this.id_inc;
+        this.actors.set(this.id_inc, actor);
         this.addActorContainer(actor);
-        actor.id = this.id_inc++;
+        this.tree_actors.add(actor);
+    }
+    removeActor(actor) {
+        let ac = this.containers.get(actor.id);
+        if (ac) {
+            ac.destroy(true);
+            this.actors.delete(actor.id);
+            this.containers.delete(actor.id);
+            this.tree_actors.remove(actor);
+        }
     }
     addActorContainer(actor) {
         let ac = new _actor.ActorContainer(actor);
         if (!this.player && actor.type.player) this.player = actor;
-        this.containers.push(ac);
+        this.containers.set(actor.id, ac);
     }
+    // Called upon loading a game
     populateContainers() {
         this.actors.forEach((actor)=>{
-            if (!this.containers.some((element)=>{
-                return element.actor == actor;
-            })) this.addActorContainer(actor);
+            if (!Array.from(this.containers).some((element)=>{
+                return element[1].actor == actor;
+            })) {
+                this.addActorContainer(actor);
+                this.tree_actors.add(actor);
+            }
         });
     }
     serialize() {
         let oldContainers = this.containers;
-        this.containers = [];
+        let oldActorMap = this.tree_actors;
+        this.containers = new Map();
         // TODO actually serialize
+        // Blorp
+        // TODO finish serializing
         this.containers = oldContainers;
+        this.tree_actors = oldActorMap;
     }
     deserialize(data) {
         this.populateContainers();
     }
 }
 
-},{"./actor":"dLfJ7","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"dg4zu":[function(require,module,exports) {
+},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "UI", ()=>UI
+);
+var _pixiJs = require("pixi.js");
+var _render = require("../gfx/render");
+var _control = require("./control");
+var _launcher = require("../launcher");
+var _player = require("./player");
+class UI {
+    constructor(player, world){
+        this.player = new _player.Player(player);
+        this.world = world;
+    }
+    initialize(app) {
+        // Listen for animate update
+        var lastTick = performance.now();
+        let snapBack = false;
+        _render.viewport.addListener('moved-end', (event)=>{
+            snapBack = false;
+        });
+        _render.viewport.addListener('drag-start', (event)=>{
+            snapBack = false;
+        });
+        if (this.player.cameraActor) _render.viewport.snap(this.player.cameraActor.xx || 0, this.player.cameraActor.yy || 0, {
+            ease: "easeInOutSine",
+            time: 1000,
+            removeOnComplete: true
+        });
+        _render.viewport.snapZoom({
+            ease: "easeInOutSine",
+            time: 1000,
+            removeOnComplete: true,
+            height: _launcher.ratio > 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined,
+            width: _launcher.ratio <= 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined
+        });
+        app.ticker.add((delta)=>{
+            let d = performance.now() - lastTick;
+            lastTick = performance.now();
+            _control.controlTicker(d, this.world, this.player);
+            this.world.render(d);
+            if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
+                if (!_control.mouseLeftDown) {
+                    if (!snapBack) _render.viewport.snap(Math.max(0, Math.min(_render.viewport.center.x, _render.viewport.worldWidth)), Math.max(0, Math.min(_render.viewport.center.y, _render.viewport.worldHeight)), {
+                        ease: "easeInOutSine",
+                        time: 500,
+                        removeOnComplete: true,
+                        removeOnInterrupt: true
+                    });
+                    snapBack = true;
+                }
+            } else snapBack = false;
+        });
+    }
+    loadWorld() {
+        for(let i = 0; i < 1024 / _render.TILE_SIZE; i += 1)for(let ii = 0; ii <= 2048 / _render.TILE_SIZE; ii += 1){
+            let texture = _pixiJs.RenderTexture.create({
+                width: _render.TILE_SIZE,
+                height: _render.TILE_SIZE
+            });
+            let r1 = new _pixiJs.Graphics();
+            r1.beginFill(0);
+            r1.drawRect(0, 0, 64, 64);
+            r1.endFill();
+            _render.renderer.render(r1, {
+                renderTexture: texture
+            });
+            let block = new _pixiJs.Sprite(texture);
+            block.position.x = 2 * _render.TILE_SIZE * i + (ii % 2 == 0 ? 0 : _render.TILE_SIZE);
+            block.position.y = _render.TILE_SIZE * ii;
+            block.anchor.x = 0;
+            block.anchor.y = 0;
+            _render.viewport.addChild(block);
+        }
+    }
+}
+
+},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","../launcher":"7Wuwz","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"eAdAj":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
@@ -43652,40 +44034,38 @@ parcelHelpers.export(exports, "mouseRightDown", ()=>mouseRightDown
 );
 parcelHelpers.export(exports, "mouseMiddleDown", ()=>mouseMiddleDown
 );
-parcelHelpers.export(exports, "keys", ()=>keys
+parcelHelpers.export(exports, "keyBindingsDefault", ()=>keyBindingsDefault
 );
-parcelHelpers.export(exports, "keyBindings", ()=>keyBindings
+parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
+);
+parcelHelpers.export(exports, "keys", ()=>keys1
+);
+parcelHelpers.export(exports, "controlTick", ()=>controlTick
+);
+parcelHelpers.export(exports, "controlTicker", ()=>controlTicker
 );
 parcelHelpers.export(exports, "initControls", ()=>initControls
 );
+var _render = require("../gfx/render");
 let mouseLeftDown = false;
 let mouseRightDown = false;
 let mouseMiddleDown = false;
-let keys = {
-    moveU: false,
-    moveD: false,
-    moveL: false,
-    moveR: false,
-    spell: -1,
-    wait: false,
-    return: false
-};
-let keyBindings = {
+let keyBindingsDefault = {
     moveU: [
         'W',
-        'ARROWUP'
+        'ArrowUp'
     ],
     moveD: [
         'S',
-        'ARROWDOWN'
+        'ArrowDown'
     ],
     moveL: [
         'A',
-        'ARROWLEFT'
+        'ArrowLeft'
     ],
     moveR: [
         'D',
-        'ARROWRIGHT'
+        'ArrowRight'
     ],
     spell: [
         '0',
@@ -43700,27 +44080,189 @@ let keyBindings = {
         '9'
     ],
     wait: [
-        ' ',
+        ' ', 
     ],
     return: [
-        'ENTER',
+        'Enter', 
     ]
 };
+class ControlKey {
+    constructor(keys, refreshControlTick = false){
+        this.value = -1;
+        this.refreshControlTick = false;
+        this.keys = keys;
+        this.refreshControlTick = refreshControlTick;
+    }
+}
+let keys1 = {
+    moveU: new ControlKey(keyBindingsDefault.moveU, true),
+    moveD: new ControlKey(keyBindingsDefault.moveD, true),
+    moveL: new ControlKey(keyBindingsDefault.moveL, true),
+    moveR: new ControlKey(keyBindingsDefault.moveR, true),
+    spell: new ControlKey(keyBindingsDefault.spell),
+    wait: new ControlKey(keyBindingsDefault.wait, true),
+    return: new ControlKey(keyBindingsDefault.return)
+};
+let controlTick = false;
+let controlTime = 240;
+let controlDiagGrace = 0;
+let controlDiagGraceTime = 80;
+let controlMove = false;
+let finishMove = false;
+let lastDir = {
+    x: 0,
+    y: 0
+};
+let movePressed = false;
+let lastXX = 0;
+let lastYY = 0;
+let lastCameraMove = 0;
+function controlTicker(delta, world, camera) {
+    controlTime -= delta;
+    if (controlMove) {
+        if (controlDiagGrace < controlDiagGraceTime) controlDiagGrace += delta;
+    } else if (controlDiagGrace > 0) controlDiagGrace -= delta;
+    if (controlTime < 0) {
+        controlTime = 0;
+        controlTick = true;
+    }
+    if (controlTick && world && world.player) {
+        let dir = {
+            x: 0,
+            y: 0
+        };
+        if (keys1.moveU.value > 0) {
+            dir.y = -1;
+            controlMove = true;
+        } else if (keys1.moveD.value > 0) {
+            dir.y = 1;
+            controlMove = true;
+        }
+        if (keys1.moveL.value > 0) {
+            dir.x = -1;
+            controlMove = true;
+        } else if (keys1.moveR.value > 0) {
+            dir.x = 1;
+            controlMove = true;
+        }
+        if (finishMove) {
+            dir = lastDir;
+            controlMove = true;
+        }
+        if (controlMove && controlDiagGrace > controlDiagGraceTime) {
+            world.moveActor(world.player, dir);
+            world.update(1);
+            controlTick = false;
+            controlTime = 270;
+            console.log(dir);
+            if (finishMove) {
+                controlMove = false;
+                finishMove = false;
+            }
+            movePressed = false;
+        }
+        lastDir = dir;
+    }
+    if (camera.cameraActor) {
+        let container = world.containers.get(camera.cameraActor.id);
+        if (container) {
+            let XX = container.xx + _render.TILE_SIZE / 2 + lastDir.x * _render.viewport.screenWidth / 12;
+            let YY = container.yy + lastDir.y * _render.viewport.screenHeight / 12;
+            let distMax = Math.min(_render.viewport.screenHeight, _render.viewport.screenWidth) / 4;
+            if ((Math.abs(XX - lastXX) > distMax - _render.TILE_SIZE / 2 || Math.abs(YY - lastYY) > distMax - _render.TILE_SIZE) && performance.now() - lastCameraMove > 500) {
+                let ease = "easeInOutSine";
+                let time = 1000;
+                if (performance.now() - lastCameraMove < 1000) {
+                    time = 1000;
+                    ease = "easeOutSine";
+                }
+                //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
+                if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
+                    let sprites = container.sprite?.currentRender;
+                    if (sprites) {
+                        /*let sprite : Sprite | undefined;
+                            for (let s of sprites) {
+                                if (s[1] && s[1].sprite) {
+                                    sprite = s[1].sprite;
+                                    break;
+                                }
+                            }
+                            if (sprite)
+                                viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/ _render.viewport.snap(XX, YY, {
+                            ease: "easeInOutSine",
+                            time: 1000,
+                            removeOnInterrupt: true
+                        });
+                        lastXX = XX;
+                        lastYY = YY;
+                        lastCameraMove = performance.now();
+                    }
+                }
+            //else viewport.plugins.remove('follow');
+            }
+        }
+    }
+}
 function initControls() {
     window.addEventListener('mousedown', (event)=>{
         if (event.button == 0) mouseLeftDown = true;
         else if (event.button == 1) mouseMiddleDown = true;
         else if (event.button == 2) mouseRightDown = true;
-        console.log(mouseLeftDown);
+    //console.log(mouseLeftDown)
     });
     window.addEventListener('mouseup', (event)=>{
         if (event.button == 0) mouseLeftDown = false;
         else if (event.button == 1) mouseMiddleDown = false;
         else if (event.button == 2) mouseRightDown = false;
-        console.log(mouseLeftDown);
+    //console.log(mouseLeftDown)
     });
     window.addEventListener('keydown', (event)=>{
+        if (!event.repeat) {
+            let key = event.key;
+            for (let KB of Object.keys(keys1)){
+                let binding = keys1[KB];
+                if (binding.keys.includes(key)) {
+                    binding.value = binding.keys.indexOf(key);
+                    if (binding.refreshControlTick) movePressed = true;
+                }
+            }
+        }
     });
+    window.addEventListener('keyup', (event)=>{
+        let key = event.key;
+        for (let KB of Object.keys(keys1)){
+            let binding = keys1[KB];
+            if (binding.keys.includes(key)) {
+                binding.value = -1;
+                if (binding.refreshControlTick) {
+                    controlDiagGrace = 0;
+                    controlMove = false;
+                }
+            }
+        }
+        // If all movekeys are released then we simply ignore dialog grace
+        if (keys1.moveD.value == -1 && keys1.moveL.value == -1 && keys1.moveR.value == -1 && keys1.moveU.value == -1) {
+            if (controlTick && controlDiagGrace == 0) {
+                controlDiagGrace = controlDiagGraceTime + 1;
+                finishMove = true;
+            }
+            controlTick = true;
+        }
+    });
+}
+
+},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"aunNh":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Player", ()=>Player
+);
+class Player {
+    constructor(player){
+        this.controlActor = null;
+        this.cameraActor = null;
+        this.controlActor = player;
+        this.cameraActor = player;
+    }
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequirebb28")

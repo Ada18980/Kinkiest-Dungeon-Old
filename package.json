@@ -5,27 +5,30 @@
   "directories": {
     "lib": "lib"
   },
+  "chromium-args": "--enable-features=NativeFileSystemAPI --native-file-system-api --enable-native-file-system-api --enable-features=native-file-system-api",
   "dependencies": {
-    "copy-webpack-plugin": "^9.0.1",
-    "eslint": "^7.32.0",
-    "parcel": "^2.0.0-rc.0",
-    "parcel-reporter-static-files-copy": "^1.3.0",
     "pixi-viewport": "^4.32.0",
-    "pixi.js": "^6.1.2",
-    "tsc": "^2.0.3",
-    "typescript": "^4.3.5"
+    "pixi.js": "^6.1.2"
   },
   "devDependencies": {
     "@types/pixi.js": "^5.0.0",
     "brfs": "^2.0.2",
+    "nwjs-packager": "^1.5.0",
     "parcel-plugin-nuke-dist": "^1.0.1",
     "parcel-plugin-r": "^3.0.0",
     "transform-loader": "^0.2.4",
     "ts-loader": "^9.2.5",
-    "webpack-cli": "^4.7.2"
+    "webpack-cli": "^4.7.2",
+    "copy-webpack-plugin": "^9.0.1",
+    "eslint": "^7.32.0",
+    "nwjs": "^1.4.4",
+    "parcel": "^2.0.0-rc.0",
+    "parcel-reporter-static-files-copy": "^1.3.0",
+    "tsc": "^2.0.3",
+    "typescript": "^4.3.5"
   },
   "scripts": {
-    "build": "parcel build src/index.html --public-url ./ --no-scope-hoist",
+    "build": "parcel build src/index.html --public-url /dist/ --no-scope-hoist",
     "start": "rm -rf dist && parcel src/index.html",
     "lint": "eslint --max-warnings 0 ./src",
     "lint:fix": "eslint --fix ./src",
@@ -41,5 +44,26 @@
     "url": "https://github.com/Ada18980/trespassers/issues"
   },
   "homepage": "https://github.com/Ada18980/trespassers",
-  "main": "index.js"
+  "nwjs-packager": {
+    "nwVersion": "0.58.0",
+    "appFriendlyName": "Kinkiest Dungeon",
+    "nwFlavor": "sdk",
+    "appMacIcon": "dist/icon.icns",
+    "appWinIcon": "dist/icon.ico",
+    "files": [
+      "dist/**"
+    ],
+    "builds": {
+      "linux": {
+        "tar.gz": true
+      },
+      "osx": {
+        "zip": true
+      },
+      "win": {
+        "zip": true
+      }
+    }
+  },
+  "main": "dist/main.js"
 }
