@@ -4,7 +4,7 @@ import { getNewSprite, Image } from '../gfx/sprites';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport } from '../gfx/render';
 import { ActorUpdateHook, ActorDrawHook } from './hooks';
 import { WorldObject } from "./quadtree";
-import { WorldDir } from './world';
+import { WorldVec } from './world';
 
 export enum Dir {
     UP = "_up",
@@ -57,7 +57,7 @@ export class Actor extends WorldObject {
     }
 
     // Returns if the actor turned
-    faceDir(dir : WorldDir) : boolean {
+    faceDir(dir : WorldVec) : boolean {
         let DirIdeal = Dir.DOWN;
         let DirNonIdeal : Dir[] = [];
         if (dir.y > 0) {
@@ -147,7 +147,7 @@ export class ActorContainer {
             let pose = ["walk"];
 
             this.sprite.render(this.actor.direction, pose, this.xx, this.yy);
-            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 0);
+            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 1);
             if (!playAnim && this.sprite.playing) this.sprite.animate(false, true, 0);
         }
     }

@@ -532,7 +532,7 @@ function LauncherLaunchGame(width, height) {
     resize();
     _sprites.loadSprites();
     let world = new _world.World();
-    let player = new _actor.Actor(50, 50, {
+    let player = new _actor.Actor(49, 49, {
         sprite: "player_default",
         player: true
     });
@@ -43669,7 +43669,7 @@ class ActorContainer {
                 "walk"
             ];
             this.sprite.render(this.actor.direction, pose, this.xx, this.yy);
-            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 0);
+            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 1);
             if (!playAnim && this.sprite.playing) this.sprite.animate(false, true, 0);
         }
     }
@@ -43870,9 +43870,11 @@ parcelHelpers.export(exports, "World", ()=>World
 );
 var _actor = require("./actor");
 var _quadtree = require("./quadtree");
+var _random = require("../random");
 "use strict";
 class Zone {
     constructor(width1, height1){
+        this.seed = "kinky";
         this.walls = [];
         this.width = width1;
         this.height = height1;
@@ -43882,9 +43884,13 @@ class Zone {
         let row = this.walls[y];
         if (row) {
             let cell = row[x];
-            if (cell) return cell;
+            if (cell != undefined) return cell;
         }
         return -1;
+    }
+    set(x, y, value) {
+        let row = this.walls[y];
+        if (row) row[x] = value;
     }
     isEdge(x, y) {
         return x == 0 || x == this.width - 1 || y == 0 || y == this.height - 1;
@@ -43897,31 +43903,154 @@ class Zone {
         for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if ((xx != x || yy != y) && this.get(xx, yy) == 1) num += 1;
         return num;
     }
+    // Returns the neighbors of a cells as WorldVec
+    getNeighbors(x, y) {
+        let neighbors = [];
+        let maxX = Math.min(this.width - 1, x + 1);
+        let maxY = Math.min(this.height - 1, y + 1);
+        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if (xx != x || yy != y) neighbors.push({
+            x: xx,
+            y: yy
+        });
+        return neighbors;
+    }
     createMaze(width = this.width, height = this.height) {
+        let rand = _random.getRandomFunction(this.seed);
         if (width > this.width) width = this.width;
         if (height > this.height) height = this.height;
-        let change = 1;
-        let iters = 0;
-        let max = 100;
-        while(change > 0 && iters < max){
-            change = 0;
-            for(let y2 = 0; y2 < height; y2++){
-                let row = this.walls[y2];
-                if (row) for(let x = 0; x < width; x++)// Processing loop for each cell
-                // Initialization step
-                if (iters == 0) {
-                    row[x] = !this.isEdge(x, y2) && Math.random() > 0.5 && y2 != 50 && x != 50 ? 1 : 0;
-                    change += 1;
-                } else {
-                    let neighbors = this.getWallNeighborCount(x, y2);
-                    let start = row[x];
-                    if (neighbors == 0 || neighbors > 6) row[x] = 0;
-                    else if (neighbors == 3) row[x] = 1;
-                    if (start != row[x]) change += 1;
-                }
+        let cells = [];
+        for(let y2 = 0; y2 < height; y2++)cells.push(new Uint16Array(width));
+        // Initialization
+        for(let y3 = 0; y3 < height; y3++){
+            let row = cells[y3];
+            if (row) for(let x = 0; x < width; x++)// Initialization step
+            row[x] = 1;
+        }
+        // http://justinparrtech.com/JustinParr-Tech/wp-content/uploads/Creating%20Mazes%20Using%20Cellular%20Automata_v2.pdf
+        function randCell(rand1) {
+            return {
+                x: 1 + Math.floor(rand1() * (width / 2 - 1.000001)) * 2,
+                y: 1 + Math.floor(rand1() * (height / 2 - 1.000001)) * 2
+            };
+        }
+        function getCell(x, y4) {
+            let row = cells[y4];
+            if (row) {
+                let cell = row[x];
+                if (cell != undefined) return cell;
             }
-            iters += 1;
-            console.log(change);
+            return -1;
+        }
+        function setCell(x, y4, value) {
+            let row = cells[y4];
+            if (row) row[x] = value;
+        }
+        function getNeighborCells(x, y4) {
+            let neighbors = [];
+            if (x + 2 < width - 1) neighbors.push({
+                x: x + 2,
+                y: y4
+            });
+            if (y4 + 2 < height - 1) neighbors.push({
+                x: x,
+                y: y4 + 2
+            });
+            if (x - 2 >= 1) neighbors.push({
+                x: x - 2,
+                y: y4
+            });
+            if (y4 - 2 >= 1) neighbors.push({
+                x: x,
+                y: y4 - 2
+            });
+            return neighbors;
+        }
+        function getCellWallNeighborCount(x, y4) {
+            let num = 0;
+            if (getCell(x + 1, y4)) num += 1;
+            if (getCell(x - 1, y4)) num += 1;
+            if (getCell(x, y4 + 1)) num += 1;
+            if (getCell(x, y4 - 1)) num += 1;
+            if (getCell(x + 1, y4 + 1)) num += 1;
+            if (getCell(x + 1, y4 - 1)) num += 1;
+            if (getCell(x - 1, y4 + 1)) num += 1;
+            if (getCell(x - 1, y4 - 1)) num += 1;
+            return num;
+        }
+        function getCellWallNeighborCountExtended(x, y4) {
+            let num = 0;
+            if (getCell(x + 2, y4)) num += 1;
+            if (getCell(x - 2, y4)) num += 1;
+            if (getCell(x, y4 + 2)) num += 1;
+            if (getCell(x, y4 - 2)) num += 1;
+            return num;
+        }
+        let seeds = [
+            {
+                x: 49,
+                y: 49
+            }
+        ];
+        let seed_prob = 0.4; // Branching factor
+        let connect_prob = 0.2; // Reconnection factor
+        let pillar_prob = 0; // Chance of a pillar remaining
+        let freewall_prob = 0; // Chance of a freewall remaining
+        let iters = 0;
+        let max = 10000;
+        while(iters < max && seeds.length > 0){
+            let cur_seed = seeds[Math.floor(rand() * seeds.length)];
+            if (cur_seed) {
+                setCell(cur_seed.x, cur_seed.y, 0);
+                let neighbors = getNeighborCells(cur_seed.x, cur_seed.y);
+                let neighbors_noConn = 0;
+                for(let i = 0; i < neighbors.length * 2; i++){
+                    let ind = Math.floor(rand() * neighbors.length);
+                    let neighbor = neighbors[ind];
+                    if (neighbor && getCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2) != 0) neighbors_noConn += 1; // There is no connection
+                    else {
+                        neighbors.splice(ind, 1);
+                        continue;
+                    }
+                    if (rand() > connect_prob && getCell(neighbor.x, neighbor.y) == 0) {
+                        neighbors.splice(ind, 1);
+                        continue;
+                    }
+                    if (neighbor) {
+                        setCell(neighbor.x, neighbor.y, 0); // Make the cell empty and a seed
+                        seeds.push(neighbor);
+                        setCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2, 0); // Create a connection
+                        break;
+                    }
+                }
+                if (neighbors_noConn == 0 || rand() > seed_prob) seeds.splice(seeds.indexOf(cur_seed), 1);
+            }
+            /*for (let y = 1; y < height; y += 2) {
+                let row = this.walls[y];
+                if (row)
+                    for (let x = 1; x < width; x += 2) {
+                        // Processing loop for each cell
+                        // Each 'cell' is a grid square surrounded by walls
+
+
+
+
+                    }
+            }*/ iters += 1;
+        //if (iters % 100 == 0)
+        //    console.log(seeds.length);
+        }
+        this.walls = cells;
+        // Remove freewalls
+        for(let y4 = 2; y4 < height; y4 += 2){
+            let row = this.walls[y4];
+            if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
+            if (getCell(x, y4) == 1 && rand() > freewall_prob && getCellWallNeighborCount(x, y4) == 1 && getCellWallNeighborCountExtended(x, y4) == 3) this.set(x, y4, 0);
+        }
+        // Remove pillars
+        for(let y5 = 2; y5 < height; y5 += 2){
+            let row = this.walls[y5];
+            if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
+            if (getCell(x, y5) == 1 && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, 0);
         }
     }
 }
@@ -44009,7 +44138,54 @@ class World {
     }
 }
 
-},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
+},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../random":"2ffUi"}],"2ffUi":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "rand", ()=>rand
+);
+parcelHelpers.export(exports, "setSeed", ()=>setSeed
+);
+parcelHelpers.export(exports, "getRandomFunction", ()=>getRandomFunction
+);
+function xmur3(str) {
+    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19;
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    };
+}
+function sfc32(a, b, c, d) {
+    return function() {
+        a >>>= 0;
+        b >>>= 0;
+        c >>>= 0;
+        d >>>= 0;
+        var t = a + b | 0;
+        a = b ^ b >>> 9;
+        b = c + (c << 3) | 0;
+        c = c << 21 | c >>> 11;
+        d = d + 1 | 0;
+        t = t + d | 0;
+        c = c + t | 0;
+        return (t >>> 0) / 4294967296;
+    };
+}
+let seed = "kinky";
+let hash = xmur3(seed);
+let rand = sfc32(hash(), hash(), hash(), hash());
+function setSeed(str) {
+    seed = str;
+    hash = xmur3(seed);
+    rand = sfc32(hash(), hash(), hash(), hash());
+}
+function getRandomFunction(str) {
+    let sd = str;
+    let hsh = xmur3(sd);
+    return sfc32(hsh(), hsh(), hsh(), hsh());
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "UI", ()=>UI

@@ -74,7 +74,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	loadSprites();
 
 	let world = new World();
-	let player = new Actor(50, 50, {
+	let player = new Actor(49, 49, {
 		sprite: "player_default",
 		player: true,
 	});
