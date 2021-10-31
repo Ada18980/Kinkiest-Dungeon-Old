@@ -43864,6 +43864,8 @@ class QuadCell {
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Wall", ()=>Wall
+);
 parcelHelpers.export(exports, "Zone", ()=>Zone
 );
 parcelHelpers.export(exports, "World", ()=>World
@@ -43872,13 +43874,21 @@ var _actor = require("./actor");
 var _quadtree = require("./quadtree");
 var _random = require("../random");
 "use strict";
+var Wall;
+(function(Wall1) {
+    Wall1[Wall1["FLOOR"] = 0] = "FLOOR";
+    Wall1[Wall1["WINDOW"] = 1] = "WINDOW";
+    Wall1[Wall1["WALL"] = 100] = "WALL";
+    Wall1[Wall1["CURTAIN"] = 101] = "CURTAIN";
+})(Wall || (Wall = {
+}));
 class Zone {
     constructor(width1, height1){
         this.seed = "kinky";
         this.walls = [];
         this.width = width1;
         this.height = height1;
-        for(let y1 = 0; y1 < height1; y1++)this.walls.push(new Uint16Array(width1));
+        for(let y1 = 0; y1 < height1; y1++)this.walls.push(new Uint8Array(width1));
     }
     get(x, y) {
         let row = this.walls[y];
@@ -43919,12 +43929,12 @@ class Zone {
         if (width > this.width) width = this.width;
         if (height > this.height) height = this.height;
         let cells = [];
-        for(let y2 = 0; y2 < height; y2++)cells.push(new Uint16Array(width));
+        for(let y2 = 0; y2 < height; y2++)cells.push(new Uint8Array(width));
         // Initialization
         for(let y3 = 0; y3 < height; y3++){
             let row = cells[y3];
             if (row) for(let x = 0; x < width; x++)// Initialization step
-            row[x] = 1;
+            row[x] = Wall.WALL;
         }
         // http://justinparrtech.com/JustinParr-Tech/wp-content/uploads/Creating%20Mazes%20Using%20Cellular%20Automata_v2.pdf
         function randCell(rand1) {
@@ -44000,25 +44010,25 @@ class Zone {
         while(iters < max && seeds.length > 0){
             let cur_seed = seeds[Math.floor(rand() * seeds.length)];
             if (cur_seed) {
-                setCell(cur_seed.x, cur_seed.y, 0);
+                setCell(cur_seed.x, cur_seed.y, Wall.FLOOR);
                 let neighbors = getNeighborCells(cur_seed.x, cur_seed.y);
                 let neighbors_noConn = 0;
                 for(let i = 0; i < neighbors.length * 2; i++){
                     let ind = Math.floor(rand() * neighbors.length);
                     let neighbor = neighbors[ind];
-                    if (neighbor && getCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2) != 0) neighbors_noConn += 1; // There is no connection
+                    if (neighbor && getCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2) != Wall.FLOOR) neighbors_noConn += 1; // There is no connection
                     else {
                         neighbors.splice(ind, 1);
                         continue;
                     }
-                    if (rand() > connect_prob && getCell(neighbor.x, neighbor.y) == 0) {
+                    if (rand() > connect_prob && getCell(neighbor.x, neighbor.y) == Wall.FLOOR) {
                         neighbors.splice(ind, 1);
                         continue;
                     }
                     if (neighbor) {
-                        setCell(neighbor.x, neighbor.y, 0); // Make the cell empty and a seed
+                        setCell(neighbor.x, neighbor.y, Wall.FLOOR); // Make the cell empty and a seed
                         seeds.push(neighbor);
-                        setCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2, 0); // Create a connection
+                        setCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2, Wall.FLOOR); // Create a connection
                         break;
                     }
                 }
@@ -44043,14 +44053,14 @@ class Zone {
         // Remove freewalls
         for(let y4 = 2; y4 < height; y4 += 2){
             let row = this.walls[y4];
-            if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
-            if (getCell(x, y4) == 1 && rand() > freewall_prob && getCellWallNeighborCount(x, y4) == 1 && getCellWallNeighborCountExtended(x, y4) == 3) this.set(x, y4, 0);
+            if (row) for(let x = 2; x < width; x += 2)// Clean up freewalls
+            if (getCell(x, y4) == Wall.WALL && rand() > freewall_prob && getCellWallNeighborCount(x, y4) == 1 && getCellWallNeighborCountExtended(x, y4) == 3) this.set(x, y4, Wall.FLOOR);
         }
         // Remove pillars
         for(let y5 = 2; y5 < height; y5 += 2){
             let row = this.walls[y5];
             if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
-            if (getCell(x, y5) == 1 && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, 0);
+            if (getCell(x, y5) == Wall.WALL && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, Wall.FLOOR);
         }
     }
 }
@@ -44067,7 +44077,9 @@ class World {
         this.zones = [
             zone
         ];
+        let start = performance.now();
         zone.createMaze();
+        console.log("Maze generation took " + (performance.now() - start) / 1000);
     }
     moveActor(actor, dir) {
         if (this.actors.get(actor.id)) {
