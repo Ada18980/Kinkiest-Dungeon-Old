@@ -25,15 +25,64 @@ export class Zone {
         }
     }
 
+    get(x : number, y : number) : number {
+        let row = this.walls[y];
+        if (row) {
+            let cell = row[x];
+            if (cell) return cell;
+        }
+        return -1;
+    }
+
+    isEdge(x : number, y : number) : boolean {
+        return (x == 0 || x == this.width - 1 || y == 0 || y == this.height - 1);
+    }
+
+    // Returns the number of walls (1) around the area
+    getWallNeighborCount(x : number, y : number) : number {
+        let num = 0;
+        let maxX = Math.min(this.width-1, x+1);
+        let maxY = Math.min(this.height-1, y+1);
+
+        for (let xx = Math.max(0, x-1); xx <= maxX; xx++)
+            for (let yy = Math.max(0, y-1); yy <= maxY; yy++) {
+                if ((xx != x || yy != y) && this.get(xx, yy) == 1) num += 1;
+            }
+
+        return num;
+    }
+
     createMaze(width: number = this.width, height: number = this.height) {
         if (width > this.width) width = this.width;
         if (height > this.height) height = this.height;
-        for (let y = 0; y < height; y++) {
-            let row = this.walls[y];
-            if (row)
-                for (let x = 0; x < width; x++) {
-                    row[x] = (Math.random() > 0.75) ? 1 : 0;
-                }
+
+        let change = 1;
+        let iters = 0;
+        let max = 100;
+        while (change > 0 && iters < max) {
+            change = 0;
+            for (let y = 0; y < height; y++) {
+                let row = this.walls[y];
+                if (row)
+                    for (let x = 0; x < width; x++) {
+                        // Processing loop for each cell
+                        // Initialization step
+                        if (iters == 0) {
+                            row[x] = (!this.isEdge(x, y) && Math.random() > 0.5 && (y != 50 && x != 50)) ? 1 : 0;
+                            change += 1;
+                        } else { // After initialization
+                            let neighbors = this.getWallNeighborCount(x, y);
+                            let start = row[x];
+                            if (neighbors == 0 || neighbors > 6) row[x] = 0;
+                            else if (neighbors == 3) row[x] = 1;
+                            if (start != row[x]) change += 1;
+                        }
+
+
+                    }
+            }
+            iters += 1;
+            console.log(change)
         }
     }
 }
