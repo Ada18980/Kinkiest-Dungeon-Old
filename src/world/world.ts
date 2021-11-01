@@ -6,7 +6,7 @@ import { renderer, viewport } from '../gfx/render';
 import { Viewport } from "pixi-viewport";
 import { QuadTree, WorldObject } from "./quadtree";
 import { getRandomFunction } from "../random";
-import {lightMap} from "./light";
+import {createLightMap, lightMap, propagateLight} from "./light";
 
 
 
@@ -86,34 +86,13 @@ export class Zone {
         for (let y = 0; y < height; y++) {
             this.walls.push(new Uint8Array(width));
         }
+        createLightMap();
     }
 
     // Range: Number of tiles to propagate vision out towards
     // Dispersion: Coefficient to go around corners
     updateLight(x : number, y : number, range : number, dispersion : number) {
-        this.light = [];
-        for (let y = 0; y < this.height; y++) {
-            let row : number[] = [];
-            for (let x = 0; x < this.width; x++) {
-                row[x] = 0;
-            }
-            this.light.push(row);
-        }
-        this.setLight(x, y, 1.0 * range);
-
-        // Begin running the lightmap
-        for (let r = 0; r < range; r++) {
-            let ring = lightMap[r]; // Get a ring from the lightmap
-            if (ring) {
-                for (let cell of ring) {
-                    let sum = 0.0;
-                    for (let source of cell.s) {
-                        sum += this.getLight(x + source.x, y + source.y) * source.w;
-                    }
-                    if (sum > 0) this.setLight(x + cell.dx, y + cell.dy, sum);
-                }
-            }
-        }
+        propagateLight(this, x, y, range, dispersion);
     }
 
     getLight(x : number, y : number) : number {
@@ -548,7 +527,7 @@ export class World {
         this.tree_actors.refresh();
         let zone = this.zones[this.currentZone];
         if (this.player && zone) {
-            zone.updateLight(this.player.x, this.player.y, 1, 0);
+            zone.updateLight(this.player.x, this.player.y, 7, 0.0);
         }
     }
 

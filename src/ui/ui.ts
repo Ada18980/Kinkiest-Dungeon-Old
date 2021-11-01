@@ -166,6 +166,7 @@ export class UI {
     }
 
     updateWorld() {
+
         // Update the walls
         let bounds = viewport.getVisibleBounds().pad(TILE_SIZE, TILE_SIZE);
         let walls = this.walls?.children;
@@ -179,8 +180,9 @@ export class UI {
             for (let S of light) {
                 S.visible = bounds.contains(S.x, S.y);
                 if (S.visible) {
-                    let l = this.currentZone.getLight(S.x*t1, S.y*t1);
-                    S.alpha = 1.0 - Math.min(1.0, l);
+                    let weight = 10.0;
+                    S.alpha = (S.alpha * 10.0 + (1.0 - Math.min(1.0, 1.2*this.currentZone.getLight(S.x*t1, S.y*t1)))) / (1.0 + weight);
+                    if (S.alpha < 0.01) S.alpha = 0.0;
                 }
             }
     }

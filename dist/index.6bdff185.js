@@ -43963,26 +43963,12 @@ class Zone {
         this.width = width1;
         this.height = height1;
         for(let y1 = 0; y1 < height1; y1++)this.walls.push(new Uint8Array(width1));
+        _light.createLightMap();
     }
     // Range: Number of tiles to propagate vision out towards
     // Dispersion: Coefficient to go around corners
     updateLight(x, y, range, dispersion) {
-        this.light = [];
-        for(let y2 = 0; y2 < this.height; y2++){
-            let row = [];
-            for(let x = 0; x < this.width; x++)row[x] = 0;
-            this.light.push(row);
-        }
-        this.setLight(x, y, 1 * range);
-        // Begin running the lightmap
-        for(let r = 0; r < range; r++){
-            let ring = _light.lightMap[r]; // Get a ring from the lightmap
-            if (ring) for (let cell of ring){
-                let sum = 0;
-                for (let source of cell.s)sum += this.getLight(x + source.x, y + source.y) * source.w;
-                if (sum > 0) this.setLight(x + cell.dx, y + cell.dy, sum);
-            }
-        }
+        _light.propagateLight(this, x, y, range, dispersion);
     }
     getLight(x, y) {
         let row = this.light[y];
@@ -44315,7 +44301,7 @@ class World {
         });
         this.tree_actors.refresh();
         let zone1 = this.zones[this.currentZone];
-        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 1, 0);
+        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0);
     }
     render(delta) {
         this.containers.forEach((ac)=>{
@@ -44421,8 +44407,46 @@ function getRandomFunction(str) {
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"e01Wg":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "propagateLight", ()=>propagateLight
+);
 parcelHelpers.export(exports, "lightMap", ()=>lightMap
 );
+parcelHelpers.export(exports, "createLightMap", ()=>createLightMap
+);
+// s = source x and y points and w weights
+// dx, dy = destination x and y
+var _world = require("./world");
+function propagateLight(zone, x, y, range, dispersion) {
+    zone.light = [];
+    for(let y1 = 0; y1 < zone.height; y1++){
+        let row = [];
+        for(let x1 = 0; x1 < zone.width; x1++)row[x1] = 0;
+        zone.light.push(row);
+    }
+    zone.setLight(x, y, 1);
+    // Begin running the lightmap
+    for(let r = 0; r < range && r < lightMap.length; r++){
+        let ring = lightMap[r]; // Get a ring from the lightmap
+        if (ring) for (let cell of ring){
+            let sum = 0;
+            let n = 0;
+            let block = zone.get(x + cell.dx, y + cell.dy) == _world.Wall.WALL;
+            // For each ring cell we look at dependent light points and add up
+            for (let source of cell.s){
+                if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL) {
+                    if (!block || source.y >= cell.dy) {
+                        n++;
+                        sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
+                    }
+                }
+            }
+            if (sum <= 0.99 && n <= 1 && cell.s.length > 1) sum = Math.max(0, sum - 0.25);
+            if (sum < dispersion) sum = 0;
+            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, Math.min(1, sum));
+            else zone.setLight(x + cell.dx, y + cell.dy, -1);
+        }
+    }
+}
 let lightMap = [
     [
         {
@@ -44476,7 +44500,7 @@ let lightMap = [
                 {
                     x: 0,
                     y: 0,
-                    w: 0.71
+                    w: 0.99
                 }, 
             ]
         },
@@ -44487,7 +44511,7 @@ let lightMap = [
                 {
                     x: 0,
                     y: 0,
-                    w: 0.71
+                    w: 0.99
                 }, 
             ]
         },
@@ -44498,7 +44522,7 @@ let lightMap = [
                 {
                     x: 0,
                     y: 0,
-                    w: 0.71
+                    w: 0.99
                 }, 
             ]
         },
@@ -44509,14 +44533,52 @@ let lightMap = [
                 {
                     x: 0,
                     y: 0,
-                    w: 0.71
+                    w: 0.99
                 }, 
             ]
         }, 
     ], 
 ];
+let maxRange = 10;
+function createLightMap() {
+    if (lightMap.length < maxRange) for(let i = 1; i < maxRange; i++){
+        createLightMapRing();
+        console.log(lightMap);
+    }
+}
+function createLightMapRing() {
+    let d = lightMap.length + 1; // Current radius
+    let ring = [];
+    for(let y = -d; y <= d; y++){
+        for(let x = -d; x <= d; x++)if (Math.abs(x) == d || Math.abs(y) == d) {
+            let cell = {
+                dx: x,
+                dy: y,
+                s: []
+            };
+            let neighbors = [];
+            for(let xx = x - 1; xx <= x + 1; xx++)for(let yy = y - 1; yy <= y + 1; yy++){
+                if (xx != x || yy != y) {
+                    if (Math.abs(xx) < d && Math.abs(yy) < d) neighbors.push({
+                        x: xx,
+                        y: yy,
+                        w: 0
+                    });
+                }
+            }
+            for (let n of neighbors){
+                if (neighbors.length == 1) n.w = 0.99;
+                else if (n.x == cell.dx || n.y == cell.dy) n.w = 1;
+                else n.w = 0.5;
+                cell.s.push(n);
+            }
+            ring.push(cell);
+        }
+    }
+    lightMap.push(ring);
+}
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./world":"hywN6"}],"iwMNm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "UI", ()=>UI
@@ -44716,8 +44778,9 @@ class UI {
         if (light && this.currentZone) for (let S1 of light){
             S1.visible = bounds.contains(S1.x, S1.y);
             if (S1.visible) {
-                let l = this.currentZone.getLight(S1.x * t1, S1.y * t1);
-                S1.alpha = 1 - Math.min(1, l);
+                let weight = 10;
+                S1.alpha = (S1.alpha * 10 + (1 - Math.min(1, 1.2 * this.currentZone.getLight(S1.x * t1, S1.y * t1)))) / (1 + weight);
+                if (S1.alpha < 0.01) S1.alpha = 0;
             }
         }
     }
@@ -44854,7 +44917,7 @@ function controlTicker(delta, world, camera) {
             world.update(1);
             controlTick = false;
             controlTime = 270;
-            console.log(dir);
+            //console.log(dir)
             if (finishMove) {
                 controlMove = false;
                 finishMove = false;

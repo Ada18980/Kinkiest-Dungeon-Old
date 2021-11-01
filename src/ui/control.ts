@@ -87,7 +87,7 @@ export function controlTicker(delta : number, world : World, camera : Player) {
             world.update(1);
             controlTick = false;
             controlTime = 270;
-            console.log(dir)
+            //console.log(dir)
             if (finishMove) {
                 controlMove = false;
                 finishMove = false;
