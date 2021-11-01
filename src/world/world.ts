@@ -17,7 +17,39 @@ export enum Wall {
     WINDOW = 1,
     WALL = 100,
     CURTAIN = 101,
-
+}
+export enum WallDirections {
+    PILLAR = "pillar",
+    LEFT = "l",
+    RIGHT = "r",
+    UP = "u",
+    DOWN = "d",
+    UPLEFT = "ul",
+    UPRIGHT = "ur",
+    DOWNLEFT = "dl",
+    DOWNRIGHT = "dr",
+    UPDOWN = "ud",
+    LEFTRIGHT = "lr",
+    LEFTRIGHTDOWN = "lrd",
+    LEFTRIGHTUP = "lru",
+    UPDOWNLEFT = "udl",
+    UPDOWNRIGHT = "udr",
+    NONE = "n",
+    CORNER_DOWNRIGHT = "cdr",
+    CORNER_DOWNLEFT = "cdl",
+    CORNER_UPRIGHT = "cur",
+    CORNER_UPLEFT = "cul",
+    CORNER_NDOWNRIGHT = "cndr",
+    CORNER_NDOWNLEFT = "cndl",
+    CORNER_NUPRIGHT = "cnur",
+    CORNER_NUPLEFT = "cnul",
+    CORNER_DOWN = "cd",
+    CORNER_LEFT = "cl",
+    CORNER_RIGHT = "cr",
+    CORNER_UP = "cu",
+    CORNER_ALL = "call",
+    CORNER_FOR = "cfor", // forward slash
+    CORNER_BACK = "cback", // back slash
 }
 
 export class Zone {
@@ -81,6 +113,95 @@ export class Zone {
         return neighbors;
     }
 
+
+    getWallDirection(x : number, y : number) : WallDirections {
+        let u, d, l, r = false;
+        let ul, dl, ur, dr = false;
+
+        let gu = this.get(x, y - 1);
+        let gd = this.get(x, y + 1);
+        let gl = this.get(x - 1, y);
+        let gr = this.get(x + 1, y);
+
+        let gur = this.get(x + 1, y - 1);
+        let gul = this.get(x - 1, y - 1);
+        let gdr = this.get(x + 1, y + 1);
+        let gdl = this.get(x - 1, y + 1);
+
+        if (gr != Wall.WALL && gr != -1) r = true;
+        if (gl != Wall.WALL && gl != -1) l = true;
+        if (gu != Wall.WALL && gu != -1) u = true;
+        if (gd != Wall.WALL && gd != -1) d = true;
+        if (gur != Wall.WALL && gur != -1) ur = true;
+        if (gul != Wall.WALL && gul != -1) ul = true;
+        if (gdr != Wall.WALL && gdr != -1) dr = true;
+        if (gdl != Wall.WALL && gdl != -1) dl = true;
+
+        if (u) {
+            if (d) {
+                if (l) {
+                    if (r) {
+                        return WallDirections.PILLAR;
+                    } else {
+                        return WallDirections.UPDOWNLEFT;
+                    }
+                } else {
+                    if (r) {
+                        return WallDirections.UPDOWNRIGHT;
+                    } else {
+                        console.log(gu + ", " + gd)
+                        return WallDirections.UPDOWN;
+                    }
+                }
+            } else {
+                if (l) {
+                    if (r) {
+                        return WallDirections.LEFTRIGHTUP;
+                    } else {
+                        return WallDirections.UPLEFT;
+                    }
+                } else {
+                    if (r) {
+                        return WallDirections.UPRIGHT;
+                    } else {
+                        return WallDirections.UP;
+                    }
+                }
+            }
+        } else {
+            if (d) {
+                if (l) {
+                    if (r) {
+                        return WallDirections.LEFTRIGHTDOWN;
+                    } else {
+                        return WallDirections.DOWNLEFT;
+                    }
+                } else {
+                    if (r) {
+                        return WallDirections.DOWNRIGHT;
+                    } else {
+                        return WallDirections.DOWN;
+                    }
+                }
+            } else {
+                if (l) {
+                    if (r) {
+                        return WallDirections.LEFTRIGHT;
+                    } else {
+                        return WallDirections.LEFT;
+                    }
+                } else {
+                    if (r) {
+                        return WallDirections.RIGHT;
+                    } else { // Only corners
+                        return WallDirections.PILLAR;
+                    }
+                }
+            }
+        }
+        return WallDirections.NONE;
+    }
+
     createMaze(width: number = this.width, height: number = this.height) {
         let rand = getRandomFunction(this.seed);
 
@@ -136,14 +257,14 @@ export class Zone {
         function getCellWallNeighborCount(x : number, y : number) : number {
             let num = 0;
 
-            if (getCell(x + 1, y)) num += 1;
-            if (getCell(x - 1, y)) num += 1;
-            if (getCell(x, y + 1)) num += 1;
+            if (getCell(x + 1, y) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y) == Wall.WALL) num += 1;
+            if (getCell(x, y + 1) == Wall.WALL) num += 1;
             if (getCell(x, y - 1)) num += 1;
-            if (getCell(x + 1, y + 1)) num += 1;
-            if (getCell(x + 1, y - 1)) num += 1;
-            if (getCell(x - 1, y + 1)) num += 1;
-            if (getCell(x - 1, y - 1)) num += 1;
+            if (getCell(x + 1, y + 1) == Wall.WALL) num += 1;
+            if (getCell(x + 1, y - 1) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y + 1) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y - 1) == Wall.WALL) num += 1;
 
             return num;
         }
@@ -151,10 +272,10 @@ export class Zone {
         function getCellWallNeighborCountExtended(x : number, y : number) : number {
             let num = 0;
 
-            if (getCell(x + 2, y)) num += 1;
-            if (getCell(x - 2, y)) num += 1;
-            if (getCell(x, y + 2)) num += 1;
-            if (getCell(x, y - 2)) num += 1;
+            if (getCell(x + 2, y) == Wall.WALL) num += 1;
+            if (getCell(x - 2, y) == Wall.WALL) num += 1;
+            if (getCell(x, y + 2) == Wall.WALL) num += 1;
+            if (getCell(x, y - 2) == Wall.WALL) num += 1;
 
             return num;
         }

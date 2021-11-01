@@ -100,10 +100,10 @@ export function controlTicker(delta : number, world : World, camera : Player) {
     if (camera.cameraActor) {
         let container = world.containers.get(camera.cameraActor.id)
             if (container) {
-                let XX = container.xx + TILE_SIZE / 2 + lastDir.x * viewport.screenWidth/12;
-                let YY = container.yy + lastDir.y * viewport.screenHeight/12;
-                let distMax = Math.min(viewport.screenHeight, viewport.screenWidth)/4;
-                if ( (Math.abs(XX - lastXX) > distMax - TILE_SIZE/2 || Math.abs(YY - lastYY) > distMax - TILE_SIZE) && performance.now() - lastCameraMove > 500) {
+                let XX = container.xx + 2*lastDir.x * TILE_SIZE;
+                let YY = container.yy + 2*lastDir.y * TILE_SIZE;
+                let distMax = Math.min(viewport.screenHeight, viewport.screenWidth)/6;
+                if ( (Math.abs(XX - lastXX) > distMax|| Math.abs(YY - lastYY) > distMax) && performance.now() - lastCameraMove > 500) {
                     let ease = "easeInOutSine";
                     let time = 1000;
                     if (performance.now() - lastCameraMove < 1000 ) {

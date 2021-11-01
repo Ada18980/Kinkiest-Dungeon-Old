@@ -14,9 +14,14 @@ let spriteResources : SpriteResource[] = [
         name: "player_default",
         path: "img/player/default.json",
     },
+    {
+        name: "bricks",
+        path: "img/tiles/bricks.json",
+    },
 ];
 
 let sprites : Map<string, BaseImage> = new Map<string, BaseImage>();
+let images : Map<string, Image> = new Map<string, Image>();
 
 interface SpriteResource {
     /**
@@ -231,6 +236,19 @@ export function getNewSprite(name : string) {
     return new Image(sprite);
 }
 
+export function getGeneralSprite(name : string) {
+    let sprite = images.get(name);
+    if (!sprite) {
+        let spr = sprites.get(name);
+        if (spr) {
+            sprite = new Image(spr);
+            return sprite;
+        }
+        return undefined;
+    }
+    return sprite;
+}
+
 
 export function addSprite(name: string, path: string, columns? : number, width? : number, height? : number) {
     PIXI.Loader.shared
@@ -242,7 +260,6 @@ export function loadSprites() {
     for (let element of spriteResources) {
         PIXI.Loader.shared.add(element.name, element.path)
     }
-
 
     PIXI.Loader.shared.load((loader, resources) => {
         for (let element of spriteResources) {

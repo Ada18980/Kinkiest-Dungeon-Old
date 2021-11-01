@@ -1,5 +1,5 @@
 import { Viewport } from "pixi-viewport";
-import { World } from "../world/world";
+import { World, Zone } from "../world/world";
 import * as PIXI from 'pixi.js';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport } from '../gfx/render';
 import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls, controlTick, controlTicker } from './control';
@@ -7,11 +7,13 @@ import { ratio } from '../launcher';
 
 import { Player } from './player';
 import { Actor } from '../world/actor';
+import { getGeneralSprite } from "../gfx/sprites";
 
 export class UI {
     player : Player;
     world : World;
     walls : PIXI.Container | undefined;
+    currentZone : Zone | undefined;
 
     constructor(player: Actor, world : World) {
         this.player = new Player(player);
@@ -32,6 +34,10 @@ export class UI {
         viewport.snapZoom({ease: "easeInOutSine", time: 1000, removeOnComplete: true, height: ratio > 1 ? (MIN_ZOOM * TILE_SIZE) : undefined, width: ratio <= 1 ? (MIN_ZOOM * TILE_SIZE) : undefined});
 
         app.ticker.add((delta: number) => {
+            if (this.world && this.currentZone != this.world.zones[this.world.currentZone]) {
+                this.loadWorld();
+            }
+
             let d = performance.now() - lastTick;
             lastTick = performance.now();
 
@@ -50,6 +56,40 @@ export class UI {
     }
 
     loadWorld() {
+        // Verify all items are loaded
+        let requiredSprites = [{sprite: "bricks", anim: ["pillar", "call",
+                                "cdr", "cur", "cdl", "cul",
+                                "cndr", "cnur", "cndl", "cnul",
+                                "cu", "cd", "cfor", "cback",
+                                "lru", "lrd", "udr", "udl",
+                                "r", "l", "d", "u",
+                                "lr", "ud", "dl", "dr", "ul", "ur"]}];
+
+        for (let rs of requiredSprites) {
+            if (!getGeneralSprite(rs.sprite)) return;
+        }
+
+        let textures = new Map<string, PIXI.Texture>();
+        for (let rs of requiredSprites) {
+            for (let rsa of rs.anim) {
+                //let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
+                let genSprite = getGeneralSprite(rs.sprite);
+                if (genSprite) {
+                    let animsprite = genSprite.animations.get(rsa);
+                    if (animsprite) {
+                        let layer = animsprite.get("tile");
+                        if (layer && layer.sprite.textures) {
+                            let tex = layer.sprite.textures[0] as PIXI.Texture<PIXI.Resource>;
+                            if (tex){
+                                textures.set(rs.sprite + rsa, tex);
+                            }
+                            //renderer.render(layer.sprite.textures[0],{renderTexture: texture})
+                        } else console.log("Layer not found" + animsprite.keys);
+                    } else console.log("Anim not found: " + rsa);
+                } else console.log("Sprite not found");
+            }
+        }
+
         if (this.world) {
             let zone = this.world.zones[this.world.currentZone]
             if (zone) {
@@ -64,18 +104,23 @@ export class UI {
                         if (row && row[ii]) {
                             let wall = row[ii] as number;
                             if (wall > 0) {
-                                let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
-                                let r1 = new PIXI.Graphics();
+                                /*let r1 = new PIXI.Graphics();
                                 r1.beginFill(0xFFFFFF);
                                 r1.drawRect(0, 0, 64, 64);
                                 r1.endFill();
-                                renderer.render(r1,{renderTexture: texture})
-                                let block = new PIXI.Sprite(texture);
-                                block.position.x = TILE_SIZE*i;
-                                block.position.y = TILE_SIZE*ii;
-                                block.anchor.x = 0;
-                                block.anchor.y = 0;
-                                this.walls.addChild(block);
+                                renderer.render(r1,{renderTexture: texture})*/
+                                let suff = zone.getWallDirection(ii, i);
+
+
+                                let tex = textures.get("bricks" + suff);
+                                if (tex) {
+                                    let block = new PIXI.Sprite(tex);
+                                    block.position.x = TILE_SIZE*ii;
+                                    block.position.y = TILE_SIZE*i;
+                                    block.anchor.x = 0;
+                                    block.anchor.y = 0;
+                                    this.walls.addChild(block);
+                                } else console.log("Tex not found: bricks" + suff);
                             }
                         }
                     }
@@ -84,7 +129,10 @@ export class UI {
                 viewport.worldWidth = TILE_SIZE * zone.width;
                 viewport.worldHeight = TILE_SIZE * zone.height;
             }
+            this.currentZone = zone;
         }
+
+        console.log(textures)
     }
 
     updateWorld() {

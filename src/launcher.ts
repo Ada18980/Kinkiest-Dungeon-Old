@@ -28,7 +28,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	app = new PIXI.Application({
 		resizeTo: window,
 		autoDensity: true,
-		backgroundColor: 0x000000,
+		backgroundColor: 0x444444,
 		antialias: false,
 	});
 
@@ -91,7 +91,6 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	let GUI = new UI(player, world);
 	GUI.initialize(app);
-	GUI.loadWorld();
 	GUI.player = new Player(player);
 }
 

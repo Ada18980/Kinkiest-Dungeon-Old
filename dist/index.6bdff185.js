@@ -498,7 +498,7 @@ function LauncherLaunchGame(width, height) {
     app = new _pixiJs.Application({
         resizeTo: window,
         autoDensity: true,
-        backgroundColor: 0,
+        backgroundColor: 4473924,
         antialias: false
     });
     // Set up the renderer and properties
@@ -546,7 +546,6 @@ function LauncherLaunchGame(width, height) {
     console.log(world.tree_actors);
     let GUI = new _ui.UI(player, world);
     GUI.initialize(app);
-    GUI.loadWorld();
     GUI.player = new _player.Player(player);
 }
 function resize() {
@@ -43283,6 +43282,8 @@ parcelHelpers.export(exports, "getSprite", ()=>getSprite
 );
 parcelHelpers.export(exports, "getNewSprite", ()=>getNewSprite
 );
+parcelHelpers.export(exports, "getGeneralSprite", ()=>getGeneralSprite
+);
 parcelHelpers.export(exports, "addSprite", ()=>addSprite
 );
 parcelHelpers.export(exports, "loadSprites", ()=>loadSprites
@@ -43317,9 +43318,14 @@ let spriteResources = [
     {
         name: "player_default",
         path: "img/player/default.json"
+    },
+    {
+        name: "bricks",
+        path: "img/tiles/bricks.json"
     }, 
 ];
 let sprites = new Map();
+let images = new Map();
 class BaseImage {
     constructor(name){
         this.name = name;
@@ -43440,6 +43446,18 @@ function getNewSprite(name2) {
     if (!sprite1) return undefined;
     return new Image1(sprite1);
 }
+function getGeneralSprite(name2) {
+    let sprite1 = images.get(name2);
+    if (!sprite1) {
+        let spr = sprites.get(name2);
+        if (spr) {
+            sprite1 = new Image1(spr);
+            return sprite1;
+        }
+        return undefined;
+    }
+    return sprite1;
+}
 function addSprite(name2, path, columns, width, height) {
     _pixiJs.Loader.shared.add(name2, path);
 }
@@ -43536,7 +43554,7 @@ parcelHelpers.export(exports, "setRenderer", ()=>setRenderer
 );
 parcelHelpers.export(exports, "setViewport", ()=>setViewport
 );
-const TILE_SIZE = 63;
+const TILE_SIZE = 64;
 const MIN_ZOOM = 5; // In tiles
 const MAX_ZOOM = 25; // In Tiles
 let renderer;
@@ -43866,6 +43884,8 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Wall", ()=>Wall
 );
+parcelHelpers.export(exports, "WallDirections", ()=>WallDirections
+);
 parcelHelpers.export(exports, "Zone", ()=>Zone
 );
 parcelHelpers.export(exports, "World", ()=>World
@@ -43881,6 +43901,41 @@ var Wall;
     Wall1[Wall1["WALL"] = 100] = "WALL";
     Wall1[Wall1["CURTAIN"] = 101] = "CURTAIN";
 })(Wall || (Wall = {
+}));
+var WallDirections;
+(function(WallDirections1) {
+    WallDirections1["PILLAR"] = "pillar";
+    WallDirections1["LEFT"] = "l";
+    WallDirections1["RIGHT"] = "r";
+    WallDirections1["UP"] = "u";
+    WallDirections1["DOWN"] = "d";
+    WallDirections1["UPLEFT"] = "ul";
+    WallDirections1["UPRIGHT"] = "ur";
+    WallDirections1["DOWNLEFT"] = "dl";
+    WallDirections1["DOWNRIGHT"] = "dr";
+    WallDirections1["UPDOWN"] = "ud";
+    WallDirections1["LEFTRIGHT"] = "lr";
+    WallDirections1["LEFTRIGHTDOWN"] = "lrd";
+    WallDirections1["LEFTRIGHTUP"] = "lru";
+    WallDirections1["UPDOWNLEFT"] = "udl";
+    WallDirections1["UPDOWNRIGHT"] = "udr";
+    WallDirections1["NONE"] = "n";
+    WallDirections1["CORNER_DOWNRIGHT"] = "cdr";
+    WallDirections1["CORNER_DOWNLEFT"] = "cdl";
+    WallDirections1["CORNER_UPRIGHT"] = "cur";
+    WallDirections1["CORNER_UPLEFT"] = "cul";
+    WallDirections1["CORNER_NDOWNRIGHT"] = "cndr";
+    WallDirections1["CORNER_NDOWNLEFT"] = "cndl";
+    WallDirections1["CORNER_NUPRIGHT"] = "cnur";
+    WallDirections1["CORNER_NUPLEFT"] = "cnul";
+    WallDirections1["CORNER_DOWN"] = "cd";
+    WallDirections1["CORNER_LEFT"] = "cl";
+    WallDirections1["CORNER_RIGHT"] = "cr";
+    WallDirections1["CORNER_UP"] = "cu";
+    WallDirections1["CORNER_ALL"] = "call";
+    WallDirections1["CORNER_FOR"] = "cfor";
+    WallDirections1["CORNER_BACK"] = "cback";
+})(WallDirections || (WallDirections = {
 }));
 class Zone {
     constructor(width1, height1){
@@ -43923,6 +43978,63 @@ class Zone {
             y: yy
         });
         return neighbors;
+    }
+    getWallDirection(x, y) {
+        let u, d, l, r = false;
+        let ul, dl, ur, dr = false;
+        let gu = this.get(x, y - 1);
+        let gd = this.get(x, y + 1);
+        let gl = this.get(x - 1, y);
+        let gr = this.get(x + 1, y);
+        let gur = this.get(x + 1, y - 1);
+        let gul = this.get(x - 1, y - 1);
+        let gdr = this.get(x + 1, y + 1);
+        let gdl = this.get(x - 1, y + 1);
+        if (gr != Wall.WALL && gr != -1) r = true;
+        if (gl != Wall.WALL && gl != -1) l = true;
+        if (gu != Wall.WALL && gu != -1) u = true;
+        if (gd != Wall.WALL && gd != -1) d = true;
+        if (gur != Wall.WALL && gur != -1) ur = true;
+        if (gul != Wall.WALL && gul != -1) ul = true;
+        if (gdr != Wall.WALL && gdr != -1) dr = true;
+        if (gdl != Wall.WALL && gdl != -1) dl = true;
+        if (u) {
+            if (d) {
+                if (l) {
+                    if (r) return WallDirections.PILLAR;
+                    else return WallDirections.UPDOWNLEFT;
+                } else {
+                    if (r) return WallDirections.UPDOWNRIGHT;
+                    else {
+                        console.log(gu + ", " + gd);
+                        return WallDirections.UPDOWN;
+                    }
+                }
+            } else if (l) {
+                if (r) return WallDirections.LEFTRIGHTUP;
+                else return WallDirections.UPLEFT;
+            } else {
+                if (r) return WallDirections.UPRIGHT;
+                else return WallDirections.UP;
+            }
+        } else {
+            if (d) {
+                if (l) {
+                    if (r) return WallDirections.LEFTRIGHTDOWN;
+                    else return WallDirections.DOWNLEFT;
+                } else {
+                    if (r) return WallDirections.DOWNRIGHT;
+                    else return WallDirections.DOWN;
+                }
+            } else if (l) {
+                if (r) return WallDirections.LEFTRIGHT;
+                else return WallDirections.LEFT;
+            } else {
+                if (r) return WallDirections.RIGHT;
+                else return WallDirections.PILLAR;
+            }
+        }
+        return WallDirections.NONE;
     }
     createMaze(width = this.width, height = this.height) {
         let rand = _random.getRandomFunction(this.seed);
@@ -43977,22 +44089,22 @@ class Zone {
         }
         function getCellWallNeighborCount(x, y4) {
             let num = 0;
-            if (getCell(x + 1, y4)) num += 1;
-            if (getCell(x - 1, y4)) num += 1;
-            if (getCell(x, y4 + 1)) num += 1;
+            if (getCell(x + 1, y4) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y4) == Wall.WALL) num += 1;
+            if (getCell(x, y4 + 1) == Wall.WALL) num += 1;
             if (getCell(x, y4 - 1)) num += 1;
-            if (getCell(x + 1, y4 + 1)) num += 1;
-            if (getCell(x + 1, y4 - 1)) num += 1;
-            if (getCell(x - 1, y4 + 1)) num += 1;
-            if (getCell(x - 1, y4 - 1)) num += 1;
+            if (getCell(x + 1, y4 + 1) == Wall.WALL) num += 1;
+            if (getCell(x + 1, y4 - 1) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y4 + 1) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y4 - 1) == Wall.WALL) num += 1;
             return num;
         }
         function getCellWallNeighborCountExtended(x, y4) {
             let num = 0;
-            if (getCell(x + 2, y4)) num += 1;
-            if (getCell(x - 2, y4)) num += 1;
-            if (getCell(x, y4 + 2)) num += 1;
-            if (getCell(x, y4 - 2)) num += 1;
+            if (getCell(x + 2, y4) == Wall.WALL) num += 1;
+            if (getCell(x - 2, y4) == Wall.WALL) num += 1;
+            if (getCell(x, y4 + 2) == Wall.WALL) num += 1;
+            if (getCell(x, y4 - 2) == Wall.WALL) num += 1;
             return num;
         }
         let seeds = [
@@ -44207,6 +44319,7 @@ var _render = require("../gfx/render");
 var _control = require("./control");
 var _launcher = require("../launcher");
 var _player = require("./player");
+var _sprites = require("../gfx/sprites");
 class UI {
     constructor(player, world){
         this.player = new _player.Player(player);
@@ -44236,6 +44349,7 @@ class UI {
             width: _launcher.ratio <= 1 ? _render.MIN_ZOOM * _render.TILE_SIZE : undefined
         });
         app.ticker.add((delta)=>{
+            if (this.world && this.currentZone != this.world.zones[this.world.currentZone]) this.loadWorld();
             let d = performance.now() - lastTick;
             lastTick = performance.now();
             _control.controlTicker(d, this.world, this.player);
@@ -44255,6 +44369,61 @@ class UI {
         });
     }
     loadWorld() {
+        // Verify all items are loaded
+        let requiredSprites = [
+            {
+                sprite: "bricks",
+                anim: [
+                    "pillar",
+                    "call",
+                    "cdr",
+                    "cur",
+                    "cdl",
+                    "cul",
+                    "cndr",
+                    "cnur",
+                    "cndl",
+                    "cnul",
+                    "cu",
+                    "cd",
+                    "cfor",
+                    "cback",
+                    "lru",
+                    "lrd",
+                    "udr",
+                    "udl",
+                    "r",
+                    "l",
+                    "d",
+                    "u",
+                    "lr",
+                    "ud",
+                    "dl",
+                    "dr",
+                    "ul",
+                    "ur"
+                ]
+            }
+        ];
+        for (let rs of requiredSprites){
+            if (!_sprites.getGeneralSprite(rs.sprite)) return;
+        }
+        let textures = new Map();
+        for (let rs1 of requiredSprites)for (let rsa of rs1.anim){
+            //let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
+            let genSprite = _sprites.getGeneralSprite(rs1.sprite);
+            if (genSprite) {
+                let animsprite = genSprite.animations.get(rsa);
+                if (animsprite) {
+                    let layer = animsprite.get("tile");
+                    if (layer && layer.sprite.textures) {
+                        let tex = layer.sprite.textures[0];
+                        if (tex) textures.set(rs1.sprite + rsa, tex);
+                    //renderer.render(layer.sprite.textures[0],{renderTexture: texture})
+                    } else console.log("Layer not found" + animsprite.keys);
+                } else console.log("Anim not found: " + rsa);
+            } else console.log("Sprite not found");
+        }
         if (this.world) {
             let zone = this.world.zones[this.world.currentZone];
             if (zone) {
@@ -44266,23 +44435,20 @@ class UI {
                     if (row && row[ii]) {
                         let wall = row[ii];
                         if (wall > 0) {
-                            let texture = _pixiJs.RenderTexture.create({
-                                width: _render.TILE_SIZE,
-                                height: _render.TILE_SIZE
-                            });
-                            let r1 = new _pixiJs.Graphics();
-                            r1.beginFill(16777215);
-                            r1.drawRect(0, 0, 64, 64);
-                            r1.endFill();
-                            _render.renderer.render(r1, {
-                                renderTexture: texture
-                            });
-                            let block = new _pixiJs.Sprite(texture);
-                            block.position.x = _render.TILE_SIZE * i;
-                            block.position.y = _render.TILE_SIZE * ii;
-                            block.anchor.x = 0;
-                            block.anchor.y = 0;
-                            this.walls.addChild(block);
+                            /*let r1 = new PIXI.Graphics();
+                                r1.beginFill(0xFFFFFF);
+                                r1.drawRect(0, 0, 64, 64);
+                                r1.endFill();
+                                renderer.render(r1,{renderTexture: texture})*/ let suff = zone.getWallDirection(ii, i);
+                            let tex = textures.get("bricks" + suff);
+                            if (tex) {
+                                let block = new _pixiJs.Sprite(tex);
+                                block.position.x = _render.TILE_SIZE * ii;
+                                block.position.y = _render.TILE_SIZE * i;
+                                block.anchor.x = 0;
+                                block.anchor.y = 0;
+                                this.walls.addChild(block);
+                            } else console.log("Tex not found: bricks" + suff);
                         }
                     }
                 }
@@ -44290,7 +44456,9 @@ class UI {
                 _render.viewport.worldWidth = _render.TILE_SIZE * zone.width;
                 _render.viewport.worldHeight = _render.TILE_SIZE * zone.height;
             }
+            this.currentZone = zone;
         }
+        console.log(textures);
     }
     updateWorld() {
         // Update the walls
@@ -44300,7 +44468,7 @@ class UI {
     }
 }
 
-},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","../launcher":"7Wuwz","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"eAdAj":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","../launcher":"7Wuwz","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD"}],"eAdAj":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
@@ -44443,10 +44611,10 @@ function controlTicker(delta, world, camera) {
     if (camera.cameraActor) {
         let container = world.containers.get(camera.cameraActor.id);
         if (container) {
-            let XX = container.xx + _render.TILE_SIZE / 2 + lastDir.x * _render.viewport.screenWidth / 12;
-            let YY = container.yy + lastDir.y * _render.viewport.screenHeight / 12;
-            let distMax = Math.min(_render.viewport.screenHeight, _render.viewport.screenWidth) / 4;
-            if ((Math.abs(XX - lastXX) > distMax - _render.TILE_SIZE / 2 || Math.abs(YY - lastYY) > distMax - _render.TILE_SIZE) && performance.now() - lastCameraMove > 500) {
+            let XX = container.xx + 2 * lastDir.x * _render.TILE_SIZE;
+            let YY = container.yy + 2 * lastDir.y * _render.TILE_SIZE;
+            let distMax = Math.min(_render.viewport.screenHeight, _render.viewport.screenWidth) / 6;
+            if ((Math.abs(XX - lastXX) > distMax || Math.abs(YY - lastYY) > distMax) && performance.now() - lastCameraMove > 500) {
                 let ease = "easeInOutSine";
                 let time = 1000;
                 if (performance.now() - lastCameraMove < 1000) {
