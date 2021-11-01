@@ -39,6 +39,22 @@ export enum WallDirections {
     CORNER_DOWNLEFT = "cdl",
     CORNER_UPRIGHT = "cur",
     CORNER_UPLEFT = "cul",
+    DOWNRIGHT_C = "drc",
+    DOWNLEFT_C = "dlc",
+    UPRIGHT_C = "urc",
+    UPLEFT_C = "ulc",
+    DOWN_CLR = "dclr",
+    DOWN_CL = "dcl",
+    DOWN_CR = "dcr",
+    UP_CLR = "uclr",
+    UP_CL = "ucl",
+    UP_CR = "ucr",
+    RIGHT_CUD = "rcud",
+    RIGHT_CD = "rcd",
+    RIGHT_CU = "rcu",
+    LEFT_CUD = "lcud",
+    LEFT_CD = "lcd",
+    LEFT_CU = "lcu",
     CORNER_NDOWNRIGHT = "cndr",
     CORNER_NDOWNLEFT = "cndl",
     CORNER_NUPRIGHT = "cnur",
@@ -149,7 +165,6 @@ export class Zone {
                     if (r) {
                         return WallDirections.UPDOWNRIGHT;
                     } else {
-                        console.log(gu + ", " + gd)
                         return WallDirections.UPDOWN;
                     }
                 }
@@ -158,13 +173,21 @@ export class Zone {
                     if (r) {
                         return WallDirections.LEFTRIGHTUP;
                     } else {
-                        return WallDirections.UPLEFT;
+                        if (dr) return WallDirections.UPLEFT_C;
+                        else return WallDirections.UPLEFT;
                     }
                 } else {
                     if (r) {
-                        return WallDirections.UPRIGHT;
+                        if (dl) return WallDirections.UPRIGHT_C;
+                        else return WallDirections.UPRIGHT;
                     } else {
-                        return WallDirections.UP;
+                        if (dr && dl) {
+                            return WallDirections.UP_CLR
+                        } if (dl) {
+                            return WallDirections.UP_CL
+                        } if (dr) {
+                            return WallDirections.UP_CR
+                        } else return WallDirections.UP;
                     }
                 }
             }
@@ -174,13 +197,21 @@ export class Zone {
                     if (r) {
                         return WallDirections.LEFTRIGHTDOWN;
                     } else {
-                        return WallDirections.DOWNLEFT;
+                        if (ur) return WallDirections.DOWNLEFT_C;
+                        else return WallDirections.DOWNLEFT;
                     }
                 } else {
                     if (r) {
-                        return WallDirections.DOWNRIGHT;
+                        if (ul) return WallDirections.DOWNRIGHT_C;
+                        else return WallDirections.DOWNRIGHT;
                     } else {
-                        return WallDirections.DOWN;
+                        if (ur && ul) {
+                            return WallDirections.DOWN_CLR
+                        } if (ul) {
+                            return WallDirections.DOWN_CL
+                        } if (ur) {
+                            return WallDirections.DOWN_CR
+                        } return WallDirections.DOWN;
                     }
                 }
             } else {
@@ -188,13 +219,85 @@ export class Zone {
                     if (r) {
                         return WallDirections.LEFTRIGHT;
                     } else {
-                        return WallDirections.LEFT;
+                        if (ur && dr) {
+                            return WallDirections.LEFT_CUD
+                        } if (ur) {
+                            return WallDirections.LEFT_CU
+                        } if (dr) {
+                            return WallDirections.LEFT_CD
+                        } return WallDirections.LEFT;
                     }
                 } else {
                     if (r) {
-                        return WallDirections.RIGHT;
+                        if (ul && dl) {
+                            return WallDirections.RIGHT_CUD
+                        } if (ul) {
+                            return WallDirections.RIGHT_CU
+                        } if (dl) {
+                            return WallDirections.RIGHT_CD
+                        } return WallDirections.RIGHT;
                     } else { // Only corners
-                        return WallDirections.PILLAR;
+                        if (ur) {
+                            if (ul) {
+                                if (dr) {
+                                    if (dl) {
+                                        return WallDirections.CORNER_ALL;
+                                    } else {
+                                        return WallDirections.CORNER_NDOWNLEFT;
+                                    }
+                                } else {
+                                    if (dl) {
+                                        return WallDirections.CORNER_NDOWNRIGHT;
+                                    } else {
+                                        return WallDirections.CORNER_UP;
+                                    }
+                                }
+                            } else {
+                                if (dr) {
+                                    if (dl) {
+                                        return WallDirections.CORNER_NUPRIGHT;
+                                    } else {
+                                        return WallDirections.CORNER_RIGHT;
+                                    }
+                                } else {
+                                    if (dl) {
+                                        return WallDirections.CORNER_FOR;
+                                    } else {
+                                        return WallDirections.CORNER_UPRIGHT;
+                                    }
+                                }
+                            }
+                        } else {
+                            if (ul) {
+                                if (dr) {
+                                    if (dl) {
+                                        return WallDirections.CORNER_NUPRIGHT;
+                                    } else {
+                                        return WallDirections.CORNER_BACK;
+                                    }
+                                } else {
+                                    if (dl) {
+                                        return WallDirections.CORNER_LEFT;
+                                    } else {
+                                        return WallDirections.CORNER_UPLEFT;
+                                    }
+                                }
+                            } else {
+                                if (dr) {
+                                    if (dl) {
+                                        return WallDirections.CORNER_DOWN;
+                                    } else {
+                                        return WallDirections.CORNER_DOWNRIGHT;
+                                    }
+                                } else {
+                                    if (dl) {
+                                        return WallDirections.CORNER_DOWNLEFT;
+                                    } else {
+                                        return WallDirections.NONE;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

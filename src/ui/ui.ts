@@ -1,5 +1,5 @@
 import { Viewport } from "pixi-viewport";
-import { World, Zone } from "../world/world";
+import { Wall, World, Zone } from "../world/world";
 import * as PIXI from 'pixi.js';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport } from '../gfx/render';
 import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls, controlTick, controlTicker } from './control';
@@ -57,10 +57,17 @@ export class UI {
 
     loadWorld() {
         // Verify all items are loaded
-        let requiredSprites = [{sprite: "bricks", anim: ["pillar", "call",
+        let requiredSprites = [{sprite: "bricks", anim: ["floor",
+                                "pillar", "call", "n",
+                                "lcu", "lcd", "lcud",
+                                "rcu", "rcd", "rcud",
+                                "ucl", "ucr", "uclr",
+                                "dcl", "dcr", "dclr",
+                                "urc", "ulc", "drc", "dlc",
                                 "cdr", "cur", "cdl", "cul",
                                 "cndr", "cnur", "cndl", "cnul",
-                                "cu", "cd", "cfor", "cback",
+                                "cl", "cr", "cu", "cd",
+                                "cfor", "cback",
                                 "lru", "lrd", "udr", "udl",
                                 "r", "l", "d", "u",
                                 "lr", "ud", "dl", "dr", "ul", "ur"]}];
@@ -101,15 +108,16 @@ export class UI {
                 for (let i = 0; i < zone.height; i += 1) {
                     for (let ii = 0; ii < zone.width; ii += 1) {
                         let row = zone.walls[i];
-                        if (row && row[ii]) {
+                        if (row && row[ii] != undefined) {
                             let wall = row[ii] as number;
-                            if (wall > 0) {
+                            if (wall > -1) {
                                 /*let r1 = new PIXI.Graphics();
                                 r1.beginFill(0xFFFFFF);
                                 r1.drawRect(0, 0, 64, 64);
                                 r1.endFill();
                                 renderer.render(r1,{renderTexture: texture})*/
-                                let suff = zone.getWallDirection(ii, i);
+                                let suff = (wall == Wall.WALL) ? zone.getWallDirection(ii, i) :
+                                    ("floor");
 
 
                                 let tex = textures.get("bricks" + suff);

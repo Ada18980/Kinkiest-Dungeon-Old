@@ -43924,6 +43924,22 @@ var WallDirections;
     WallDirections1["CORNER_DOWNLEFT"] = "cdl";
     WallDirections1["CORNER_UPRIGHT"] = "cur";
     WallDirections1["CORNER_UPLEFT"] = "cul";
+    WallDirections1["DOWNRIGHT_C"] = "drc";
+    WallDirections1["DOWNLEFT_C"] = "dlc";
+    WallDirections1["UPRIGHT_C"] = "urc";
+    WallDirections1["UPLEFT_C"] = "ulc";
+    WallDirections1["DOWN_CLR"] = "dclr";
+    WallDirections1["DOWN_CL"] = "dcl";
+    WallDirections1["DOWN_CR"] = "dcr";
+    WallDirections1["UP_CLR"] = "uclr";
+    WallDirections1["UP_CL"] = "ucl";
+    WallDirections1["UP_CR"] = "ucr";
+    WallDirections1["RIGHT_CUD"] = "rcud";
+    WallDirections1["RIGHT_CD"] = "rcd";
+    WallDirections1["RIGHT_CU"] = "rcu";
+    WallDirections1["LEFT_CUD"] = "lcud";
+    WallDirections1["LEFT_CD"] = "lcd";
+    WallDirections1["LEFT_CU"] = "lcu";
     WallDirections1["CORNER_NDOWNRIGHT"] = "cndr";
     WallDirections1["CORNER_NDOWNLEFT"] = "cndl";
     WallDirections1["CORNER_NUPRIGHT"] = "cnur";
@@ -44005,33 +44021,89 @@ class Zone {
                     else return WallDirections.UPDOWNLEFT;
                 } else {
                     if (r) return WallDirections.UPDOWNRIGHT;
-                    else {
-                        console.log(gu + ", " + gd);
-                        return WallDirections.UPDOWN;
-                    }
+                    else return WallDirections.UPDOWN;
                 }
-            } else if (l) {
-                if (r) return WallDirections.LEFTRIGHTUP;
-                else return WallDirections.UPLEFT;
             } else {
-                if (r) return WallDirections.UPRIGHT;
-                else return WallDirections.UP;
+                if (l) {
+                    if (r) return WallDirections.LEFTRIGHTUP;
+                    else {
+                        if (dr) return WallDirections.UPLEFT_C;
+                        else return WallDirections.UPLEFT;
+                    }
+                } else if (r) {
+                    if (dl) return WallDirections.UPRIGHT_C;
+                    else return WallDirections.UPRIGHT;
+                } else {
+                    if (dr && dl) return WallDirections.UP_CLR;
+                    if (dl) return WallDirections.UP_CL;
+                    if (dr) return WallDirections.UP_CR;
+                    else return WallDirections.UP;
+                }
             }
         } else {
             if (d) {
                 if (l) {
                     if (r) return WallDirections.LEFTRIGHTDOWN;
-                    else return WallDirections.DOWNLEFT;
+                    else {
+                        if (ur) return WallDirections.DOWNLEFT_C;
+                        else return WallDirections.DOWNLEFT;
+                    }
+                } else if (r) {
+                    if (ul) return WallDirections.DOWNRIGHT_C;
+                    else return WallDirections.DOWNRIGHT;
                 } else {
-                    if (r) return WallDirections.DOWNRIGHT;
-                    else return WallDirections.DOWN;
+                    if (ur && ul) return WallDirections.DOWN_CLR;
+                    if (ul) return WallDirections.DOWN_CL;
+                    if (ur) return WallDirections.DOWN_CR;
+                    return WallDirections.DOWN;
                 }
             } else if (l) {
                 if (r) return WallDirections.LEFTRIGHT;
-                else return WallDirections.LEFT;
+                else {
+                    if (ur && dr) return WallDirections.LEFT_CUD;
+                    if (ur) return WallDirections.LEFT_CU;
+                    if (dr) return WallDirections.LEFT_CD;
+                    return WallDirections.LEFT;
+                }
             } else {
-                if (r) return WallDirections.RIGHT;
-                else return WallDirections.PILLAR;
+                if (r) {
+                    if (ul && dl) return WallDirections.RIGHT_CUD;
+                    if (ul) return WallDirections.RIGHT_CU;
+                    if (dl) return WallDirections.RIGHT_CD;
+                    return WallDirections.RIGHT;
+                } else if (ur) {
+                    if (ul) {
+                        if (dr) {
+                            if (dl) return WallDirections.CORNER_ALL;
+                            else return WallDirections.CORNER_NDOWNLEFT;
+                        } else {
+                            if (dl) return WallDirections.CORNER_NDOWNRIGHT;
+                            else return WallDirections.CORNER_UP;
+                        }
+                    } else if (dr) {
+                        if (dl) return WallDirections.CORNER_NUPRIGHT;
+                        else return WallDirections.CORNER_RIGHT;
+                    } else {
+                        if (dl) return WallDirections.CORNER_FOR;
+                        else return WallDirections.CORNER_UPRIGHT;
+                    }
+                } else {
+                    if (ul) {
+                        if (dr) {
+                            if (dl) return WallDirections.CORNER_NUPRIGHT;
+                            else return WallDirections.CORNER_BACK;
+                        } else {
+                            if (dl) return WallDirections.CORNER_LEFT;
+                            else return WallDirections.CORNER_UPLEFT;
+                        }
+                    } else if (dr) {
+                        if (dl) return WallDirections.CORNER_DOWN;
+                        else return WallDirections.CORNER_DOWNRIGHT;
+                    } else {
+                        if (dl) return WallDirections.CORNER_DOWNLEFT;
+                        else return WallDirections.NONE;
+                    }
+                }
             }
         }
         return WallDirections.NONE;
@@ -44314,6 +44386,7 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "UI", ()=>UI
 );
+var _world = require("../world/world");
 var _pixiJs = require("pixi.js");
 var _render = require("../gfx/render");
 var _control = require("./control");
@@ -44374,8 +44447,26 @@ class UI {
             {
                 sprite: "bricks",
                 anim: [
+                    "floor",
                     "pillar",
                     "call",
+                    "n",
+                    "lcu",
+                    "lcd",
+                    "lcud",
+                    "rcu",
+                    "rcd",
+                    "rcud",
+                    "ucl",
+                    "ucr",
+                    "uclr",
+                    "dcl",
+                    "dcr",
+                    "dclr",
+                    "urc",
+                    "ulc",
+                    "drc",
+                    "dlc",
                     "cdr",
                     "cur",
                     "cdl",
@@ -44384,6 +44475,8 @@ class UI {
                     "cnur",
                     "cndl",
                     "cnul",
+                    "cl",
+                    "cr",
                     "cu",
                     "cd",
                     "cfor",
@@ -44432,14 +44525,14 @@ class UI {
                 this.walls = new _pixiJs.Container();
                 for(let i = 0; i < zone.height; i += 1)for(let ii = 0; ii < zone.width; ii += 1){
                     let row = zone.walls[i];
-                    if (row && row[ii]) {
+                    if (row && row[ii] != undefined) {
                         let wall = row[ii];
-                        if (wall > 0) {
+                        if (wall > -1) {
                             /*let r1 = new PIXI.Graphics();
                                 r1.beginFill(0xFFFFFF);
                                 r1.drawRect(0, 0, 64, 64);
                                 r1.endFill();
-                                renderer.render(r1,{renderTexture: texture})*/ let suff = zone.getWallDirection(ii, i);
+                                renderer.render(r1,{renderTexture: texture})*/ let suff = wall == _world.Wall.WALL ? zone.getWallDirection(ii, i) : "floor";
                             let tex = textures.get("bricks" + suff);
                             if (tex) {
                                 let block = new _pixiJs.Sprite(tex);
@@ -44468,7 +44561,7 @@ class UI {
     }
 }
 
-},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","../launcher":"7Wuwz","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD"}],"eAdAj":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","../launcher":"7Wuwz","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD","../world/world":"hywN6"}],"eAdAj":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
