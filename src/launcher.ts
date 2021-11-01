@@ -28,7 +28,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	app = new PIXI.Application({
 		resizeTo: window,
 		autoDensity: true,
-		backgroundColor: 0x444444,
+		backgroundColor: 0x000000,
 		antialias: false,
 	});
 
@@ -79,6 +79,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		player: true,
 	});
 	world.addActor(player);
+	world.update(0);
 
 	//for (let i = 0; i < 100; i++) {
 	//	let x = Math.random() *20 - 10;
@@ -133,10 +134,10 @@ function resize() {
 
 function clampZoomOptions() {
 	return {
-		minWidth: MIN_ZOOM * TILE_SIZE,
-		minHeight: MIN_ZOOM * TILE_SIZE,
-		maxWidth: MAX_ZOOM * TILE_SIZE * Math.max(1, ratio),
-		maxHeight: MAX_ZOOM * TILE_SIZE / Math.min(1, ratio),
+		minWidth: 10 * Math.round(0.1 * MIN_ZOOM * TILE_SIZE),
+		minHeight: 10 * Math.round(0.1 * MIN_ZOOM * TILE_SIZE),
+		maxWidth: 10 * Math.round(0.1 * MAX_ZOOM * TILE_SIZE * Math.max(1, ratio)),
+		maxHeight: 10 * Math.round(0.1 * MAX_ZOOM * TILE_SIZE / Math.min(1, ratio)),
 	};
 }
 

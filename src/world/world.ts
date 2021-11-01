@@ -6,6 +6,9 @@ import { renderer, viewport } from '../gfx/render';
 import { Viewport } from "pixi-viewport";
 import { QuadTree, WorldObject } from "./quadtree";
 import { getRandomFunction } from "../random";
+import {lightMap} from "./light";
+
+
 
 export interface WorldVec {
     x : number,
@@ -70,16 +73,61 @@ export enum WallDirections {
 
 export class Zone {
     walls: Uint8Array[];
+    light: number[][];
     width : number;
     height : number;
     seed = "kinky";
 
     constructor(width: number, height: number) {
         this.walls = [];
+        this.light = [];
         this.width = width;
         this.height = height;
         for (let y = 0; y < height; y++) {
             this.walls.push(new Uint8Array(width));
+        }
+    }
+
+    // Range: Number of tiles to propagate vision out towards
+    // Dispersion: Coefficient to go around corners
+    updateLight(x : number, y : number, range : number, dispersion : number) {
+        this.light = [];
+        for (let y = 0; y < this.height; y++) {
+            let row : number[] = [];
+            for (let x = 0; x < this.width; x++) {
+                row[x] = 0;
+            }
+            this.light.push(row);
+        }
+        this.setLight(x, y, 1.0 * range);
+
+        // Begin running the lightmap
+        for (let r = 0; r < range; r++) {
+            let ring = lightMap[r]; // Get a ring from the lightmap
+            if (ring) {
+                for (let cell of ring) {
+                    let sum = 0.0;
+                    for (let source of cell.s) {
+                        sum += this.getLight(x + source.x, y + source.y) * source.w;
+                    }
+                    if (sum > 0) this.setLight(x + cell.dx, y + cell.dy, sum);
+                }
+            }
+        }
+    }
+
+    getLight(x : number, y : number) : number {
+        let row = this.light[y];
+        if (row) {
+            let cell = row[x];
+            if (cell != undefined) return cell;
+        }
+        return 0;
+    }
+    setLight(x : number, y : number, value : Wall) {
+        let row = this.light[y];
+        if (row) {
+            row[x] = value;
         }
     }
 
@@ -498,6 +546,10 @@ export class World {
 
         });
         this.tree_actors.refresh();
+        let zone = this.zones[this.currentZone];
+        if (this.player && zone) {
+            zone.updateLight(this.player.x, this.player.y, 1, 0);
+        }
     }
 
     render(delta: number) {
