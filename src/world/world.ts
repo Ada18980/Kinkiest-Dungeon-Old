@@ -137,7 +137,7 @@ export class Zone {
 
         for (let xx = Math.max(0, x-1); xx <= maxX; xx++)
             for (let yy = Math.max(0, y-1); yy <= maxY; yy++) {
-                if ((xx != x || yy != y) && this.get(xx, yy) == 1) num += 1;
+                if ((xx != x || yy != y) && this.get(xx, yy) == Wall.WALL) num += 1;
             }
 
         return num;
@@ -156,20 +156,19 @@ export class Zone {
         return neighbors;
     }
 
-
-    getWallDirection(x : number, y : number) : WallDirections {
+    getWallDirectionVision(x : number, y : number, light : boolean) : WallDirections {
         let u, d, l, r = false;
         let ul, dl, ur, dr = false;
 
-        let gu = this.get(x, y - 1);
-        let gd = this.get(x, y + 1);
-        let gl = this.get(x - 1, y);
-        let gr = this.get(x + 1, y);
+        let gu = (!light || this.getLight(x, y - 1) > 0) ? this.get(x, y - 1) : Wall.WALL;
+        let gd = (!light || this.getLight(x, y + 1) > 0) ? this.get(x, y + 1) : Wall.WALL;
+        let gl = (!light || this.getLight(x - 1, y ) > 0) ? this.get(x - 1, y) : Wall.WALL;
+        let gr = (!light || this.getLight(x + 1, y) > 0) ? this.get(x + 1, y) : Wall.WALL;
 
-        let gur = this.get(x + 1, y - 1);
-        let gul = this.get(x - 1, y - 1);
-        let gdr = this.get(x + 1, y + 1);
-        let gdl = this.get(x - 1, y + 1);
+        let gur = (!light || this.getLight(x + 1, y - 1) > 0) ? this.get(x + 1, y - 1) : Wall.WALL;
+        let gul = (!light || this.getLight(x - 1, y - 1) > 0) ? this.get(x - 1, y - 1) : Wall.WALL;
+        let gdr = (!light || this.getLight(x + 1, y + 1) > 0) ? this.get(x + 1, y + 1) : Wall.WALL;
+        let gdl = (!light || this.getLight(x - 1, y + 1) > 0) ? this.get(x - 1, y + 1) : Wall.WALL;
 
         if (gr != Wall.WALL && gr != -1) r = true;
         if (gl != Wall.WALL && gl != -1) l = true;
@@ -330,6 +329,10 @@ export class Zone {
             }
         }
         return WallDirections.NONE;
+    }
+
+    getWallDirection(x : number, y : number) : WallDirections {
+        return this.getWallDirectionVision(x, y, false);
     }
 
     createMaze(width: number = this.width, height: number = this.height) {

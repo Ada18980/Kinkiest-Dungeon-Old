@@ -15,6 +15,7 @@ export class UI {
     world : World;
     walls : PIXI.Container | undefined;
     light : PIXI.Container | undefined;
+    fog : PIXI.Container | undefined;
     currentZone : Zone | undefined;
     currentLighting : number[][] | undefined;
 
@@ -23,6 +24,7 @@ export class UI {
         this.world = world;
         this.walls = new PIXI.Container();
         this.light = new PIXI.Container();
+        this.fog = new PIXI.Container();
     }
 
     initialize(app : PIXI.Application) {
@@ -59,7 +61,10 @@ export class UI {
         });
     }
 
+    textures : Map<string, PIXI.Texture> = new Map<string, PIXI.Texture>();
+
     loadWorld() {
+
         // Verify all items are loaded
         let requiredSprites = [{sprite: "bricks", anim: ["floor",
                                 "pillar", "call", "n",
@@ -80,7 +85,7 @@ export class UI {
             if (!getGeneralSprite(rs.sprite)) return;
         }
 
-        let textures = new Map<string, PIXI.Texture>();
+        this.textures = new Map<string, PIXI.Texture>();
         for (let rs of requiredSprites) {
             for (let rsa of rs.anim) {
                 //let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
@@ -92,7 +97,7 @@ export class UI {
                         if (layer && layer.sprite.textures) {
                             let tex = layer.sprite.textures[0] as PIXI.Texture<PIXI.Resource>;
                             if (tex){
-                                textures.set(rs.sprite + rsa, tex);
+                                this.textures.set(rs.sprite + rsa, tex);
                             }
                             //renderer.render(layer.sprite.textures[0],{renderTexture: texture})
                         } else console.log("Layer not found" + animsprite.keys);
@@ -108,21 +113,26 @@ export class UI {
         r1.endFill();
         renderer.render(r1,{renderTexture: lighttex});
 
-        const outlineFilter = new filters.OutlineFilter(6, 0x000000);
+
+        const outlineFilter = new filters.OutlineFilter(16, 0x000000);
+        const fogFilter = new PIXI.filters.BlurFilter(32.0);//
 
         if (this.world) {
             let zone = this.world.zones[this.world.currentZone]
             if (zone) {
                 if (this.walls)
                     viewport.removeChild(this.walls);
-
                 if (this.light)
                     viewport.removeChild(this.light);
+                if (this.fog)
+                    viewport.removeChild(this.fog);
+
                 delete this.walls;
                 this.walls = new PIXI.Container();
-
                 delete this.light;
                 this.light = new PIXI.Container();
+                delete this.fog;
+                this.fog = new PIXI.Container();
 
                 for (let i = 0; i < zone.height; i += 1) {
                     for (let ii = 0; ii < zone.width; ii += 1) {
@@ -132,7 +142,7 @@ export class UI {
                             if (wall > -1) {
                                 let suff = (wall == Wall.WALL) ? zone.getWallDirection(ii, i) :
                                     ("floor");
-                                let tex = textures.get("bricks" + suff);
+                                let tex = this.textures.get("bricksfloor");
                                 if (tex) {
                                     let block = new PIXI.Sprite(tex);
                                     block.position.x = TILE_SIZE*ii;
@@ -149,20 +159,26 @@ export class UI {
                                 block.anchor.x = 0;
                                 block.anchor.y = 0;
                                 this.light.addChild(block);
+
+                                block = new PIXI.Sprite(lighttex);
+                                block.position.x = TILE_SIZE*ii;
+                                block.position.y = TILE_SIZE*i;
+                                block.anchor.x = 0;
+                                block.anchor.y = 0;
+                                this.fog.addChild(block);
                             } else console.log("Light tex not found!!!!");
                         }
                     }
                 }
                 viewport.addChild(this.walls);
                 viewport.addChild(this.light);
-                this.light.filters = [outlineFilter];
+                viewport.addChild(this.fog);
+                this.fog.filters = [outlineFilter, fogFilter];
                 viewport.worldWidth = TILE_SIZE * zone.width;
                 viewport.worldHeight = TILE_SIZE * zone.height;
             }
             this.currentZone = zone;
         }
-
-        console.log(textures)
     }
 
     updateWorld() {
@@ -171,19 +187,52 @@ export class UI {
         let bounds = viewport.getVisibleBounds().pad(TILE_SIZE, TILE_SIZE);
         let walls = this.walls?.children;
         let light = this.light?.children;
-        if (walls)
+        let fog = this.fog?.children;
+        let t1 = 1.0/TILE_SIZE;
+        if (walls && this.currentZone)
             for (let S of walls) {
                 S.visible = bounds.contains(S.x, S.y);
+
+                if (S.visible) {
+                    let li = this.currentZone.getLight(S.x*t1, S.y*t1);
+                    let wall = this.currentZone.get(S.x*t1, S.y*t1);
+                    if (li > 0 && wall == Wall.WALL) {
+                        let suff = this.currentZone.getWallDirectionVision(S.x*t1, S.y*t1, true);
+                        let tex = this.textures.get("bricks" + suff);
+                        if (tex) {
+                            (S as PIXI.Sprite).texture = tex;
+                        }
+                    }
+                }
             }
-        let t1 = 1.0/TILE_SIZE;
         if (light && this.currentZone)
             for (let S of light) {
                 S.visible = bounds.contains(S.x, S.y);
                 if (S.visible) {
-                    let weight = 10.0;
-                    S.alpha = (S.alpha * 10.0 + (1.0 - Math.min(1.0, 1.2*this.currentZone.getLight(S.x*t1, S.y*t1)))) / (1.0 + weight);
+                    let weight = 25.0;
+                    let li = this.currentZone.getLight(S.x*t1, (S.y)*t1);
+
+                    S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
                     if (S.alpha < 0.01) S.alpha = 0.0;
+                    if (S.alpha > 0.99) S.alpha = 1.0;
                 }
             }
+
+        if (fog && this.currentZone)
+            for (let S of fog) {
+                S.visible = bounds.contains(S.x, S.y);
+                if (S.visible) {
+                    let weight = 50.0;
+                    let li = this.currentZone.getLight(S.x*t1, (S.y)*t1) > 0 ? 1.0 : 0;
+
+                    S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
+                    if (S.alpha < 0.01) S.alpha = 0.0;
+                    if (S.alpha > 0.99) S.alpha = 1.0;
+                }
+            }
+
+            /*
+
+            */
     }
 }

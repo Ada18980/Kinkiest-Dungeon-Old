@@ -36,18 +36,16 @@ export function propagateLight(zone : Zone, x : number, y : number, range : numb
         if (ring) {
             for (let cell of ring) {
                 let sum = 0.0;
-                let n = 0;
                 let block = zone.get(x + cell.dx, y + cell.dy) == Wall.WALL;
                 // For each ring cell we look at dependent light points and add up
                 for (let source of cell.s) {
                     if (zone.get(x + source.x, y + source.y) < Wall.WALL) {
-                        if (!block || (source.y >= cell.dy)) {
-                            n++;
+                        //if (!block || (source.y >= cell.dy)) {
                             sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
-                        }
+                        //}
                     }
                 }
-                if (sum <= 0.99 && (n <= 1 && cell.s.length > 1)) {
+                if (sum <= 0.99 && zone.getWallNeighborCount(x + cell.dx, y + cell.dy) >= 6) {
                     sum = Math.max(0, sum - 0.25);
                 }
                 if (sum < dispersion) {

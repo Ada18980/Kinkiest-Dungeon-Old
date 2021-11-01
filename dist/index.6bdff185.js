@@ -44002,7 +44002,7 @@ class Zone {
         let num = 0;
         let maxX = Math.min(this.width - 1, x + 1);
         let maxY = Math.min(this.height - 1, y + 1);
-        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if ((xx != x || yy != y) && this.get(xx, yy) == 1) num += 1;
+        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if ((xx != x || yy != y) && this.get(xx, yy) == Wall.WALL) num += 1;
         return num;
     }
     // Returns the neighbors of a cells as WorldVec
@@ -44016,17 +44016,17 @@ class Zone {
         });
         return neighbors;
     }
-    getWallDirection(x, y) {
+    getWallDirectionVision(x, y, light) {
         let u, d, l, r = false;
         let ul, dl, ur, dr = false;
-        let gu = this.get(x, y - 1);
-        let gd = this.get(x, y + 1);
-        let gl = this.get(x - 1, y);
-        let gr = this.get(x + 1, y);
-        let gur = this.get(x + 1, y - 1);
-        let gul = this.get(x - 1, y - 1);
-        let gdr = this.get(x + 1, y + 1);
-        let gdl = this.get(x - 1, y + 1);
+        let gu = !light || this.getLight(x, y - 1) > 0 ? this.get(x, y - 1) : Wall.WALL;
+        let gd = !light || this.getLight(x, y + 1) > 0 ? this.get(x, y + 1) : Wall.WALL;
+        let gl = !light || this.getLight(x - 1, y) > 0 ? this.get(x - 1, y) : Wall.WALL;
+        let gr = !light || this.getLight(x + 1, y) > 0 ? this.get(x + 1, y) : Wall.WALL;
+        let gur = !light || this.getLight(x + 1, y - 1) > 0 ? this.get(x + 1, y - 1) : Wall.WALL;
+        let gul = !light || this.getLight(x - 1, y - 1) > 0 ? this.get(x - 1, y - 1) : Wall.WALL;
+        let gdr = !light || this.getLight(x + 1, y + 1) > 0 ? this.get(x + 1, y + 1) : Wall.WALL;
+        let gdl = !light || this.getLight(x - 1, y + 1) > 0 ? this.get(x - 1, y + 1) : Wall.WALL;
         if (gr != Wall.WALL && gr != -1) r = true;
         if (gl != Wall.WALL && gl != -1) l = true;
         if (gu != Wall.WALL && gu != -1) u = true;
@@ -44128,6 +44128,9 @@ class Zone {
             }
         }
         return WallDirections.NONE;
+    }
+    getWallDirection(x, y) {
+        return this.getWallDirectionVision(x, y, false);
     }
     createMaze(width = this.width, height = this.height) {
         let rand = _random.getRandomFunction(this.seed);
@@ -44429,18 +44432,11 @@ function propagateLight(zone, x, y, range, dispersion) {
         let ring = lightMap[r]; // Get a ring from the lightmap
         if (ring) for (let cell of ring){
             let sum = 0;
-            let n = 0;
             let block = zone.get(x + cell.dx, y + cell.dy) == _world.Wall.WALL;
             // For each ring cell we look at dependent light points and add up
-            for (let source of cell.s){
-                if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL) {
-                    if (!block || source.y >= cell.dy) {
-                        n++;
-                        sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
-                    }
-                }
-            }
-            if (sum <= 0.99 && n <= 1 && cell.s.length > 1) sum = Math.max(0, sum - 0.25);
+            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL) //if (!block || (source.y >= cell.dy)) {
+            sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
+            if (sum <= 0.99 && zone.getWallNeighborCount(x + cell.dx, y + cell.dy) >= 6) sum = Math.max(0, sum - 0.25);
             if (sum < dispersion) sum = 0;
             if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, Math.min(1, sum));
             else zone.setLight(x + cell.dx, y + cell.dy, -1);
@@ -44592,10 +44588,12 @@ var _player = require("./player");
 var _sprites = require("../gfx/sprites");
 class UI {
     constructor(player, world){
+        this.textures = new Map();
         this.player = new _player.Player(player);
         this.world = world;
         this.walls = new _pixiJs.Container();
         this.light = new _pixiJs.Container();
+        this.fog = new _pixiJs.Container();
     }
     initialize(app) {
         // Listen for animate update
@@ -44693,7 +44691,7 @@ class UI {
         for (let rs of requiredSprites){
             if (!_sprites.getGeneralSprite(rs.sprite)) return;
         }
-        let textures = new Map();
+        this.textures = new Map();
         for (let rs1 of requiredSprites)for (let rsa of rs1.anim){
             //let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
             let genSprite = _sprites.getGeneralSprite(rs1.sprite);
@@ -44703,7 +44701,7 @@ class UI {
                     let layer = animsprite.get("tile");
                     if (layer && layer.sprite.textures) {
                         let tex = layer.sprite.textures[0];
-                        if (tex) textures.set(rs1.sprite + rsa, tex);
+                        if (tex) this.textures.set(rs1.sprite + rsa, tex);
                     //renderer.render(layer.sprite.textures[0],{renderTexture: texture})
                     } else console.log("Layer not found" + animsprite.keys);
                 } else console.log("Anim not found: " + rsa);
@@ -44720,23 +44718,27 @@ class UI {
         _render.renderer.render(r1, {
             renderTexture: lighttex
         });
-        const outlineFilter = new _pixiFilters.OutlineFilter(6, 0);
+        const outlineFilter = new _pixiFilters.OutlineFilter(16, 0);
+        const fogFilter = new _pixiJs.filters.BlurFilter(32); //
         if (this.world) {
             let zone = this.world.zones[this.world.currentZone];
             if (zone) {
                 if (this.walls) _render.viewport.removeChild(this.walls);
                 if (this.light) _render.viewport.removeChild(this.light);
+                if (this.fog) _render.viewport.removeChild(this.fog);
                 delete this.walls;
                 this.walls = new _pixiJs.Container();
                 delete this.light;
                 this.light = new _pixiJs.Container();
+                delete this.fog;
+                this.fog = new _pixiJs.Container();
                 for(let i = 0; i < zone.height; i += 1)for(let ii = 0; ii < zone.width; ii += 1){
                     let row = zone.walls[i];
                     if (row && row[ii] != undefined) {
                         let wall = row[ii];
                         if (wall > -1) {
                             let suff = wall == _world.Wall.WALL ? zone.getWallDirection(ii, i) : "floor";
-                            let tex = textures.get("bricks" + suff);
+                            let tex = this.textures.get("bricksfloor");
                             if (tex) {
                                 let block = new _pixiJs.Sprite(tex);
                                 block.position.x = _render.TILE_SIZE * ii;
@@ -44753,37 +44755,70 @@ class UI {
                             block.anchor.x = 0;
                             block.anchor.y = 0;
                             this.light.addChild(block);
+                            block = new _pixiJs.Sprite(lighttex);
+                            block.position.x = _render.TILE_SIZE * ii;
+                            block.position.y = _render.TILE_SIZE * i;
+                            block.anchor.x = 0;
+                            block.anchor.y = 0;
+                            this.fog.addChild(block);
                         } else console.log("Light tex not found!!!!");
                     }
                 }
                 _render.viewport.addChild(this.walls);
                 _render.viewport.addChild(this.light);
-                this.light.filters = [
-                    outlineFilter
+                _render.viewport.addChild(this.fog);
+                this.fog.filters = [
+                    outlineFilter,
+                    fogFilter
                 ];
                 _render.viewport.worldWidth = _render.TILE_SIZE * zone.width;
                 _render.viewport.worldHeight = _render.TILE_SIZE * zone.height;
             }
             this.currentZone = zone;
         }
-        console.log(textures);
     }
     updateWorld() {
         // Update the walls
         let bounds = _render.viewport.getVisibleBounds().pad(_render.TILE_SIZE, _render.TILE_SIZE);
         let walls = this.walls?.children;
         let light = this.light?.children;
-        if (walls) for (let S of walls)S.visible = bounds.contains(S.x, S.y);
+        let fog = this.fog?.children;
         let t1 = 1 / _render.TILE_SIZE;
+        if (walls && this.currentZone) for (let S of walls){
+            S.visible = bounds.contains(S.x, S.y);
+            if (S.visible) {
+                let li = this.currentZone.getLight(S.x * t1, S.y * t1);
+                let wall = this.currentZone.get(S.x * t1, S.y * t1);
+                if (li > 0 && wall == _world.Wall.WALL) {
+                    let suff = this.currentZone.getWallDirectionVision(S.x * t1, S.y * t1, true);
+                    let tex = this.textures.get("bricks" + suff);
+                    if (tex) S.texture = tex;
+                }
+            }
+        }
         if (light && this.currentZone) for (let S1 of light){
             S1.visible = bounds.contains(S1.x, S1.y);
             if (S1.visible) {
-                let weight = 10;
-                S1.alpha = (S1.alpha * 10 + (1 - Math.min(1, 1.2 * this.currentZone.getLight(S1.x * t1, S1.y * t1)))) / (1 + weight);
+                let weight = 25;
+                let li = this.currentZone.getLight(S1.x * t1, S1.y * t1);
+                S1.alpha = (S1.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
                 if (S1.alpha < 0.01) S1.alpha = 0;
+                if (S1.alpha > 0.99) S1.alpha = 1;
             }
         }
-    }
+        if (fog && this.currentZone) for (let S2 of fog){
+            S2.visible = bounds.contains(S2.x, S2.y);
+            if (S2.visible) {
+                let weight = 50;
+                let li = this.currentZone.getLight(S2.x * t1, S2.y * t1) > 0 ? 1 : 0;
+                S2.alpha = (S2.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
+                if (S2.alpha < 0.01) S2.alpha = 0;
+                if (S2.alpha > 0.99) S2.alpha = 1;
+            }
+        }
+    /*
+
+            */ }
 }
 
 },{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD","../world/world":"hywN6","pixi-filters":"kxbrB"}],"eAdAj":[function(require,module,exports) {
