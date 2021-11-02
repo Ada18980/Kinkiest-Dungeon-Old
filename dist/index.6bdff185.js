@@ -489,7 +489,6 @@ let windowSize = {
 };
 let ratio = windowSize.width / windowSize.height;
 function LauncherLaunchGame(width, height) {
-    _control.initControls();
     setWindowSize(width, height);
     window.onresize = function(event) {
         resize();
@@ -548,6 +547,7 @@ function LauncherLaunchGame(width, height) {
     let GUI = new _ui.UI(player, world);
     GUI.initialize(app);
     GUI.player = new _player.Player(player);
+    _control.initControls(GUI);
 }
 function resize() {
     _render.renderer.view.style.position = "absolute";
@@ -50128,6 +50128,18 @@ parcelHelpers.export(exports, "mouseRightDown", ()=>mouseRightDown
 );
 parcelHelpers.export(exports, "mouseMiddleDown", ()=>mouseMiddleDown
 );
+parcelHelpers.export(exports, "mouseX", ()=>mouseX
+);
+parcelHelpers.export(exports, "mouseY", ()=>mouseY
+);
+parcelHelpers.export(exports, "viewportMouseX", ()=>viewportMouseX
+);
+parcelHelpers.export(exports, "viewportMouseY", ()=>viewportMouseY
+);
+parcelHelpers.export(exports, "worldMouseX", ()=>worldMouseX
+);
+parcelHelpers.export(exports, "worldMouseY", ()=>worldMouseY
+);
 parcelHelpers.export(exports, "keyBindingsDefault", ()=>keyBindingsDefault
 );
 parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
@@ -50142,9 +50154,17 @@ parcelHelpers.export(exports, "initControls", ()=>initControls
 );
 var _world = require("../world/world");
 var _render = require("../gfx/render");
+var _launcher = require("../launcher");
+var _hud = require("./hud");
 let mouseLeftDown = false;
 let mouseRightDown = false;
 let mouseMiddleDown = false;
+let mouseX = 0;
+let mouseY = 0;
+let viewportMouseX = 0;
+let viewportMouseY = 0;
+let worldMouseX = 0;
+let worldMouseY = 0;
 let keyBindingsDefault = {
     moveU: [
         'W',
@@ -50212,8 +50232,27 @@ let movePressed = false;
 let lastXX = 0;
 let lastYY = 0;
 let lastCameraMove = 0;
+let leftClicked = false;
+let rightClicked = false;
+let middleClicked = false;
+function controlLeftClick(world, camera) {
+    if (world.scheduler && world.player) {
+        if (_hud.currentTargeting == _hud.TargetMode.MOVE && _hud.mouseInActiveArea) {
+            world.scheduler.sendActorMoveRequest(world.player, {
+                x: _hud.targetLocation.x - world.player.x,
+                y: _hud.targetLocation.y - world.player.y
+            });
+            world.scheduler.requestUpdateTick(1);
+        }
+    }
+}
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
+    if (leftClicked) {
+        // Do left mouse click
+        controlLeftClick(world, camera);
+        leftClicked = false;
+    }
     if (controlMove) {
         if (controlDiagGrace < controlDiagGraceTime) controlDiagGrace += delta;
     } else if (controlDiagGrace > 0) controlDiagGrace -= delta;
@@ -50248,6 +50287,13 @@ function controlTicker(delta, world, camera) {
         if (finishMove) {
             dir = lastDir;
             controlMove = true;
+        }
+        if (zone && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision) {
+            controlMove = false;
+            controlTick = false;
+            controlTime = 10;
+            finishMove = false;
+            movePressed = false;
         }
         if (controlMove && controlDiagGrace > controlDiagGraceTime) {
             // Replace with WorldSendAIMoveRequest(world.player, dir)
@@ -50308,11 +50354,33 @@ function controlTicker(delta, world, camera) {
         }
     }
 }
-function initControls() {
+function initControls(GUI) {
+    document.addEventListener("mousemove", (event)=>{
+        mouseX = event.clientX; // Gets Mouse X
+        mouseY = event.clientY; // Gets Mouse Y
+        if (_render.viewport) {
+            viewportMouseX = _render.viewport.corner.x + _render.viewport.screenWidth * mouseX / _launcher.windowSize.width;
+            viewportMouseY = _render.viewport.corner.y + _render.viewport.screenHeight * mouseY / _launcher.windowSize.height;
+            if (GUI.world) {
+                let zone = GUI.world.zones[GUI.world.currentZone];
+                if (zone) {
+                    worldMouseX = Math.max(0, Math.min(zone.width, Math.floor(viewportMouseX / _render.TILE_SIZE)));
+                    worldMouseY = Math.max(0, Math.min(zone.height, Math.floor(viewportMouseY / _render.TILE_SIZE)));
+                }
+            }
+        }
+    });
     window.addEventListener('mousedown', (event)=>{
-        if (event.button == 0) mouseLeftDown = true;
-        else if (event.button == 1) mouseMiddleDown = true;
-        else if (event.button == 2) mouseRightDown = true;
+        if (event.button == 0) {
+            mouseLeftDown = true;
+            leftClicked = true;
+        } else if (event.button == 1) {
+            mouseMiddleDown = true;
+            middleClicked = true;
+        } else if (event.button == 2) {
+            mouseRightDown = true;
+            rightClicked = true;
+        }
     //console.log(mouseLeftDown)
     });
     window.addEventListener('mouseup', (event)=>{
@@ -50356,7 +50424,170 @@ function initControls() {
     });
 }
 
-},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/world":"hywN6"}],"aunNh":[function(require,module,exports) {
+},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/world":"hywN6","../launcher":"7Wuwz","./hud":"iPuXr"}],"iPuXr":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "TargetMode", ()=>TargetMode
+);
+parcelHelpers.export(exports, "mouseInActiveArea", ()=>mouseInActiveArea
+);
+parcelHelpers.export(exports, "currentTargeting", ()=>currentTargeting
+);
+parcelHelpers.export(exports, "targetLocation", ()=>targetLocation
+);
+parcelHelpers.export(exports, "renderHUD", ()=>renderHUD
+);
+var _render = require("../gfx/render");
+var _control = require("./control");
+var _sprite = require("@pixi/sprite");
+var _pixiJs = require("pixi.js");
+var _pixiFilters = require("pixi-filters");
+var _math = require("../world/math");
+let uiSprites = new Map();
+let HUD = new _pixiJs.Container();
+let lastViewport;
+var TargetMode;
+(function(TargetMode1) {
+    TargetMode1[TargetMode1["MOVE"] = 16777215] = "MOVE";
+    TargetMode1[TargetMode1["FASTMOVE"] = 16776994] = "FASTMOVE";
+    TargetMode1[TargetMode1["AIM"] = 16768324] = "AIM";
+    TargetMode1[TargetMode1["ENCHANT"] = 8978329] = "ENCHANT";
+    TargetMode1[TargetMode1["INTERACT"] = 5605631] = "INTERACT";
+})(TargetMode || (TargetMode = {
+}));
+let mouseInActiveArea = true;
+let currentTargeting = TargetMode.MOVE;
+let targetLocation = {
+    x: 0,
+    y: 0
+};
+function renderHUD(world) {
+    if (lastViewport != _render.viewport) {
+        if (lastViewport) lastViewport.removeChild(HUD);
+        lastViewport = _render.viewport;
+        _render.viewport.addChild(HUD);
+        HUD.zIndex = 100; // Render over all
+    }
+    let zone = world.zones[world.currentZone];
+    if (zone) {
+        // Render all the UI sprites
+        let reticule = uiSprites.get("reticule");
+        if (!reticule) {
+            let tex = _pixiJs.RenderTexture.create({
+                width: _render.TILE_SIZE,
+                height: _render.TILE_SIZE
+            });
+            let r1 = new _pixiJs.Graphics();
+            r1.beginFill(16777215);
+            r1.drawRect(0, 0, _render.TILE_SIZE, _render.TILE_SIZE);
+            r1.endFill();
+            r1.beginHole();
+            let holethickness = 2;
+            r1.drawRect(holethickness, holethickness, _render.TILE_SIZE - holethickness * 2, _render.TILE_SIZE - holethickness * 2);
+            r1.endFill();
+            _render.renderer.render(r1, {
+                renderTexture: tex
+            });
+            let ret = new _pixiJs.Sprite(tex);
+            ret.position.x = 0;
+            ret.position.y = 0;
+            ret.anchor.x = 0;
+            ret.anchor.y = 0;
+            ret.filters = [
+                new _pixiFilters.BloomFilter(5)
+            ];
+            HUD.addChild(ret);
+            uiSprites.set("reticule", ret);
+            reticule = ret;
+        }
+        if (reticule) {
+            if (world.player && mouseInActiveArea) {
+                let dir = {
+                    x: 0,
+                    y: 0
+                };
+                if (_control.worldMouseX != world.player.x || _control.worldMouseY != world.player.y) dir = _math.getGridDir(_control.viewportMouseX - world.player.xx, _control.viewportMouseY - world.player.yy);
+                targetLocation = {
+                    x: world.player.x + dir.x,
+                    y: world.player.y + dir.y
+                };
+                reticule.visible = true;
+                reticule.x = _render.TILE_SIZE * targetLocation.x;
+                reticule.y = _render.TILE_SIZE * targetLocation.y;
+                reticule.tint = currentTargeting;
+            } else reticule.visible = false;
+        }
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","../world/math":"73WWw","./control":"eAdAj"}],"73WWw":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "getGridDir", ()=>getGridDir
+);
+function getGridDir(x, y) {
+    if (x > 0) {
+        if (y > 0) {
+            if (y < x * 0.38268343236) return {
+                x: 1,
+                y: 0
+            };
+            else if (x < y * 0.38268343236) return {
+                x: 0,
+                y: 1
+            };
+            else return {
+                x: 1,
+                y: 1
+            };
+        } else {
+            if (y > x * -0.38268343236) return {
+                x: 1,
+                y: 0
+            };
+            else if (x < y * -0.38268343236) return {
+                x: 0,
+                y: -1
+            };
+            else return {
+                x: 1,
+                y: -1
+            };
+        }
+    } else if (y > 0) {
+        if (y < x * -0.38268343236) return {
+            x: -1,
+            y: 0
+        };
+        else if (x > y * -0.38268343236) return {
+            x: 0,
+            y: 1
+        };
+        else return {
+            x: -1,
+            y: 1
+        };
+    } else {
+        if (y > x * 0.38268343236) return {
+            x: -1,
+            y: 0
+        };
+        else if (x > y * 0.38268343236) return {
+            x: 0,
+            y: -1
+        };
+        else return {
+            x: -1,
+            y: -1
+        };
+    }
+    return {
+        x: 0,
+        y: 0
+    };
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"aunNh":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Player", ()=>Player
@@ -50368,16 +50599,6 @@ class Player {
         this.controlActor = player;
         this.cameraActor = player;
     }
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iPuXr":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "renderHUD", ()=>renderHUD
-);
-let uiSprites = new Map();
-function renderHUD(world) {
-    let zone = world.zones[world.currentZone];
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequirebb28")

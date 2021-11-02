@@ -2,10 +2,19 @@ import { WallProperties, World } from "../world/world";
 import { Player } from "./player";
 import { TILE_SIZE, viewport } from '../gfx/render';
 import { Sprite } from "@pixi/sprite";
+import { windowSize } from "../launcher";
+import { UI } from "./ui";
+import { currentTargeting, mouseInActiveArea, targetLocation, TargetMode } from "./hud";
 
 export let mouseLeftDown = false;
 export let mouseRightDown = false;
 export let mouseMiddleDown = false;
+export let mouseX = 0;
+export let mouseY = 0;
+export let viewportMouseX = 0;
+export let viewportMouseY = 0;
+export let worldMouseX = 0;
+export let worldMouseY = 0;
 
 export let keyBindingsDefault = {
     moveU : ['W', 'ArrowUp'],
@@ -56,9 +65,32 @@ let lastXX = 0;
 let lastYY = 0
 
 let lastCameraMove = 0;
+let leftClicked = false;
+let rightClicked = false;
+let middleClicked = false;
+
+function controlLeftClick(world : World, camera : Player) {
+    if (world.scheduler && world.player) {
+        if (currentTargeting == TargetMode.MOVE && mouseInActiveArea) {
+            world.scheduler.sendActorMoveRequest(world.player, {
+                x : targetLocation.x - world.player.x,
+                y : targetLocation.y - world.player.y});
+            world.scheduler.requestUpdateTick(1);
+        }
+    }
+
+
+}
 
 export function controlTicker(delta : number, world : World, camera : Player) {
     controlTime -= delta;
+
+    if (leftClicked) {
+        // Do left mouse click
+        controlLeftClick(world, camera);
+        leftClicked = false;
+    }
+
     if (controlMove) {
         if (controlDiagGrace < controlDiagGraceTime)
             controlDiagGrace += delta;
@@ -91,6 +123,14 @@ export function controlTicker(delta : number, world : World, camera : Player) {
         if (finishMove) {
             dir = lastDir;
             controlMove = true;
+        }
+
+        if (zone && WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision) {
+            controlMove = false;
+            controlTick = false;
+            controlTime = 10;
+            finishMove = false;
+            movePressed = false;
         }
 
         if (controlMove && controlDiagGrace > controlDiagGraceTime) {
@@ -154,17 +194,35 @@ export function controlTicker(delta : number, world : World, camera : Player) {
 
 }
 
-export function initControls() {
+export function initControls(GUI : UI) {
+    document.addEventListener("mousemove", (event) => {
+        mouseX = event.clientX; // Gets Mouse X
+        mouseY = event.clientY; // Gets Mouse Y
+
+        if (viewport) {
+            viewportMouseX = viewport.corner.x + viewport.screenWidth * mouseX / windowSize.width;
+            viewportMouseY = viewport.corner.y + viewport.screenHeight * mouseY / windowSize.height;
+
+            if (GUI.world) {
+                let zone = GUI.world.zones[GUI.world.currentZone];
+                if (zone) {
+                    worldMouseX = Math.max(0, Math.min(zone.width, Math.floor(viewportMouseX/TILE_SIZE)));
+                    worldMouseY = Math.max(0, Math.min(zone.height, Math.floor(viewportMouseY/TILE_SIZE)));
+                }
+            }
+        }
+    });
+
     window.addEventListener('mousedown',(event) => {
-        if (event.button == 0) mouseLeftDown = true;
-        else if (event.button == 1) mouseMiddleDown = true;
-        else if (event.button == 2) mouseRightDown = true;
+        if (event.button == 0) {mouseLeftDown = true; leftClicked = true;}
+        else if (event.button == 1) {mouseMiddleDown = true; middleClicked = true;}
+        else if (event.button == 2) {mouseRightDown = true; rightClicked = true;}
         //console.log(mouseLeftDown)
     });
     window.addEventListener('mouseup',(event) => {
-        if (event.button == 0) mouseLeftDown = false;
-        else if (event.button == 1) mouseMiddleDown = false;
-        else if (event.button == 2) mouseRightDown = false;
+        if (event.button == 0) {mouseLeftDown = false;}
+        else if (event.button == 1) {mouseMiddleDown = false;}
+        else if (event.button == 2) {mouseRightDown = false;}
         //console.log(mouseLeftDown)
     });
 

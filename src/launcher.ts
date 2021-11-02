@@ -16,7 +16,6 @@ export let windowSize = {width: 1920, height: 1080};
 export let ratio = windowSize.width / windowSize.height;
 
 export function LauncherLaunchGame(width: number, height: number): void {
-	initControls();
 
 	setWindowSize(width, height);
 
@@ -93,6 +92,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	let GUI = new UI(player, world);
 	GUI.initialize(app);
 	GUI.player = new Player(player);
+
+	initControls(GUI);
 }
 
 function resize() {
