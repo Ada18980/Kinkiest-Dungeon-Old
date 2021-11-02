@@ -481,6 +481,7 @@ var _render = require("./gfx/render");
 var _ui = require("./ui/ui");
 var _control = require("./ui/control");
 var _player = require("./ui/player");
+var _hud = require("./ui/hud");
 "use strict";
 let app;
 let windowSize = {
@@ -517,6 +518,8 @@ function LauncherLaunchGame(width, height) {
     _render.viewport.sortableChildren = true;
     // add the viewport to the stage
     app.stage.addChild(_render.viewport);
+    _hud.addHudElements(app.stage, _render.viewport);
+    app.stage.sortableChildren = true;
     // activate plugins
     _render.viewport.drag({
         mouseButtons: "left"
@@ -600,7 +603,7 @@ function changeResolution(width, height) {
     _render.viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","./gfx/sprites":"7UxjD","./world/actor":"hVA85","./world/world":"hywN6","./gfx/render":"jTB3f","./ui/ui":"iwMNm","./ui/control":"eAdAj","./ui/player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","./gfx/sprites":"7UxjD","./world/actor":"hVA85","./world/world":"hywN6","./gfx/render":"jTB3f","./ui/ui":"iwMNm","./ui/control":"eAdAj","./ui/player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./ui/hud":"iPuXr"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -43273,6 +43276,8 @@ const PLUGIN_ORDER = [
 },{}],"7UxjD":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "textures", ()=>textures
+);
 parcelHelpers.export(exports, "BaseImage", ()=>BaseImage
 );
 parcelHelpers.export(exports, "Image", ()=>Image1
@@ -43318,14 +43323,22 @@ let nullTexture = _pixiJs.Texture.from("img/null.png");
 let spriteResources = [
     {
         name: "player_default",
+        spritesheet: true,
         path: "img/player/default.json"
     },
     {
         name: "bricks",
+        spritesheet: true,
         path: "img/tiles/bricks.json"
+    },
+    {
+        name: "ui_follow",
+        path: "img/ui/follow.png",
+        antialias: true
     }, 
 ];
 let sprites = new Map();
+let textures = new Map();
 let images = new Map();
 class BaseImage {
     constructor(name){
@@ -43470,65 +43483,74 @@ function loadSprites() {
             let image1 = new BaseImage(element1.name);
             if (typeof resource !== "undefined") {
                 let loader2 = _pixiJs.Loader.shared.resources[element1.name];
-                let anims = [];
-                let layers = [];
-                // Seed animations and layers from metatada
-                if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
-                    if (tag.name) anims.push(tag.name);
-                });
-                if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
-                    if (layer.name) layers.push(layer.name);
-                });
-                // Default layer and animation
-                if (anims.length == 0) anims.push("idle");
-                if (layers.length == 0) layers.push("base");
-                let frameData = loader2?.spritesheet?.textures;
-                // Load the sprites in the internal format
-                if (frameData) {
-                    let keys = Object.keys(frameData);
-                    //console.log(keys)
-                    //console.log(frameData)
-                    for (let animation of anims){
-                        let zInd = 0;
-                        for (let layer of layers){
-                            zInd += 1;
-                            let frameKeys = keys.filter((frame)=>{
-                                return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
-                                    if (tag.name != animation) return false;
-                                    let indexStr = frame.split("|")[1];
-                                    if (!indexStr) return false;
-                                    let index = parseInt(indexStr);
-                                    return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                if (element1.spritesheet) {
+                    let anims = [];
+                    let layers = [];
+                    // Seed animations and layers from metatada
+                    if (loader2?.data?.meta?.frameTags) loader2?.data?.meta?.frameTags.forEach((tag)=>{
+                        if (tag.name) anims.push(tag.name);
+                    });
+                    if (loader2?.data?.meta?.layers) loader2?.data?.meta?.layers.forEach((layer)=>{
+                        if (layer.name) layers.push(layer.name);
+                    });
+                    // Default layer and animation
+                    if (anims.length == 0) anims.push("idle");
+                    if (layers.length == 0) layers.push("base");
+                    let frameData = loader2?.spritesheet?.textures;
+                    // Load the sprites in the internal format
+                    if (frameData) {
+                        let keys = Object.keys(frameData);
+                        //console.log(keys)
+                        //console.log(frameData)
+                        for (let animation of anims){
+                            let zInd = 0;
+                            for (let layer of layers){
+                                zInd += 1;
+                                let frameKeys = keys.filter((frame)=>{
+                                    return frameData && frameData[frame] && frame.includes(`(${layer})`) && loader2?.data.meta.frameTags?.some((tag)=>{
+                                        if (tag.name != animation) return false;
+                                        let indexStr = frame.split("|")[1];
+                                        if (!indexStr) return false;
+                                        let index = parseInt(indexStr);
+                                        return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                                    });
                                 });
-                            });
-                            let frames = [];
-                            for (let frame of frameKeys){
-                                let data = frameData[frame];
-                                if (data) frames.push(data); // && (data.trim.width > 1 || data.trim.height > 1)
-                            }
-                            if (frames && frames.length > 0) {
-                                let time = 1000;
-                                let zIndex = {
-                                    default: 1 + zInd
-                                };
-                                if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
-                                image1.addSprite(layer, animation, {
-                                    frames: frames,
-                                    time: time,
-                                    count: frames.length,
-                                    noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop,
-                                    zIndex: zIndex
-                                });
+                                let frames = [];
+                                for (let frame of frameKeys){
+                                    let data = frameData[frame];
+                                    if (data) {
+                                        if (element1.antialias) data.baseTexture.scaleMode = _pixiJs.SCALE_MODES.LINEAR;
+                                        frames.push(data); // && (data.trim.width > 1 || data.trim.height > 1)
+                                    }
+                                }
+                                if (frames && frames.length > 0) {
+                                    let time = 1000;
+                                    let zIndex = {
+                                        default: 1 + zInd
+                                    };
+                                    if (loader2?.data?.frames[frameKeys[0] || 0]?.duration) time = loader2?.data?.frames[frameKeys[0] || 0]?.duration;
+                                    image1.addSprite(layer, animation, {
+                                        frames: frames,
+                                        time: time,
+                                        count: frames.length,
+                                        noLoop: loader2?.data?.meta?.frameTags[animation]?.noLoop,
+                                        zIndex: zIndex
+                                    });
+                                }
                             }
                         }
                     }
+                    if (image1.animations.size > 0) sprites.set(element1.name, image1);
+                } else if (resource.texture) {
+                    if (element1.antialias) resource.texture.baseTexture.scaleMode = _pixiJs.SCALE_MODES.LINEAR;
+                    textures.set(element1.name, resource.texture);
                 }
-                if (image1.animations.size > 0) sprites.set(element1.name, image1);
             }
         }
     });
     console.log(_pixiJs.Loader.shared);
     console.log(sprites);
+    console.log(textures);
 /*PIXI.Loader.shared.onComplete.add(() => {
         let sprite = getSprite("player_mage");
         if (sprite) {
@@ -50251,6 +50273,9 @@ let leftClicked = false;
 let rightClicked = false;
 let middleClicked = false;
 let mouseDragged = false;
+let mouseDragStartX = 0;
+let mouseDragStartY = 0;
+let maxDrag = 5;
 function updateMouseTargeting(world) {
     if (world.player) {
         if (currentTargeting == _hud.TargetMode.MOVE) {
@@ -50269,7 +50294,6 @@ function updateMouseTargeting(world) {
 function controlLeftClick(world, camera) {
     if (world.scheduler && world.player) {
         updateMouseTargeting(world);
-        console.log("check");
         if (currentTargeting == _hud.TargetMode.MOVE && mouseInActiveArea) {
             world.scheduler.sendActorMoveRequest(world.player, {
                 x: targetLocation.x - world.player.x,
@@ -50388,7 +50412,7 @@ function controlTicker(delta, world, camera) {
     }
 }
 function updateMouse(GUI) {
-    if (mouseLeftDown) mouseDragged = true;
+    if (mouseLeftDown && (Math.abs(mouseDragStartX - mouseX) > maxDrag || Math.abs(mouseDragStartY - mouseY) > maxDrag)) mouseDragged = true;
     let bounds = _render.viewport.getVisibleBounds();
     if (_render.viewport) {
         viewportMouseX = _render.viewport.corner.x + bounds.width * mouseX / _launcher.windowSize.width;
@@ -50408,11 +50432,17 @@ function initControls(GUI) {
         mouseY = event.clientY; // Gets Mouse Y
         updateMouse(GUI);
     });
-    console.log("contropls init");
     window.addEventListener('touchend', (event)=>{
         if (!mouseDragged) leftClicked = true;
         mouseLeftDown = false;
         mouseDragged = false;
+        let touch = event.changedTouches[0];
+        if (touch) {
+            mouseX = touch.pageX; // Gets Mouse X
+            mouseY = touch.pageY; // Gets Mouse Y
+            mouseDragStartX = mouseX;
+            mouseDragStartY = mouseY;
+        }
     });
     window.addEventListener('touchstart', (event)=>{
         mouseLeftDown = true;
@@ -50420,17 +50450,25 @@ function initControls(GUI) {
         if (touch) {
             mouseX = touch.pageX; // Gets Mouse X
             mouseY = touch.pageY; // Gets Mouse Y
+            mouseDragStartX = mouseX;
+            mouseDragStartY = mouseY;
             updateMouse(GUI);
         }
     });
     window.addEventListener('touchmove', (event)=>{
-        if (mouseLeftDown) mouseDragged = true;
+        let touch = event.changedTouches[0];
+        if (touch) {
+            if (mouseLeftDown && (Math.abs(mouseDragStartX - touch.pageX) > maxDrag || Math.abs(mouseDragStartY - touch.pageY) > maxDrag)) mouseDragged = true;
+        }
     });
     window.addEventListener('mousedown', (event)=>{
-        if (event.button == 0) mouseLeftDown = true;
-        else if (event.button == 1) mouseMiddleDown = true;
+        if (event.button == 0) {
+            mouseLeftDown = true;
+            mouseDragStartX = mouseX;
+            mouseDragStartY = mouseY;
+        } else if (event.button == 1) mouseMiddleDown = true;
         else if (event.button == 2) mouseRightDown = true;
-        console.log(mouseLeftDown);
+    //console.log(mouseLeftDown)
     });
     window.addEventListener('mouseup', (event)=>{
         if (event.button == 0) {
@@ -50486,15 +50524,20 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "TargetMode", ()=>TargetMode
 );
+parcelHelpers.export(exports, "addHudElements", ()=>addHudElements
+);
 parcelHelpers.export(exports, "renderHUD", ()=>renderHUD
 );
+var _sprites = require("../gfx/sprites");
 var _render = require("../gfx/render");
 var _control = require("./control");
 var _sprite = require("@pixi/sprite");
 var _pixiJs = require("pixi.js");
 var _pixiFilters = require("pixi-filters");
+var _launcher = require("../launcher");
 let uiSprites = new Map();
-let HUD = new _pixiJs.Container();
+let HUDMarkers = new _pixiJs.Container(); // Displayed on the field
+let HUDScreen = new _pixiJs.Container(); // Displayed on the screen
 let lastViewport;
 var TargetMode;
 (function(TargetMode1) {
@@ -50505,45 +50548,26 @@ var TargetMode;
     TargetMode1[TargetMode1["INTERACT"] = 5605631] = "INTERACT";
 })(TargetMode || (TargetMode = {
 }));
+function addHudElements(stage, viewport) {
+    if (lastViewport) lastViewport.removeChild(HUDMarkers);
+    lastViewport = viewport;
+    viewport.addChild(HUDMarkers);
+    HUDMarkers.zIndex = 100;
+    stage.addChild(HUDScreen);
+    HUDScreen.zIndex = 1000;
+}
 function renderHUD(world) {
     if (lastViewport != _render.viewport) {
-        if (lastViewport) lastViewport.removeChild(HUD);
+        if (lastViewport) lastViewport.removeChild(HUDMarkers);
         lastViewport = _render.viewport;
-        _render.viewport.addChild(HUD);
-        HUD.zIndex = 100; // Render over all
+        _render.viewport.addChild(HUDMarkers);
     }
     let zone = world.zones[world.currentZone];
     if (zone) {
-        // Render all the UI sprites
         let reticule = uiSprites.get("reticule");
-        if (!reticule) {
-            let tex = _pixiJs.RenderTexture.create({
-                width: _render.TILE_SIZE,
-                height: _render.TILE_SIZE
-            });
-            let r1 = new _pixiJs.Graphics();
-            r1.beginFill(16777215);
-            r1.drawRect(0, 0, _render.TILE_SIZE, _render.TILE_SIZE);
-            r1.endFill();
-            r1.beginHole();
-            let holethickness = 2;
-            r1.drawRect(holethickness, holethickness, _render.TILE_SIZE - holethickness * 2, _render.TILE_SIZE - holethickness * 2);
-            r1.endFill();
-            _render.renderer.render(r1, {
-                renderTexture: tex
-            });
-            let ret = new _pixiJs.Sprite(tex);
-            ret.position.x = 0;
-            ret.position.y = 0;
-            ret.anchor.x = 0;
-            ret.anchor.y = 0;
-            ret.filters = [
-                new _pixiFilters.BloomFilter(5)
-            ];
-            HUD.addChild(ret);
-            uiSprites.set("reticule", ret);
-            reticule = ret;
-        }
+        let button_follow = uiSprites.get("follow");
+        if (!reticule) reticule = renderUISprite("reticule", world, zone);
+        if (!button_follow) button_follow = renderUISprite("follow", world, zone);
         if (reticule) {
             if (world.player && _control.mouseInActiveArea) {
                 _control.updateMouseTargeting(world);
@@ -50553,10 +50577,67 @@ function renderHUD(world) {
                 reticule.tint = _control.currentTargeting;
             } else reticule.visible = false;
         }
+        let minDimension = Math.min(_launcher.windowSize.height, _launcher.windowSize.width);
+        let player = world.player;
+        if (player) {
+            if (button_follow) {
+                button_follow.visible = true;
+                button_follow.x = 0;
+                button_follow.y = 0;
+                button_follow.scale.x = Math.min(0.4 * minDimension / button_follow.texture.width, 1);
+                button_follow.scale.y = button_follow.scale.x;
+            }
+        }
     }
 }
+function renderUISprite(name, world, zone) {
+    if (name == "reticule") {
+        let tex = _pixiJs.RenderTexture.create({
+            width: _render.TILE_SIZE,
+            height: _render.TILE_SIZE
+        });
+        let r1 = new _pixiJs.Graphics();
+        r1.beginFill(16777215);
+        r1.drawRect(0, 0, _render.TILE_SIZE, _render.TILE_SIZE);
+        r1.endFill();
+        r1.beginHole();
+        let holethickness = 2;
+        r1.drawRect(holethickness, holethickness, _render.TILE_SIZE - holethickness * 2, _render.TILE_SIZE - holethickness * 2);
+        r1.endFill();
+        _render.renderer.render(r1, {
+            renderTexture: tex
+        });
+        let ret = new _pixiJs.Sprite(tex);
+        ret.position.x = 0;
+        ret.position.y = 0;
+        ret.anchor.x = 0;
+        ret.anchor.y = 0;
+        ret.visible = false;
+        ret.filters = [
+            new _pixiFilters.BloomFilter(5)
+        ];
+        HUDMarkers.addChild(ret);
+        uiSprites.set("reticule", ret);
+        return ret;
+    }
+    if (name == "follow") {
+        let tex = _sprites.textures.get("ui_follow");
+        if (tex) {
+            let ret = new _pixiJs.Sprite(tex);
+            ret.position.x = 0;
+            ret.position.y = 0;
+            ret.anchor.x = 0;
+            ret.anchor.y = 0;
+            ret.visible = false;
+            HUDScreen.addChild(ret);
+            uiSprites.set("follow", ret);
+            return ret;
+        }
+    }
+    return undefined;
+}
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj"}],"73WWw":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz"}],"73WWw":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "getGridDir", ()=>getGridDir

@@ -75,6 +75,10 @@ let rightClicked = false;
 let middleClicked = false;
 let mouseDragged = false;
 
+let mouseDragStartX = 0;
+let mouseDragStartY = 0;
+let maxDrag = 5;
+
 export function updateMouseTargeting(world : World) {
     if (world.player) {
         if (currentTargeting == TargetMode.MOVE) {
@@ -90,7 +94,6 @@ function controlLeftClick(world : World, camera : Player) {
 
     if (world.scheduler && world.player) {
         updateMouseTargeting(world);
-        console.log("check");
         if (currentTargeting == TargetMode.MOVE && mouseInActiveArea) {
             world.scheduler.sendActorMoveRequest(world.player, {
                 x : targetLocation.x - world.player.x,
@@ -215,7 +218,7 @@ export function controlTicker(delta : number, world : World, camera : Player) {
 }
 
 function updateMouse(GUI : UI) {
-    if (mouseLeftDown) mouseDragged = true;
+    if (mouseLeftDown && (Math.abs(mouseDragStartX - mouseX) > maxDrag || Math.abs(mouseDragStartY - mouseY) > maxDrag)) mouseDragged = true;
     let bounds = viewport.getVisibleBounds();
 
     if (viewport) {
@@ -239,13 +242,19 @@ export function initControls(GUI : UI) {
         updateMouse(GUI);
     });
 
-    console.log("contropls init")
-
     window.addEventListener('touchend',(event) => {
         if (!mouseDragged)
             leftClicked = true;
         mouseLeftDown = false;
         mouseDragged = false
+
+        let touch = event.changedTouches[0];
+        if (touch) {
+            mouseX = touch.pageX; // Gets Mouse X
+            mouseY = touch.pageY; // Gets Mouse Y
+            mouseDragStartX = mouseX;
+            mouseDragStartY = mouseY;
+        }
     });
     window.addEventListener('touchstart',(event) => {
         mouseLeftDown = true;
@@ -253,17 +262,22 @@ export function initControls(GUI : UI) {
         if (touch) {
             mouseX = touch.pageX; // Gets Mouse X
             mouseY = touch.pageY; // Gets Mouse Y
+            mouseDragStartX = mouseX;
+            mouseDragStartY = mouseY;
             updateMouse(GUI);
         }
     });
     window.addEventListener('touchmove',(event) => {
-        if (mouseLeftDown) mouseDragged = true;
+        let touch = event.changedTouches[0];
+        if (touch) {
+            if (mouseLeftDown && (Math.abs(mouseDragStartX - touch.pageX) > maxDrag || Math.abs(mouseDragStartY - touch.pageY) > maxDrag)) mouseDragged = true;
+        }
     });
     window.addEventListener('mousedown',(event) => {
-        if (event.button == 0) {mouseLeftDown = true;}
+        if (event.button == 0) {mouseLeftDown = true; mouseDragStartX = mouseX; mouseDragStartY = mouseY;}
         else if (event.button == 1) {mouseMiddleDown = true;}
         else if (event.button == 2) {mouseRightDown = true; }
-        console.log(mouseLeftDown)
+        //console.log(mouseLeftDown)
     });
     window.addEventListener('mouseup',(event) => {
         if (event.button == 0) {mouseLeftDown = false; leftClicked = !mouseDragged; mouseDragged = false;}

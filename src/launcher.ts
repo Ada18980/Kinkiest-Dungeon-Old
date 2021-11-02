@@ -10,6 +10,7 @@ import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport, setRenderer, setView
 import { UI } from './ui/ui';
 import { initControls }  from './ui/control';
 import { Player } from './ui/player';
+import { addHudElements } from './ui/hud';
 
 export let app: PIXI.Application;
 export let windowSize = {width: 1920, height: 1080};
@@ -55,6 +56,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 
 	// add the viewport to the stage
 	app.stage.addChild(viewport);
+	addHudElements(app.stage, viewport);
+	app.stage.sortableChildren = true;
 	// activate plugins
 	viewport
 		.drag({mouseButtons: "left"})

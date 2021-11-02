@@ -12,15 +12,23 @@ let nullTexture = PIXI.Texture.from("img/null.png");
 let spriteResources : SpriteResource[] = [
     {
         name: "player_default",
+        spritesheet : true,
         path: "img/player/default.json",
     },
     {
         name: "bricks",
+        spritesheet : true,
         path: "img/tiles/bricks.json",
+    },
+    {
+        name: "ui_follow",
+        path: "img/ui/follow.png",
+        antialias: true,
     },
 ];
 
 let sprites : Map<string, BaseImage> = new Map<string, BaseImage>();
+export let textures : Map<string, PIXI.Texture> = new Map<string, PIXI.Texture>();
 let images : Map<string, Image> = new Map<string, Image>();
 
 interface SpriteResource {
@@ -45,6 +53,12 @@ interface SpriteResource {
      */
     layers? : SpriteLayer[],
     rows?: number;
+
+    // Determines whether or not the texture is added as a spritesheet
+    spritesheet? : boolean,
+
+    // Determines if the texture is antialiased or not
+    antialias? : boolean,
 }
 
 interface SpriteAnimation {
@@ -268,73 +282,82 @@ export function loadSprites() {
             if (typeof resource !== "undefined") {
                 let loader = PIXI.Loader.shared.resources[element.name];
 
-                let anims : string[] = [];
-                let layers : string[] = [];
+                if (element.spritesheet) {
+                    let anims : string[] = [];
+                    let layers : string[] = [];
 
-                // Seed animations and layers from metatada
-                if (loader?.data?.meta?.frameTags) loader?.data?.meta?.frameTags.forEach((tag : any) => {
-                    if (tag.name) anims.push(tag.name);
-                })
-                if (loader?.data?.meta?.layers) loader?.data?.meta?.layers.forEach((layer : any) => {
-                    if (layer.name) layers.push(layer.name);
-                })
+                    // Seed animations and layers from metatada
+                    if (loader?.data?.meta?.frameTags) loader?.data?.meta?.frameTags.forEach((tag : any) => {
+                        if (tag.name) anims.push(tag.name);
+                    })
+                    if (loader?.data?.meta?.layers) loader?.data?.meta?.layers.forEach((layer : any) => {
+                        if (layer.name) layers.push(layer.name);
+                    })
 
-                // Default layer and animation
-                if (anims.length == 0) anims.push("idle");
-                if (layers.length == 0) layers.push("base");
+                    // Default layer and animation
+                    if (anims.length == 0) anims.push("idle");
+                    if (layers.length == 0) layers.push("base");
 
-                let frameData = loader?.spritesheet?.textures;
+                    let frameData = loader?.spritesheet?.textures;
 
-                // Load the sprites in the internal format
-                if (frameData) {
-                    let keys = Object.keys(frameData);
-                    //console.log(keys)
-                    //console.log(frameData)
-                    for (let animation of anims) {
-                        let zInd = 0;
-                        for (let layer of layers) {
-                            zInd += 1;
-                            let frameKeys = keys.filter((frame : string) => {
-                                return (frameData && frameData[frame] && frame.includes(`(${layer})`) && loader?.data.meta.frameTags?.some((tag: any) => {
-                                        if (tag.name != animation) return false;
-                                        let indexStr = frame.split("|")[1];
-                                        if (!indexStr) return false;
-                                        let index = parseInt(indexStr);
-                                        return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
-                                    })
-                                );});
-                            let frames : PIXI.Texture<PIXI.Resource>[] = [];
-                            for (let frame of frameKeys) {
-                                let data = frameData[frame];
-                                if (data) frames.push(data); // && (data.trim.width > 1 || data.trim.height > 1)
-                            }
-                            if (frames && frames.length > 0) {
-                                let time = 1000;
-                                let zIndex = {
-                                    default: 1+zInd,
-                                };
-                                if (loader?.data?.frames[frameKeys[0] || 0]?.duration) time = loader?.data?.frames[frameKeys[0] || 0]?.duration;
+                    // Load the sprites in the internal format
+                    if (frameData) {
+                        let keys = Object.keys(frameData);
+                        //console.log(keys)
+                        //console.log(frameData)
+                        for (let animation of anims) {
+                            let zInd = 0;
+                            for (let layer of layers) {
+                                zInd += 1;
+                                let frameKeys = keys.filter((frame : string) => {
+                                    return (frameData && frameData[frame] && frame.includes(`(${layer})`) && loader?.data.meta.frameTags?.some((tag: any) => {
+                                            if (tag.name != animation) return false;
+                                            let indexStr = frame.split("|")[1];
+                                            if (!indexStr) return false;
+                                            let index = parseInt(indexStr);
+                                            return tag.from != null && tag.to != null && index >= tag.from && index <= tag.to;
+                                        })
+                                    );});
+                                let frames : PIXI.Texture<PIXI.Resource>[] = [];
+                                for (let frame of frameKeys) {
+                                    let data = frameData[frame];
+                                    if (data) {
+                                        if (element.antialias) data.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR
+                                        frames.push(data); // && (data.trim.width > 1 || data.trim.height > 1)
+                                    }
+                                }
+                                if (frames && frames.length > 0) {
+                                    let time = 1000;
+                                    let zIndex = {
+                                        default: 1+zInd,
+                                    };
+                                    if (loader?.data?.frames[frameKeys[0] || 0]?.duration) time = loader?.data?.frames[frameKeys[0] || 0]?.duration;
 
-                                image.addSprite(layer, animation, {
-                                    frames: frames,
-                                    time: time,
-                                    count: frames.length,
-                                    noLoop: loader?.data?.meta?.frameTags[animation]?.noLoop,
-                                    zIndex: zIndex,
-                                });
+                                    image.addSprite(layer, animation, {
+                                        frames: frames,
+                                        time: time,
+                                        count: frames.length,
+                                        noLoop: loader?.data?.meta?.frameTags[animation]?.noLoop,
+                                        zIndex: zIndex,
+                                    });
+                                }
                             }
                         }
                     }
-                }
 
-                if (image.animations.size > 0)
-                    sprites.set(element.name, image);
+                    if (image.animations.size > 0)
+                        sprites.set(element.name, image);
+                } else if (resource.texture) {
+                    if (element.antialias) resource.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR
+                    textures.set(element.name, resource.texture);
+                }
             }
         }
     });
 
     console.log(PIXI.Loader.shared);
     console.log(sprites);
+    console.log(textures);
 
     /*PIXI.Loader.shared.onComplete.add(() => {
         let sprite = getSprite("player_mage");
