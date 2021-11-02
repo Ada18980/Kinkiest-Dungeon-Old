@@ -50140,6 +50140,12 @@ parcelHelpers.export(exports, "worldMouseX", ()=>worldMouseX
 );
 parcelHelpers.export(exports, "worldMouseY", ()=>worldMouseY
 );
+parcelHelpers.export(exports, "mouseInActiveArea", ()=>mouseInActiveArea
+);
+parcelHelpers.export(exports, "currentTargeting", ()=>currentTargeting
+);
+parcelHelpers.export(exports, "targetLocation", ()=>targetLocation
+);
 parcelHelpers.export(exports, "keyBindingsDefault", ()=>keyBindingsDefault
 );
 parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
@@ -50147,6 +50153,8 @@ parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
 parcelHelpers.export(exports, "keys", ()=>keys1
 );
 parcelHelpers.export(exports, "controlTick", ()=>controlTick
+);
+parcelHelpers.export(exports, "updateMouseTargeting", ()=>updateMouseTargeting
 );
 parcelHelpers.export(exports, "controlTicker", ()=>controlTicker
 );
@@ -50156,6 +50164,7 @@ var _world = require("../world/world");
 var _render = require("../gfx/render");
 var _launcher = require("../launcher");
 var _hud = require("./hud");
+var _math = require("../world/math");
 let mouseLeftDown = false;
 let mouseRightDown = false;
 let mouseMiddleDown = false;
@@ -50165,6 +50174,12 @@ let viewportMouseX = 0;
 let viewportMouseY = 0;
 let worldMouseX = 0;
 let worldMouseY = 0;
+let mouseInActiveArea = true;
+let currentTargeting = _hud.TargetMode.MOVE;
+let targetLocation = {
+    x: 0,
+    y: 0
+};
 let keyBindingsDefault = {
     moveU: [
         'W',
@@ -50235,12 +50250,30 @@ let lastCameraMove = 0;
 let leftClicked = false;
 let rightClicked = false;
 let middleClicked = false;
+let mouseDragged = false;
+function updateMouseTargeting(world) {
+    if (world.player) {
+        if (currentTargeting == _hud.TargetMode.MOVE) {
+            let dir = {
+                x: 0,
+                y: 0
+            };
+            if (worldMouseX != world.player.x || worldMouseY != world.player.y) dir = _math.getGridDir(viewportMouseX - world.player.xx, viewportMouseY - world.player.yy);
+            targetLocation = {
+                x: world.player.x + dir.x,
+                y: world.player.y + dir.y
+            };
+        }
+    }
+}
 function controlLeftClick(world, camera) {
     if (world.scheduler && world.player) {
-        if (_hud.currentTargeting == _hud.TargetMode.MOVE && _hud.mouseInActiveArea) {
+        updateMouseTargeting(world);
+        console.log("check");
+        if (currentTargeting == _hud.TargetMode.MOVE && mouseInActiveArea) {
             world.scheduler.sendActorMoveRequest(world.player, {
-                x: _hud.targetLocation.x - world.player.x,
-                y: _hud.targetLocation.y - world.player.y
+                x: targetLocation.x - world.player.x,
+                y: targetLocation.y - world.player.y
             });
             world.scheduler.requestUpdateTick(1);
         }
@@ -50248,7 +50281,7 @@ function controlLeftClick(world, camera) {
 }
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
-    if (leftClicked) {
+    if (leftClicked && !mouseDragged) {
         // Do left mouse click
         controlLeftClick(world, camera);
         leftClicked = false;
@@ -50354,39 +50387,63 @@ function controlTicker(delta, world, camera) {
         }
     }
 }
+function updateMouse(GUI) {
+    if (mouseLeftDown) mouseDragged = true;
+    let bounds = _render.viewport.getVisibleBounds();
+    if (_render.viewport) {
+        viewportMouseX = _render.viewport.corner.x + bounds.width * mouseX / _launcher.windowSize.width;
+        viewportMouseY = _render.viewport.corner.y + bounds.height * mouseY / _launcher.windowSize.height;
+        if (GUI.world) {
+            let zone = GUI.world.zones[GUI.world.currentZone];
+            if (zone) {
+                worldMouseX = Math.max(0, Math.min(zone.width, Math.floor(viewportMouseX / _render.TILE_SIZE)));
+                worldMouseY = Math.max(0, Math.min(zone.height, Math.floor(viewportMouseY / _render.TILE_SIZE)));
+            }
+        }
+    }
+}
 function initControls(GUI) {
     document.addEventListener("mousemove", (event)=>{
         mouseX = event.clientX; // Gets Mouse X
         mouseY = event.clientY; // Gets Mouse Y
-        if (_render.viewport) {
-            viewportMouseX = _render.viewport.corner.x + _render.viewport.screenWidth * mouseX / _launcher.windowSize.width;
-            viewportMouseY = _render.viewport.corner.y + _render.viewport.screenHeight * mouseY / _launcher.windowSize.height;
-            if (GUI.world) {
-                let zone = GUI.world.zones[GUI.world.currentZone];
-                if (zone) {
-                    worldMouseX = Math.max(0, Math.min(zone.width, Math.floor(viewportMouseX / _render.TILE_SIZE)));
-                    worldMouseY = Math.max(0, Math.min(zone.height, Math.floor(viewportMouseY / _render.TILE_SIZE)));
-                }
-            }
+        updateMouse(GUI);
+    });
+    console.log("contropls init");
+    window.addEventListener('touchend', (event)=>{
+        if (!mouseDragged) leftClicked = true;
+        mouseLeftDown = false;
+        mouseDragged = false;
+    });
+    window.addEventListener('touchstart', (event)=>{
+        mouseLeftDown = true;
+        let touch = event.changedTouches[0];
+        if (touch) {
+            mouseX = touch.pageX; // Gets Mouse X
+            mouseY = touch.pageY; // Gets Mouse Y
+            updateMouse(GUI);
         }
+    });
+    window.addEventListener('touchmove', (event)=>{
+        if (mouseLeftDown) mouseDragged = true;
     });
     window.addEventListener('mousedown', (event)=>{
-        if (event.button == 0) {
-            mouseLeftDown = true;
-            leftClicked = true;
-        } else if (event.button == 1) {
-            mouseMiddleDown = true;
-            middleClicked = true;
-        } else if (event.button == 2) {
-            mouseRightDown = true;
-            rightClicked = true;
-        }
-    //console.log(mouseLeftDown)
+        if (event.button == 0) mouseLeftDown = true;
+        else if (event.button == 1) mouseMiddleDown = true;
+        else if (event.button == 2) mouseRightDown = true;
+        console.log(mouseLeftDown);
     });
     window.addEventListener('mouseup', (event)=>{
-        if (event.button == 0) mouseLeftDown = false;
-        else if (event.button == 1) mouseMiddleDown = false;
-        else if (event.button == 2) mouseRightDown = false;
+        if (event.button == 0) {
+            mouseLeftDown = false;
+            leftClicked = !mouseDragged;
+            mouseDragged = false;
+        } else if (event.button == 1) {
+            mouseMiddleDown = false;
+            middleClicked = true;
+        } else if (event.button == 2) {
+            mouseRightDown = false;
+            rightClicked = true;
+        }
     //console.log(mouseLeftDown)
     });
     window.addEventListener('keydown', (event)=>{
@@ -50424,16 +50481,10 @@ function initControls(GUI) {
     });
 }
 
-},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/world":"hywN6","../launcher":"7Wuwz","./hud":"iPuXr"}],"iPuXr":[function(require,module,exports) {
+},{"../world/world":"hywN6","../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iPuXr":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "TargetMode", ()=>TargetMode
-);
-parcelHelpers.export(exports, "mouseInActiveArea", ()=>mouseInActiveArea
-);
-parcelHelpers.export(exports, "currentTargeting", ()=>currentTargeting
-);
-parcelHelpers.export(exports, "targetLocation", ()=>targetLocation
 );
 parcelHelpers.export(exports, "renderHUD", ()=>renderHUD
 );
@@ -50442,7 +50493,6 @@ var _control = require("./control");
 var _sprite = require("@pixi/sprite");
 var _pixiJs = require("pixi.js");
 var _pixiFilters = require("pixi-filters");
-var _math = require("../world/math");
 let uiSprites = new Map();
 let HUD = new _pixiJs.Container();
 let lastViewport;
@@ -50455,12 +50505,6 @@ var TargetMode;
     TargetMode1[TargetMode1["INTERACT"] = 5605631] = "INTERACT";
 })(TargetMode || (TargetMode = {
 }));
-let mouseInActiveArea = true;
-let currentTargeting = TargetMode.MOVE;
-let targetLocation = {
-    x: 0,
-    y: 0
-};
 function renderHUD(world) {
     if (lastViewport != _render.viewport) {
         if (lastViewport) lastViewport.removeChild(HUD);
@@ -50501,26 +50545,18 @@ function renderHUD(world) {
             reticule = ret;
         }
         if (reticule) {
-            if (world.player && mouseInActiveArea) {
-                let dir = {
-                    x: 0,
-                    y: 0
-                };
-                if (_control.worldMouseX != world.player.x || _control.worldMouseY != world.player.y) dir = _math.getGridDir(_control.viewportMouseX - world.player.xx, _control.viewportMouseY - world.player.yy);
-                targetLocation = {
-                    x: world.player.x + dir.x,
-                    y: world.player.y + dir.y
-                };
+            if (world.player && _control.mouseInActiveArea) {
+                _control.updateMouseTargeting(world);
                 reticule.visible = true;
-                reticule.x = _render.TILE_SIZE * targetLocation.x;
-                reticule.y = _render.TILE_SIZE * targetLocation.y;
-                reticule.tint = currentTargeting;
+                reticule.x = _render.TILE_SIZE * _control.targetLocation.x;
+                reticule.y = _render.TILE_SIZE * _control.targetLocation.y;
+                reticule.tint = _control.currentTargeting;
             } else reticule.visible = false;
         }
     }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","../world/math":"73WWw","./control":"eAdAj"}],"73WWw":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj"}],"73WWw":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "getGridDir", ()=>getGridDir

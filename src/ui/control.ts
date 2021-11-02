@@ -1,10 +1,11 @@
-import { WallProperties, World } from "../world/world";
+import { WallProperties, World, WorldVec } from "../world/world";
 import { Player } from "./player";
 import { TILE_SIZE, viewport } from '../gfx/render';
 import { Sprite } from "@pixi/sprite";
 import { windowSize } from "../launcher";
 import { UI } from "./ui";
-import { currentTargeting, mouseInActiveArea, targetLocation, TargetMode } from "./hud";
+import { TargetMode } from "./hud";
+import { getGridDir } from "../world/math";
 
 export let mouseLeftDown = false;
 export let mouseRightDown = false;
@@ -15,6 +16,10 @@ export let viewportMouseX = 0;
 export let viewportMouseY = 0;
 export let worldMouseX = 0;
 export let worldMouseY = 0;
+
+export let mouseInActiveArea = true;
+export let currentTargeting : TargetMode = TargetMode.MOVE;
+export let targetLocation : WorldVec = {x : 0, y : 0};
 
 export let keyBindingsDefault = {
     moveU : ['W', 'ArrowUp'],
@@ -68,9 +73,24 @@ let lastCameraMove = 0;
 let leftClicked = false;
 let rightClicked = false;
 let middleClicked = false;
+let mouseDragged = false;
+
+export function updateMouseTargeting(world : World) {
+    if (world.player) {
+        if (currentTargeting == TargetMode.MOVE) {
+            let dir = {x : 0, y : 0};
+            if (worldMouseX != world.player.x || worldMouseY != world.player.y)
+                dir = getGridDir(viewportMouseX - world.player.xx, viewportMouseY - world.player.yy);
+            targetLocation = {x: world.player.x + dir.x, y: world.player.y + dir.y};
+        }
+    }
+}
 
 function controlLeftClick(world : World, camera : Player) {
+
     if (world.scheduler && world.player) {
+        updateMouseTargeting(world);
+        console.log("check");
         if (currentTargeting == TargetMode.MOVE && mouseInActiveArea) {
             world.scheduler.sendActorMoveRequest(world.player, {
                 x : targetLocation.x - world.player.x,
@@ -85,7 +105,7 @@ function controlLeftClick(world : World, camera : Player) {
 export function controlTicker(delta : number, world : World, camera : Player) {
     controlTime -= delta;
 
-    if (leftClicked) {
+    if (leftClicked && !mouseDragged) {
         // Do left mouse click
         controlLeftClick(world, camera);
         leftClicked = false;
@@ -194,35 +214,61 @@ export function controlTicker(delta : number, world : World, camera : Player) {
 
 }
 
+function updateMouse(GUI : UI) {
+    if (mouseLeftDown) mouseDragged = true;
+    let bounds = viewport.getVisibleBounds();
+
+    if (viewport) {
+        viewportMouseX = viewport.corner.x + bounds.width * mouseX / windowSize.width;
+        viewportMouseY = viewport.corner.y + bounds.height * mouseY / windowSize.height;
+
+        if (GUI.world) {
+            let zone = GUI.world.zones[GUI.world.currentZone];
+            if (zone) {
+                worldMouseX = Math.max(0, Math.min(zone.width, Math.floor(viewportMouseX/TILE_SIZE)));
+                worldMouseY = Math.max(0, Math.min(zone.height, Math.floor(viewportMouseY/TILE_SIZE)));
+            }
+        }
+    }
+}
+
 export function initControls(GUI : UI) {
     document.addEventListener("mousemove", (event) => {
         mouseX = event.clientX; // Gets Mouse X
         mouseY = event.clientY; // Gets Mouse Y
+        updateMouse(GUI);
+    });
 
-        if (viewport) {
-            viewportMouseX = viewport.corner.x + viewport.screenWidth * mouseX / windowSize.width;
-            viewportMouseY = viewport.corner.y + viewport.screenHeight * mouseY / windowSize.height;
+    console.log("contropls init")
 
-            if (GUI.world) {
-                let zone = GUI.world.zones[GUI.world.currentZone];
-                if (zone) {
-                    worldMouseX = Math.max(0, Math.min(zone.width, Math.floor(viewportMouseX/TILE_SIZE)));
-                    worldMouseY = Math.max(0, Math.min(zone.height, Math.floor(viewportMouseY/TILE_SIZE)));
-                }
-            }
+    window.addEventListener('touchend',(event) => {
+        if (!mouseDragged)
+            leftClicked = true;
+        mouseLeftDown = false;
+        mouseDragged = false
+    });
+    window.addEventListener('touchstart',(event) => {
+        mouseLeftDown = true;
+        let touch = event.changedTouches[0];
+        if (touch) {
+            mouseX = touch.pageX; // Gets Mouse X
+            mouseY = touch.pageY; // Gets Mouse Y
+            updateMouse(GUI);
         }
     });
-
+    window.addEventListener('touchmove',(event) => {
+        if (mouseLeftDown) mouseDragged = true;
+    });
     window.addEventListener('mousedown',(event) => {
-        if (event.button == 0) {mouseLeftDown = true; leftClicked = true;}
-        else if (event.button == 1) {mouseMiddleDown = true; middleClicked = true;}
-        else if (event.button == 2) {mouseRightDown = true; rightClicked = true;}
-        //console.log(mouseLeftDown)
+        if (event.button == 0) {mouseLeftDown = true;}
+        else if (event.button == 1) {mouseMiddleDown = true;}
+        else if (event.button == 2) {mouseRightDown = true; }
+        console.log(mouseLeftDown)
     });
     window.addEventListener('mouseup',(event) => {
-        if (event.button == 0) {mouseLeftDown = false;}
-        else if (event.button == 1) {mouseMiddleDown = false;}
-        else if (event.button == 2) {mouseRightDown = false;}
+        if (event.button == 0) {mouseLeftDown = false; leftClicked = !mouseDragged; mouseDragged = false;}
+        else if (event.button == 1) {mouseMiddleDown = false; middleClicked = true;}
+        else if (event.button == 2) {mouseRightDown = false; rightClicked = true;}
         //console.log(mouseLeftDown)
     });
 

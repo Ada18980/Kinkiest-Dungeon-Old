@@ -1,13 +1,11 @@
 import { WallProperties, World, WorldVec } from "../world/world";
 import { Player } from "./player";
 import { renderer, TILE_SIZE, viewport } from '../gfx/render';
-import { viewportMouseX, viewportMouseY, worldMouseX, worldMouseY } from './control';
+import { currentTargeting, mouseInActiveArea, targetLocation, updateMouseTargeting, viewportMouseX, viewportMouseY, worldMouseX, worldMouseY } from './control';
 import { Sprite } from "@pixi/sprite";
-import { PixelateFilter } from "@pixi/filter-pixelate";
 import * as PIXI from 'pixi.js';
 import { Viewport } from "pixi-viewport";
 import * as filters from 'pixi-filters';
-import { getGridDir } from "../world/math";
 
 let uiSprites = new Map<string, Sprite>();
 let HUD = new PIXI.Container();
@@ -20,9 +18,6 @@ export enum TargetMode {
     ENCHANT = 0x88ff99,
     INTERACT = 0x5588ff,
 }
-export let mouseInActiveArea = true;
-export let currentTargeting : TargetMode = TargetMode.MOVE;
-export let targetLocation : WorldVec = {x : 0, y : 0};
 
 
 export function renderHUD(world : World) {
@@ -61,10 +56,7 @@ export function renderHUD(world : World) {
         }
         if (reticule) {
             if (world.player && mouseInActiveArea) {
-                let dir = {x : 0, y : 0};
-                if (worldMouseX != world.player.x || worldMouseY != world.player.y)
-                    dir = getGridDir(viewportMouseX - world.player.xx, viewportMouseY - world.player.yy);
-                targetLocation = {x: world.player.x + dir.x, y: world.player.y + dir.y};
+                updateMouseTargeting(world);
 
                 reticule.visible = true;
                 reticule.x = TILE_SIZE * targetLocation.x;
