@@ -7,6 +7,7 @@ import { Viewport } from "pixi-viewport";
 import { QuadTree, WorldObject } from "./quadtree";
 import { getRandomFunction } from "../random";
 import {createLightMap, lightMap, propagateLight} from "./light";
+import { Scheduler } from "./scheduler";
 
 
 
@@ -16,11 +17,32 @@ export interface WorldVec {
 }
 
 export enum Wall {
+    NONE = -1,
     FLOOR = 0,
     WINDOW = 1,
     WALL = 100,
     CURTAIN = 101,
 }
+export interface WallProperty {
+    vision : boolean,
+    collision : boolean,
+}
+export let WallProperties : Record<Wall, WallProperty> = {
+    [Wall.NONE] : {vision : false, collision : true},
+    [Wall.FLOOR] : {vision : true, collision : false},
+    [Wall.WINDOW] : {vision : true, collision : true},
+    [Wall.WALL] : {vision : false, collision : true},
+    [Wall.CURTAIN] : {vision : false, collision : false},
+}
+declare global {
+    interface Window {
+        Wall : any;
+        WallProperties: any;
+    }
+}
+window.Wall = Wall
+window.WallProperties = WallProperties
+
 export enum WallDirections {
     PILLAR = "pillar",
     LEFT = "l",
@@ -91,8 +113,8 @@ export class Zone {
 
     // Range: Number of tiles to propagate vision out towards
     // Dispersion: Coefficient to go around corners
-    updateLight(x : number, y : number, range : number, dispersion : number) {
-        propagateLight(this, x, y, range, dispersion);
+    updateLight(x : number, y : number, range : number, dispersion : number, darkness : number) {
+        propagateLight(this, x, y, range, dispersion, darkness);
     }
 
     getLight(x : number, y : number) : number {
@@ -110,7 +132,7 @@ export class Zone {
         }
     }
 
-    get(x : number, y : number) : number {
+    get(x : number, y : number) : Wall {
         let row = this.walls[y];
         if (row) {
             let cell = row[x];
@@ -170,14 +192,14 @@ export class Zone {
         let gdr = (!light || this.getLight(x + 1, y + 1) > 0) ? this.get(x + 1, y + 1) : Wall.WALL;
         let gdl = (!light || this.getLight(x - 1, y + 1) > 0) ? this.get(x - 1, y + 1) : Wall.WALL;
 
-        if (gr != Wall.WALL && gr != -1) r = true;
-        if (gl != Wall.WALL && gl != -1) l = true;
-        if (gu != Wall.WALL && gu != -1) u = true;
-        if (gd != Wall.WALL && gd != -1) d = true;
-        if (gur != Wall.WALL && gur != -1) ur = true;
-        if (gul != Wall.WALL && gul != -1) ul = true;
-        if (gdr != Wall.WALL && gdr != -1) dr = true;
-        if (gdl != Wall.WALL && gdl != -1) dl = true;
+        if (gr != Wall.WALL && gr != Wall.NONE) r = true;
+        if (gl != Wall.WALL && gl != Wall.NONE) l = true;
+        if (gu != Wall.WALL && gu != Wall.NONE) u = true;
+        if (gd != Wall.WALL && gd != Wall.NONE) d = true;
+        if (gur != Wall.WALL && gur != Wall.NONE) ur = true;
+        if (gul != Wall.WALL && gul != Wall.NONE) ul = true;
+        if (gdr != Wall.WALL && gdr != Wall.NONE) dr = true;
+        if (gdl != Wall.WALL && gdl != Wall.NONE) dl = true;
 
         if (u) {
             if (d) {
@@ -363,7 +385,7 @@ export class Zone {
                 y : 1 + Math.floor(rand() * (height/2 - 1.000001 )) * 2
             }
         }
-        function getCell(x : number, y : number) : number {
+        function getCell(x : number, y : number) : Wall {
             let row = cells[y];
             if (row) {
                 let cell = row[x];
@@ -498,15 +520,29 @@ export class World {
     zones : Zone[];
     currentZone : number = 0;
 
+    scheduler : Scheduler | undefined;
+
     constructor() {
         let zone = new Zone(100, 100);
         this.zones = [zone];
+        this.scheduler = new Scheduler(this);
         let start = performance.now();
         zone.createMaze();
         console.log("Maze generation took " + (performance.now() - start)/1000);
     }
 
-
+    actorCanMove(actor : Actor, x : number, y : number, force?: false) : boolean {
+        let ethereal = false; // Here we will add any buff or ability that lets the actor pass through
+        let zone = this.zones[this.currentZone];
+        if (!zone) return false;
+        if (x >= 0 && y >= 0 && x < zone.width && y < zone.height) {
+            let occuupied = !force && false; // Cant move into occupied spaces
+            if ((ethereal || !WallProperties[zone.get(x, y)].collision) && !occuupied) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     moveActor(actor : Actor, dir : WorldVec) : number {
         if (this.actors.get(actor.id)) {
@@ -530,7 +566,7 @@ export class World {
         this.tree_actors.refresh();
         let zone = this.zones[this.currentZone];
         if (this.player && zone) {
-            zone.updateLight(this.player.x, this.player.y, 7, 0.0);
+            zone.updateLight(this.player.x, this.player.y, 7, 0.0, 0.05);
         }
     }
 
@@ -580,11 +616,14 @@ export class World {
         let oldContainers = this.containers;
         let oldActorMap = this.tree_actors;
         this.containers = new Map<number, ActorContainer>();
+        let scheduler = this.scheduler;
+        this.scheduler = undefined;
         // TODO actually serialize
 
         // Blorp
 
         // TODO finish serializing
+        this.scheduler = scheduler;
         this.containers = oldContainers;
         this.tree_actors = oldActorMap;
     }

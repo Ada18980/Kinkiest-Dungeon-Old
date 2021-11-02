@@ -43602,6 +43602,7 @@ class Actor extends _quadtree.WorldObject {
     }
     // Returns if the actor turned
     faceDir(dir) {
+        if (dir.x == 0 && dir.y == 0) return false;
         let DirIdeal = Dir.DOWN;
         let DirNonIdeal = [];
         if (dir.y > 0) {
@@ -43885,6 +43886,8 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Wall", ()=>Wall
 );
+parcelHelpers.export(exports, "WallProperties", ()=>WallProperties
+);
 parcelHelpers.export(exports, "WallDirections", ()=>WallDirections
 );
 parcelHelpers.export(exports, "Zone", ()=>Zone
@@ -43895,15 +43898,41 @@ var _actor = require("./actor");
 var _quadtree = require("./quadtree");
 var _random = require("../random");
 var _light = require("./light");
+var _scheduler = require("./scheduler");
 "use strict";
 var Wall;
 (function(Wall1) {
+    Wall1[Wall1["NONE"] = -1] = "NONE";
     Wall1[Wall1["FLOOR"] = 0] = "FLOOR";
     Wall1[Wall1["WINDOW"] = 1] = "WINDOW";
     Wall1[Wall1["WALL"] = 100] = "WALL";
     Wall1[Wall1["CURTAIN"] = 101] = "CURTAIN";
 })(Wall || (Wall = {
 }));
+let WallProperties = {
+    [Wall.NONE]: {
+        vision: false,
+        collision: true
+    },
+    [Wall.FLOOR]: {
+        vision: true,
+        collision: false
+    },
+    [Wall.WINDOW]: {
+        vision: true,
+        collision: true
+    },
+    [Wall.WALL]: {
+        vision: false,
+        collision: true
+    },
+    [Wall.CURTAIN]: {
+        vision: false,
+        collision: false
+    }
+};
+window.Wall = Wall;
+window.WallProperties = WallProperties;
 var WallDirections;
 (function(WallDirections1) {
     WallDirections1["PILLAR"] = "pillar";
@@ -43967,8 +43996,8 @@ class Zone {
     }
     // Range: Number of tiles to propagate vision out towards
     // Dispersion: Coefficient to go around corners
-    updateLight(x, y, range, dispersion) {
-        _light.propagateLight(this, x, y, range, dispersion);
+    updateLight(x, y, range, dispersion, darkness) {
+        _light.propagateLight(this, x, y, range, dispersion, darkness);
     }
     getLight(x, y) {
         let row = this.light[y];
@@ -44027,14 +44056,14 @@ class Zone {
         let gul = !light || this.getLight(x - 1, y - 1) > 0 ? this.get(x - 1, y - 1) : Wall.WALL;
         let gdr = !light || this.getLight(x + 1, y + 1) > 0 ? this.get(x + 1, y + 1) : Wall.WALL;
         let gdl = !light || this.getLight(x - 1, y + 1) > 0 ? this.get(x - 1, y + 1) : Wall.WALL;
-        if (gr != Wall.WALL && gr != -1) r = true;
-        if (gl != Wall.WALL && gl != -1) l = true;
-        if (gu != Wall.WALL && gu != -1) u = true;
-        if (gd != Wall.WALL && gd != -1) d = true;
-        if (gur != Wall.WALL && gur != -1) ur = true;
-        if (gul != Wall.WALL && gul != -1) ul = true;
-        if (gdr != Wall.WALL && gdr != -1) dr = true;
-        if (gdl != Wall.WALL && gdl != -1) dl = true;
+        if (gr != Wall.WALL && gr != Wall.NONE) r = true;
+        if (gl != Wall.WALL && gl != Wall.NONE) l = true;
+        if (gu != Wall.WALL && gu != Wall.NONE) u = true;
+        if (gd != Wall.WALL && gd != Wall.NONE) d = true;
+        if (gur != Wall.WALL && gur != Wall.NONE) ur = true;
+        if (gul != Wall.WALL && gul != Wall.NONE) ul = true;
+        if (gdr != Wall.WALL && gdr != Wall.NONE) dr = true;
+        if (gdl != Wall.WALL && gdl != Wall.NONE) dl = true;
         if (u) {
             if (d) {
                 if (l) {
@@ -44285,9 +44314,20 @@ class World {
         this.zones = [
             zone
         ];
+        this.scheduler = new _scheduler.Scheduler(this);
         let start = performance.now();
         zone.createMaze();
         console.log("Maze generation took " + (performance.now() - start) / 1000);
+    }
+    actorCanMove(actor, x, y, force) {
+        let ethereal = false; // Here we will add any buff or ability that lets the actor pass through
+        let zone1 = this.zones[this.currentZone];
+        if (!zone1) return false;
+        if (x >= 0 && y >= 0 && x < zone1.width && y < zone1.height) {
+            let occuupied = !force && false; // Cant move into occupied spaces
+            if ((ethereal || !WallProperties[zone1.get(x, y)].collision) && !occuupied) return true;
+        }
+        return false;
     }
     moveActor(actor, dir) {
         if (this.actors.get(actor.id)) {
@@ -44304,7 +44344,7 @@ class World {
         });
         this.tree_actors.refresh();
         let zone1 = this.zones[this.currentZone];
-        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0);
+        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0, 0.05);
     }
     render(delta) {
         this.containers.forEach((ac)=>{
@@ -44349,9 +44389,12 @@ class World {
         let oldContainers = this.containers;
         let oldActorMap = this.tree_actors;
         this.containers = new Map();
+        let scheduler = this.scheduler;
+        this.scheduler = undefined;
         // TODO actually serialize
         // Blorp
         // TODO finish serializing
+        this.scheduler = scheduler;
         this.containers = oldContainers;
         this.tree_actors = oldActorMap;
     }
@@ -44360,7 +44403,7 @@ class World {
     }
 }
 
-},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../random":"2ffUi","./light":"e01Wg"}],"2ffUi":[function(require,module,exports) {
+},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../random":"2ffUi","./light":"e01Wg","./scheduler":"gqpkC"}],"2ffUi":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "rand", ()=>rand
@@ -44419,7 +44462,7 @@ parcelHelpers.export(exports, "createLightMap", ()=>createLightMap
 // s = source x and y points and w weights
 // dx, dy = destination x and y
 var _world = require("./world");
-function propagateLight(zone, x, y, range, dispersion) {
+function propagateLight(zone, x, y, range, dispersion, darkness) {
     zone.light = [];
     for(let y1 = 0; y1 < zone.height; y1++){
         let row = [];
@@ -44428,19 +44471,24 @@ function propagateLight(zone, x, y, range, dispersion) {
     }
     zone.setLight(x, y, 1);
     // Begin running the lightmap
+    let lightmult = 1;
     for(let r = 0; r < range && r < lightMap.length; r++){
         let ring = lightMap[r]; // Get a ring from the lightmap
         if (ring) for (let cell of ring){
             let sum = 0;
             let block = zone.get(x + cell.dx, y + cell.dy) == _world.Wall.WALL;
             // For each ring cell we look at dependent light points and add up
-            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL) //if (!block || (source.y >= cell.dy)) {
+            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL || source.x == 0 && source.y == 0) //if (!block || (source.y >= cell.dy)) {
             sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
-            if (sum <= 0.99 && zone.getWallNeighborCount(x + cell.dx, y + cell.dy) >= 6) sum = Math.max(0, sum - 0.25);
-            if (sum < dispersion) sum = 0;
-            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, Math.min(1, sum));
+            if (!block && sum <= 0.99) {
+                let neighbors = zone.getWallNeighborCount(x + cell.dx, y + cell.dy);
+                if (neighbors >= 3 + 3 * sum) sum = Math.max(0, sum - 0.05 * neighbors);
+            }
+            if (sum < dispersion * lightmult) sum = 0;
+            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, lightmult * Math.min(1, sum));
             else zone.setLight(x + cell.dx, y + cell.dy, -1);
         }
+        lightmult *= 1 - darkness;
     }
 }
 let lightMap = [
@@ -44553,19 +44601,22 @@ function createLightMapRing() {
                 s: []
             };
             let neighbors = [];
-            for(let xx = x - 1; xx <= x + 1; xx++)for(let yy = y - 1; yy <= y + 1; yy++){
-                if (xx != x || yy != y) {
-                    if (Math.abs(xx) < d && Math.abs(yy) < d) neighbors.push({
-                        x: xx,
-                        y: yy,
-                        w: 0
-                    });
+            for(let xx = x - 1; xx <= x + 1; xx++){
+                for(let yy = y - 1; yy <= y + 1; yy++)if (xx != x || yy != y) {
+                    if (Math.abs(xx) < d && Math.abs(yy) < d) // Enforce directionality
+                    {
+                        if (Math.abs(xx) <= Math.abs(x) && Math.abs(yy) <= Math.abs(y)) neighbors.push({
+                            x: xx,
+                            y: yy,
+                            w: 0
+                        });
+                    }
                 }
             }
             for (let n of neighbors){
-                if (neighbors.length == 1) n.w = 0.99;
+                if (neighbors.length == 1) n.w = 1;
                 else if (n.x == cell.dx || n.y == cell.dy) n.w = 1;
-                else n.w = 0.5;
+                else n.w = 0.7;
                 cell.s.push(n);
             }
             ring.push(cell);
@@ -44574,7 +44625,69 @@ function createLightMapRing() {
     lightMap.push(ring);
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./world":"hywN6"}],"iwMNm":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./world":"hywN6"}],"gqpkC":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Scheduler", ()=>Scheduler
+);
+class Scheduler {
+    constructor(world1){
+        this.requests = [];
+        this.requestDelay = 200;
+        this.lastRequestTime = 0;
+        this.world = world1;
+        this.tasks = [];
+    }
+    update() {
+        if (this.requests.length > 0 && performance.now() > this.lastRequestTime + this.requestDelay) {
+            let request = this.requests[0];
+            if (request != undefined) {
+                if (request == 0) this.world.update(0);
+                else for(let d = 0; d < request; d++){
+                    let taskQueue = [];
+                    for (let task of this.tasks){
+                        taskQueue.push(task);
+                        this.tasks.splice(this.tasks.indexOf(task), 1);
+                    }
+                    // TODO sort tasks based on priority here
+                    for (let task1 of taskQueue)task1.execute(this.world);
+                    this.world.update(1);
+                }
+                this.lastRequestTime = performance.now();
+                this.requests.splice(0, 1);
+            }
+        //console.log("Updated")
+        }
+    }
+    requestUpdateTick(d) {
+        this.requests.push(d);
+    //console.log("Tick: " + d)
+    }
+    sendActorMoveRequest(actor, dir) {
+        this.tasks.push(new TaskMove(actor, dir));
+    //console.log("Move: " + dir)
+    }
+}
+class Task {
+    constructor(actor, priority = 0){
+        this.target = actor;
+    }
+    execute(world) {
+        return false;
+    }
+}
+class TaskMove extends Task {
+    constructor(actor1, dir, priority1 = 0){
+        super(actor1, priority1);
+        this.direction = dir;
+    }
+    execute(world) {
+        if (world.player && world.actorCanMove(world.player, world.player.x + this.direction.x, world.player.y + this.direction.y)) world.moveActor(world.player, this.direction);
+        return false;
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "UI", ()=>UI
@@ -44616,7 +44729,8 @@ class UI {
             let d = performance.now() - lastTick;
             lastTick = performance.now();
             _control.controlTicker(d, this.world, this.player);
-            this.updateWorld();
+            this.updateWorldRender();
+            if (this.world.scheduler) this.world.scheduler.update();
             this.world.render(d);
             if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
                 if (!_control.mouseLeftDown) {
@@ -44777,7 +44891,7 @@ class UI {
             this.currentZone = zone;
         }
     }
-    updateWorld() {
+    updateWorldRender() {
         // Update the walls
         let bounds = _render.viewport.getVisibleBounds().pad(_render.TILE_SIZE, _render.TILE_SIZE);
         let walls = this.walls?.children;
@@ -44842,6 +44956,7 @@ parcelHelpers.export(exports, "controlTicker", ()=>controlTicker
 );
 parcelHelpers.export(exports, "initControls", ()=>initControls
 );
+var _world = require("../world/world");
 var _render = require("../gfx/render");
 let mouseLeftDown = false;
 let mouseRightDown = false;
@@ -44941,15 +45056,23 @@ function controlTicker(delta, world, camera) {
             dir.x = 1;
             controlMove = true;
         }
+        let zone = world.zones[world.currentZone];
+        if (zone) {
+            if (dir.x != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) dir.y = 0;
+            else if (dir.y != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) dir.x = 0;
+        }
         if (finishMove) {
             dir = lastDir;
             controlMove = true;
         }
         if (controlMove && controlDiagGrace > controlDiagGraceTime) {
             // Replace with WorldSendAIMoveRequest(world.player, dir)
-            world.moveActor(world.player, dir);
+            //
             // Replace with WorldRequestUpdateTick(1)
-            world.update(1);
+            if (world.scheduler) {
+                world.scheduler.sendActorMoveRequest(world.player, dir);
+                world.scheduler.requestUpdateTick(1);
+            }
             controlTick = false;
             controlTime = 270;
             //console.log(dir)
@@ -45049,7 +45172,7 @@ function initControls() {
     });
 }
 
-},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"aunNh":[function(require,module,exports) {
+},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/world":"hywN6"}],"aunNh":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Player", ()=>Player

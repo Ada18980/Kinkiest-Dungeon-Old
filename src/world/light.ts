@@ -19,7 +19,7 @@ export interface LightSourcePoint {
     w : number,
 }
 
-export function propagateLight(zone : Zone, x : number, y : number, range : number, dispersion : number) {
+export function propagateLight(zone : Zone, x : number, y : number, range : number, dispersion : number, darkness : number) {
     zone.light = [];
     for (let y = 0; y < zone.height; y++) {
         let row : number[] = [];
@@ -31,6 +31,7 @@ export function propagateLight(zone : Zone, x : number, y : number, range : numb
     zone.setLight(x, y, 1.0);
 
     // Begin running the lightmap
+    let lightmult = 1.0;
     for (let r = 0; r < range && r < lightMap.length; r++) {
         let ring = lightMap[r]; // Get a ring from the lightmap
         if (ring) {
@@ -39,22 +40,26 @@ export function propagateLight(zone : Zone, x : number, y : number, range : numb
                 let block = zone.get(x + cell.dx, y + cell.dy) == Wall.WALL;
                 // For each ring cell we look at dependent light points and add up
                 for (let source of cell.s) {
-                    if (zone.get(x + source.x, y + source.y) < Wall.WALL) {
+                    if (zone.get(x + source.x, y + source.y) < Wall.WALL || (source.x == 0 && source.y == 0)) {
                         //if (!block || (source.y >= cell.dy)) {
                             sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
                         //}
                     }
                 }
-                if (sum <= 0.99 && zone.getWallNeighborCount(x + cell.dx, y + cell.dy) >= 6) {
-                    sum = Math.max(0, sum - 0.25);
+                if (!block && sum <= 0.99) {
+                    let neighbors = zone.getWallNeighborCount(x + cell.dx, y + cell.dy);
+                    if (neighbors >= 3 + 3 * sum) {
+                        sum = Math.max(0, sum - 0.05 * neighbors);
+                    }
                 }
-                if (sum < dispersion) {
+                if (sum < dispersion * lightmult) {
                     sum = 0;
                 }
-                if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, Math.min(1.0, sum));
+                if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, lightmult * Math.min(1.0, sum));
                 else zone.setLight(x + cell.dx, y + cell.dy, -1);
             }
         }
+        lightmult *= (1.0 - darkness);
     }
 }
 
@@ -116,15 +121,18 @@ function createLightMapRing() {
                     for (let yy = y-1; yy <= y+1; yy++) {
                         if (xx != x || yy != y) {
                             if (Math.abs(xx) < d && Math.abs(yy) < d) {
-                                neighbors.push({x : xx, y : yy, w : 0.0});
+                                // Enforce directionality
+                                if ((Math.abs(xx) <= Math.abs(x))
+                                    && (Math.abs(yy) <= Math.abs(y)))
+                                        neighbors.push({x : xx, y : yy, w : 0.0});
                             }
                         }
                     }
                 }
                 for (let n of neighbors) {
-                    if (neighbors.length == 1) n.w = 0.99;
+                    if (neighbors.length == 1) n.w = 1.0;
                     else if (n.x == cell.dx || n.y == cell.dy) n.w = 1.0;
-                    else n.w = 0.5;
+                    else n.w = 0.7;
                     cell.s.push(n);
                 }
                 ring.push(cell);

@@ -1,4 +1,4 @@
-import { World } from "world/world";
+import { WallProperties, World } from "../world/world";
 import { Player } from "./player";
 import { TILE_SIZE, viewport } from '../gfx/render';
 import { Sprite } from "@pixi/sprite";
@@ -75,6 +75,19 @@ export function controlTicker(delta : number, world : World, camera : Player) {
         if (keys.moveL.value > 0) {dir.x = -1; controlMove = true;}
         else if (keys.moveR.value > 0) {dir.x = 1; controlMove = true;}
 
+        let zone = world.zones[world.currentZone];
+        if (zone) {
+            if (dir.x != 0
+                && WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision
+                && !WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) {
+                dir.y = 0;
+            } else if (dir.y != 0
+                && WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision
+                && !WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) {
+                dir.x = 0;
+            }
+        }
+
         if (finishMove) {
             dir = lastDir;
             controlMove = true;
@@ -82,9 +95,12 @@ export function controlTicker(delta : number, world : World, camera : Player) {
 
         if (controlMove && controlDiagGrace > controlDiagGraceTime) {
             // Replace with WorldSendAIMoveRequest(world.player, dir)
-            world.moveActor(world.player, dir);
+            //
             // Replace with WorldRequestUpdateTick(1)
-            world.update(1);
+            if (world.scheduler) {
+                world.scheduler.sendActorMoveRequest(world.player, dir);
+                world.scheduler.requestUpdateTick(1);
+            }
             controlTick = false;
             controlTime = 270;
             //console.log(dir)

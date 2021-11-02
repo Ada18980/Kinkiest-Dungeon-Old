@@ -48,7 +48,8 @@ export class UI {
             lastTick = performance.now();
 
             controlTicker(d, this.world, this.player);
-            this.updateWorld();
+            this.updateWorldRender();
+            if (this.world.scheduler) this.world.scheduler.update();
             this.world.render(d);
 
             if ((viewport.center.x > viewport.worldWidth || viewport.center.x < 0 || viewport.center.y > viewport.worldHeight || viewport.center.y < 0)) {
@@ -181,7 +182,7 @@ export class UI {
         }
     }
 
-    updateWorld() {
+    updateWorldRender() {
 
         // Update the walls
         let bounds = viewport.getVisibleBounds().pad(TILE_SIZE, TILE_SIZE);

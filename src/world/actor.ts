@@ -58,6 +58,7 @@ export class Actor extends WorldObject {
 
     // Returns if the actor turned
     faceDir(dir : WorldVec) : boolean {
+        if (dir.x == 0 && dir.y == 0) return false;
         let DirIdeal = Dir.DOWN;
         let DirNonIdeal : Dir[] = [];
         if (dir.y > 0) {
