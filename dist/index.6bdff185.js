@@ -43555,6 +43555,14 @@ parcelHelpers.export(exports, "setRenderer", ()=>setRenderer
 );
 parcelHelpers.export(exports, "setViewport", ()=>setViewport
 );
+parcelHelpers.export(exports, "renderWorld", ()=>renderWorld
+);
+parcelHelpers.export(exports, "updateWorldRender", ()=>updateWorldRender
+);
+var _pixiJs = require("pixi.js");
+var _world = require("../world/world");
+var _sprites = require("../gfx/sprites");
+var _pixiFilters = require("pixi-filters");
 const TILE_SIZE = 64;
 const MIN_ZOOM = 5; // In tiles
 const MAX_ZOOM = 25; // In Tiles
@@ -43566,1627 +43574,200 @@ function setRenderer(r) {
 function setViewport(v) {
     viewport = v;
 }
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hVA85":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Dir", ()=>Dir
-);
-parcelHelpers.export(exports, "Actor", ()=>Actor
-);
-parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
-);
-var _sprites = require("../gfx/sprites");
-var _render = require("../gfx/render");
-var _quadtree = require("./quadtree");
-"use strict";
-var Dir;
-(function(Dir1) {
-    Dir1["UP"] = "_up";
-    Dir1["DOWN"] = "_down";
-    Dir1["LEFT"] = "_left";
-    Dir1["RIGHT"] = "_right";
-})(Dir || (Dir = {
-}));
-class Actor extends _quadtree.WorldObject {
-    constructor(x, y, type){
-        super(x, y);
-        this.type = type;
-        this.direction = Dir.DOWN;
-        this.data = new Map();
-    }
-    update(delta) {
-        if (this.type.updateHooks) {
-            for(let H in this.type.updateHooks);
-        }
-    }
-    // Returns if the actor turned
-    faceDir(dir) {
-        if (dir.x == 0 && dir.y == 0) return false;
-        let DirIdeal = Dir.DOWN;
-        let DirNonIdeal = [];
-        if (dir.y > 0) {
-            DirIdeal = Dir.DOWN;
-            if (dir.x > 0) DirNonIdeal = [
-                Dir.RIGHT
-            ];
-            else if (dir.x < 0) DirNonIdeal = [
-                Dir.LEFT
-            ];
-        } else if (dir.y < 0) {
-            DirIdeal = Dir.UP;
-            if (dir.x > 0) DirNonIdeal = [
-                Dir.RIGHT
-            ];
-            else if (dir.x < 0) DirNonIdeal = [
-                Dir.LEFT
-            ];
-        } else if (dir.x > 0) {
-            DirIdeal = Dir.RIGHT;
-            if (dir.y > 0) DirNonIdeal = [
-                Dir.UP
-            ];
-            else if (dir.y < 0) DirNonIdeal = [
-                Dir.DOWN
-            ];
-        } else if (dir.x < 0) {
-            DirIdeal = Dir.LEFT;
-            if (dir.y > 0) DirNonIdeal = [
-                Dir.UP
-            ];
-            else if (dir.y < 0) DirNonIdeal = [
-                Dir.DOWN
-            ];
-        }
-        if (DirNonIdeal.includes(this.direction)) return false;
-        else if (DirIdeal != this.direction) {
-            this.direction = DirIdeal;
-            return true;
-        }
-        return false;
-    }
-    get sprite() {
-        return this.type.sprite;
-    }
-    get xx() {
-        return this.x * _render.TILE_SIZE + _render.TILE_SIZE / 2;
-    }
-    get yy() {
-        return this.y * _render.TILE_SIZE + _render.TILE_SIZE / 2;
-    }
-    // Trigger on destruction events
-    destroy(code = -1) {
-        if (code == -1) return; // Exit doing nothing if no return code is given
-    }
-}
-class ActorContainer {
-    constructor(actor){
-        this.sprite = undefined;
-        this.xx = 0;
-        this.yy = 0;
-        this.actor = actor;
-        this.xx = actor.xx;
-        this.yy = actor.yy;
-    }
-    render(delta) {
-        if (!this.sprite && this.actor.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
-        let dx = this.actor.xx - this.xx;
-        let dy = this.actor.yy - this.yy;
-        let speed = 1;
-        if (Math.abs(dx) > Math.abs(dy) - 0.1 && Math.abs(dx) < Math.abs(dy) + 0.1) speed = 1.41;
-        if (Math.max(Math.abs(dx), Math.abs(dy)) > _render.TILE_SIZE * 1.1) speed = Math.max(Math.abs(dx), Math.abs(dy)) / (_render.TILE_SIZE * 1.1);
-        if (dx != 0 || dy != 0) {
-            let speedMult = Math.min(_render.TILE_SIZE / 30 * speed, 30);
-            this.xx += speedMult * Math.cos(Math.atan2(dy, dx));
-            this.yy += speedMult * Math.sin(Math.atan2(dy, dx));
-            if (Math.abs(dx) < speedMult) this.xx = this.actor.xx;
-            if (Math.abs(dy) < speedMult) this.yy = this.actor.yy;
-        }
-        // TODO if actor is player, get player outfit
-        if (this.sprite) {
-            let playAnim = this.actor.type.idleAnim || dx != 0 || dy != 0;
-            let pose = [
-                "walk"
-            ];
-            this.sprite.render(this.actor.direction, pose, this.xx, this.yy);
-            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 1);
-            if (!playAnim && this.sprite.playing) this.sprite.animate(false, true, 0);
-        }
-    }
-    destroy(destroyActor, code = -1) {
-        if (this.sprite) this.sprite.destroy();
-        if (destroyActor) this.actor.destroy(code);
-    }
-}
-
-},{"../gfx/sprites":"7UxjD","../gfx/render":"jTB3f","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"l75T3":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "WorldObject", ()=>WorldObject
-);
-parcelHelpers.export(exports, "QuadTree", ()=>QuadTree
-);
-"use strict";
-class WorldObject {
-    constructor(x1, y1){
-        this.id = 0;
-        this.x = x1;
-        this.y = y1;
-    }
-}
-class QuadTree {
-    constructor(radius1){
-        this.head = new QuadCell(0, 0, radius1);
-    }
-    // Checks all actors to make sure the x and y are correct
-    refresh() {
-        let refList = [];
-        for (let ref of this.head.refs){
-            let obj = ref[1];
-            let cell = this.getCell(obj.x, obj.y);
-            if (obj.x >= cell.x + cell.radius || obj.x < cell.x - cell.radius || obj.y >= cell.y + cell.radius || obj.y < cell.y - cell.radius) refList.push(obj);
-        }
-        for (let obj of refList){
-            this.remove(obj);
-            this.add(obj);
-        }
-    }
-    getAll(x, y, radius) {
-        return this.head.getAll(x, y, radius);
-    }
-    getCell(x, y) {
-        return this.head.getCell(x, y);
-    }
-    add(obj) {
-        let dir = -1;
-        let iter = 0;
-        let max = 1000;
-        while(this.getDir(obj.x, obj.y) > -1 && iter < max){
-            this.expand(this.getDir(obj.x, obj.y));
-            iter += 1;
-        }
-        if (iter >= max) console.log("Error, overflow when populating quad tree");
-        this.head.add(obj);
-    }
-    remove(obj) {
-        return this.head.remove(obj);
-    }
-    getDir(x, y) {
-        if (x >= this.head.x + this.head.radius) {
-            if (y >= this.head.y + this.head.radius) return 3;
-            else if (y <= this.head.y - this.head.radius) return 1;
-        } else if (x <= this.head.x - this.head.radius) {
-            if (y >= this.head.y + this.head.radius) return 2;
-            else if (y <= this.head.y - this.head.radius) return 0;
-        }
-        return -1;
-    }
-    // 0 = nw
-    // 1 = ne
-    // 2 = sw
-    // 3 = se
-    expand(dir) {
-        let radius2 = this.head.radius;
-        let x2 = this.head.x;
-        let y2 = this.head.y;
-        if (dir == 3) {
-            let newCell = new QuadCell(x2 + radius2, y2 + radius2, radius2 * 2);
-            newCell.nw = this.head;
-            newCell.ne = new QuadCell(x2 + radius2 * 2, y2, radius2);
-            newCell.sw = new QuadCell(x2, y2 + radius2 * 2, radius2);
-            newCell.se = new QuadCell(x2 + radius2 * 2, y2 + radius2 * 2, radius2);
-            this.head = newCell;
-        } else if (dir == 2) {
-            let newCell = new QuadCell(x2 - radius2, y2 + radius2, radius2 * 2);
-            newCell.nw = new QuadCell(x2 - radius2 * 2, y2, radius2);
-            newCell.ne = this.head;
-            newCell.sw = new QuadCell(x2 - radius2 * 2, y2 + radius2 * 2, radius2);
-            newCell.se = new QuadCell(x2, y2 + radius2 * 2, radius2);
-            this.head = newCell;
-        } else if (dir == 1) {
-            let newCell = new QuadCell(x2 + radius2, y2 - radius2, radius2 * 2);
-            newCell.nw = new QuadCell(x2, y2 - radius2 * 2, radius2);
-            newCell.ne = new QuadCell(x2 + radius2 * 2, y2 - radius2 * 2, radius2);
-            newCell.sw = this.head;
-            newCell.se = new QuadCell(x2 + radius2 * 2, y2, radius2);
-            this.head = newCell;
-        } else {
-            let newCell = new QuadCell(x2 - radius2, y2 - radius2, radius2 * 2);
-            newCell.nw = new QuadCell(x2 - radius2 * 2, y2 - radius2 * 2, radius2);
-            newCell.ne = new QuadCell(x2, y2 - radius2 * 2, radius2);
-            newCell.sw = new QuadCell(x2 - radius2 * 2, y2, radius2);
-            newCell.se = this.head;
-            this.head = newCell;
-        }
-    }
-}
-class QuadCell {
-    constructor(x2, y2, radius2, quad_max = 10){
-        this.nw = undefined;
-        this.ne = undefined;
-        this.sw = undefined;
-        this.se = undefined;
-        this.refs = new Map();
-        this.minRadius = 10;
-        this.x = x2;
-        this.y = y2;
-        this.radius = radius2;
-        this.quad_max = quad_max;
-    }
-    // Gets the current cell associated with the x, y point
-    getCell(x, y) {
-        if (this.se && x > this.x && y > this.y) return this.se.getCell(x, y);
-        if (this.sw && x <= this.x && y > this.y) return this.sw.getCell(x, y);
-        if (this.ne && x > this.x && y <= this.y) return this.ne.getCell(x, y);
-        if (this.nw && x <= this.x && y <= this.y) return this.nw.getCell(x, y);
-        return this;
-    }
-    getAll(x, y, radius) {
-        let ret = [];
-        let search = [];
-        if (this.se && x + radius > this.x && y + radius > this.y) search.push(this.se);
-        if (this.sw && x - radius <= this.x && y + radius > this.y) search.push(this.sw);
-        if (this.ne && x + radius > this.x && y - radius <= this.y) search.push(this.ne);
-        if (this.nw && x - radius <= this.x && y - radius <= this.y) search.push(this.nw);
-        if (search.length > 0) {
-            for (let s of search)for (let ss of s.getAll(x, y, radius))ret.push(ss);
-        } else {
-            for (let r of this.refs)if (r[1].x >= x - radius && r[1].x <= x + radius && r[1].y >= y - radius && r[1].y <= y + radius) ret.push(r[1]);
-        }
-        return ret;
-    }
-    add(obj) {
-        this.refs.set(obj.id, obj);
-        if (this.refs.size > this.quad_max && !this.nw && this.radius > this.minRadius) {
-            let radius3 = this.radius / 2;
-            this.nw = new QuadCell(this.x - radius3, this.y - radius3, radius3);
-            this.ne = new QuadCell(this.x + radius3, this.y - radius3, radius3);
-            this.sw = new QuadCell(this.x - radius3, this.y + radius3, radius3);
-            this.se = new QuadCell(this.x + radius3, this.y + radius3, radius3);
-            for (let r of this.refs){
-                if (r[1].x > this.x && r[1].y > this.y && this.se) this.se.add(r[1]);
-                else if (r[1].x <= this.x && r[1].y > this.y && this.sw) this.sw.add(r[1]);
-                else if (r[1].x > this.x && r[1].y <= this.y && this.ne) this.ne.add(r[1]);
-                else if (r[1].x <= this.x && r[1].y <= this.y && this.nw) this.nw.add(r[1]);
-            }
-        } else {
-            if (obj.x > this.x && obj.y > this.y && this.se) this.se.add(obj);
-            else if (obj.x <= this.x && obj.y > this.y && this.sw) this.sw.add(obj);
-            else if (obj.x > this.x && obj.y <= this.y && this.ne) this.ne.add(obj);
-            else if (obj.x <= this.x && obj.y <= this.y && this.nw) this.nw.add(obj);
-        }
-    }
-    remove(obj) {
-        if (this.refs.has(obj.id)) {
-            this.refs.delete(obj.id);
-            if (this.refs.size <= this.quad_max) {
-                delete this.nw;
-                delete this.sw;
-                delete this.ne;
-                delete this.se;
-                this.nw = undefined;
-                this.ne = undefined;
-                this.sw = undefined;
-                this.se = undefined;
-                return true;
-            } else {
-                if (obj.x > this.x && obj.y > this.y && this.se) return this.se.remove(obj);
-                else if (obj.x <= this.x && obj.y > this.y && this.sw) return this.sw.remove(obj);
-                else if (obj.x > this.x && obj.y <= this.y && this.ne) return this.ne.remove(obj);
-                else if (obj.x <= this.x && obj.y <= this.y && this.nw) return this.nw.remove(obj);
-                return true;
-            }
-        }
-        return false;
-    }
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Wall", ()=>Wall
-);
-parcelHelpers.export(exports, "WallProperties", ()=>WallProperties
-);
-parcelHelpers.export(exports, "WallDirections", ()=>WallDirections
-);
-parcelHelpers.export(exports, "Zone", ()=>Zone
-);
-parcelHelpers.export(exports, "World", ()=>World
-);
-var _actor = require("./actor");
-var _quadtree = require("./quadtree");
-var _random = require("../random");
-var _light = require("./light");
-var _scheduler = require("./scheduler");
-"use strict";
-var Wall;
-(function(Wall1) {
-    Wall1[Wall1["NONE"] = -1] = "NONE";
-    Wall1[Wall1["FLOOR"] = 0] = "FLOOR";
-    Wall1[Wall1["WINDOW"] = 1] = "WINDOW";
-    Wall1[Wall1["WALL"] = 100] = "WALL";
-    Wall1[Wall1["CURTAIN"] = 101] = "CURTAIN";
-})(Wall || (Wall = {
-}));
-let WallProperties = {
-    [Wall.NONE]: {
-        vision: false,
-        collision: true
-    },
-    [Wall.FLOOR]: {
-        vision: true,
-        collision: false
-    },
-    [Wall.WINDOW]: {
-        vision: true,
-        collision: true
-    },
-    [Wall.WALL]: {
-        vision: false,
-        collision: true
-    },
-    [Wall.CURTAIN]: {
-        vision: false,
-        collision: false
-    }
-};
-window.Wall = Wall;
-window.WallProperties = WallProperties;
-var WallDirections;
-(function(WallDirections1) {
-    WallDirections1["PILLAR"] = "pillar";
-    WallDirections1["LEFT"] = "l";
-    WallDirections1["RIGHT"] = "r";
-    WallDirections1["UP"] = "u";
-    WallDirections1["DOWN"] = "d";
-    WallDirections1["UPLEFT"] = "ul";
-    WallDirections1["UPRIGHT"] = "ur";
-    WallDirections1["DOWNLEFT"] = "dl";
-    WallDirections1["DOWNRIGHT"] = "dr";
-    WallDirections1["UPDOWN"] = "ud";
-    WallDirections1["LEFTRIGHT"] = "lr";
-    WallDirections1["LEFTRIGHTDOWN"] = "lrd";
-    WallDirections1["LEFTRIGHTUP"] = "lru";
-    WallDirections1["UPDOWNLEFT"] = "udl";
-    WallDirections1["UPDOWNRIGHT"] = "udr";
-    WallDirections1["NONE"] = "n";
-    WallDirections1["CORNER_DOWNRIGHT"] = "cdr";
-    WallDirections1["CORNER_DOWNLEFT"] = "cdl";
-    WallDirections1["CORNER_UPRIGHT"] = "cur";
-    WallDirections1["CORNER_UPLEFT"] = "cul";
-    WallDirections1["DOWNRIGHT_C"] = "drc";
-    WallDirections1["DOWNLEFT_C"] = "dlc";
-    WallDirections1["UPRIGHT_C"] = "urc";
-    WallDirections1["UPLEFT_C"] = "ulc";
-    WallDirections1["DOWN_CLR"] = "dclr";
-    WallDirections1["DOWN_CL"] = "dcl";
-    WallDirections1["DOWN_CR"] = "dcr";
-    WallDirections1["UP_CLR"] = "uclr";
-    WallDirections1["UP_CL"] = "ucl";
-    WallDirections1["UP_CR"] = "ucr";
-    WallDirections1["RIGHT_CUD"] = "rcud";
-    WallDirections1["RIGHT_CD"] = "rcd";
-    WallDirections1["RIGHT_CU"] = "rcu";
-    WallDirections1["LEFT_CUD"] = "lcud";
-    WallDirections1["LEFT_CD"] = "lcd";
-    WallDirections1["LEFT_CU"] = "lcu";
-    WallDirections1["CORNER_NDOWNRIGHT"] = "cndr";
-    WallDirections1["CORNER_NDOWNLEFT"] = "cndl";
-    WallDirections1["CORNER_NUPRIGHT"] = "cnur";
-    WallDirections1["CORNER_NUPLEFT"] = "cnul";
-    WallDirections1["CORNER_DOWN"] = "cd";
-    WallDirections1["CORNER_LEFT"] = "cl";
-    WallDirections1["CORNER_RIGHT"] = "cr";
-    WallDirections1["CORNER_UP"] = "cu";
-    WallDirections1["CORNER_ALL"] = "call";
-    WallDirections1["CORNER_FOR"] = "cfor";
-    WallDirections1["CORNER_BACK"] = "cback";
-})(WallDirections || (WallDirections = {
-}));
-class Zone {
-    constructor(width1, height1){
-        this.seed = "kinky";
-        this.walls = [];
-        this.light = [];
-        this.width = width1;
-        this.height = height1;
-        for(let y1 = 0; y1 < height1; y1++)this.walls.push(new Uint8Array(width1));
-        _light.createLightMap();
-    }
-    // Range: Number of tiles to propagate vision out towards
-    // Dispersion: Coefficient to go around corners
-    updateLight(x, y, range, dispersion, darkness) {
-        _light.propagateLight(this, x, y, range, dispersion, darkness);
-    }
-    getLight(x, y) {
-        let row = this.light[y];
-        if (row) {
-            let cell = row[x];
-            if (cell != undefined) return cell;
-        }
-        return 0;
-    }
-    setLight(x, y, value) {
-        let row = this.light[y];
-        if (row) row[x] = value;
-    }
-    get(x, y) {
-        let row = this.walls[y];
-        if (row) {
-            let cell = row[x];
-            if (cell != undefined) return cell;
-        }
-        return -1;
-    }
-    set(x, y, value) {
-        let row = this.walls[y];
-        if (row) row[x] = value;
-    }
-    isEdge(x, y) {
-        return x == 0 || x == this.width - 1 || y == 0 || y == this.height - 1;
-    }
-    // Returns the number of walls (1) around the area
-    getWallNeighborCount(x, y) {
-        let num = 0;
-        let maxX = Math.min(this.width - 1, x + 1);
-        let maxY = Math.min(this.height - 1, y + 1);
-        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if ((xx != x || yy != y) && this.get(xx, yy) == Wall.WALL) num += 1;
-        return num;
-    }
-    // Returns the neighbors of a cells as WorldVec
-    getNeighbors(x, y) {
-        let neighbors = [];
-        let maxX = Math.min(this.width - 1, x + 1);
-        let maxY = Math.min(this.height - 1, y + 1);
-        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if (xx != x || yy != y) neighbors.push({
-            x: xx,
-            y: yy
-        });
-        return neighbors;
-    }
-    getWallDirectionVision(x, y, light) {
-        let u, d, l, r = false;
-        let ul, dl, ur, dr = false;
-        let gu = !light || this.getLight(x, y - 1) > 0 ? this.get(x, y - 1) : Wall.WALL;
-        let gd = !light || this.getLight(x, y + 1) > 0 ? this.get(x, y + 1) : Wall.WALL;
-        let gl = !light || this.getLight(x - 1, y) > 0 ? this.get(x - 1, y) : Wall.WALL;
-        let gr = !light || this.getLight(x + 1, y) > 0 ? this.get(x + 1, y) : Wall.WALL;
-        let gur = !light || this.getLight(x + 1, y - 1) > 0 ? this.get(x + 1, y - 1) : Wall.WALL;
-        let gul = !light || this.getLight(x - 1, y - 1) > 0 ? this.get(x - 1, y - 1) : Wall.WALL;
-        let gdr = !light || this.getLight(x + 1, y + 1) > 0 ? this.get(x + 1, y + 1) : Wall.WALL;
-        let gdl = !light || this.getLight(x - 1, y + 1) > 0 ? this.get(x - 1, y + 1) : Wall.WALL;
-        if (gr != Wall.WALL && gr != Wall.NONE) r = true;
-        if (gl != Wall.WALL && gl != Wall.NONE) l = true;
-        if (gu != Wall.WALL && gu != Wall.NONE) u = true;
-        if (gd != Wall.WALL && gd != Wall.NONE) d = true;
-        if (gur != Wall.WALL && gur != Wall.NONE) ur = true;
-        if (gul != Wall.WALL && gul != Wall.NONE) ul = true;
-        if (gdr != Wall.WALL && gdr != Wall.NONE) dr = true;
-        if (gdl != Wall.WALL && gdl != Wall.NONE) dl = true;
-        if (u) {
-            if (d) {
-                if (l) {
-                    if (r) return WallDirections.PILLAR;
-                    else return WallDirections.UPDOWNLEFT;
-                } else {
-                    if (r) return WallDirections.UPDOWNRIGHT;
-                    else return WallDirections.UPDOWN;
-                }
-            } else {
-                if (l) {
-                    if (r) return WallDirections.LEFTRIGHTUP;
-                    else {
-                        if (dr) return WallDirections.UPLEFT_C;
-                        else return WallDirections.UPLEFT;
-                    }
-                } else if (r) {
-                    if (dl) return WallDirections.UPRIGHT_C;
-                    else return WallDirections.UPRIGHT;
-                } else {
-                    if (dr && dl) return WallDirections.UP_CLR;
-                    if (dl) return WallDirections.UP_CL;
-                    if (dr) return WallDirections.UP_CR;
-                    else return WallDirections.UP;
-                }
-            }
-        } else {
-            if (d) {
-                if (l) {
-                    if (r) return WallDirections.LEFTRIGHTDOWN;
-                    else {
-                        if (ur) return WallDirections.DOWNLEFT_C;
-                        else return WallDirections.DOWNLEFT;
-                    }
-                } else if (r) {
-                    if (ul) return WallDirections.DOWNRIGHT_C;
-                    else return WallDirections.DOWNRIGHT;
-                } else {
-                    if (ur && ul) return WallDirections.DOWN_CLR;
-                    if (ul) return WallDirections.DOWN_CL;
-                    if (ur) return WallDirections.DOWN_CR;
-                    return WallDirections.DOWN;
-                }
-            } else if (l) {
-                if (r) return WallDirections.LEFTRIGHT;
-                else {
-                    if (ur && dr) return WallDirections.LEFT_CUD;
-                    if (ur) return WallDirections.LEFT_CU;
-                    if (dr) return WallDirections.LEFT_CD;
-                    return WallDirections.LEFT;
-                }
-            } else {
-                if (r) {
-                    if (ul && dl) return WallDirections.RIGHT_CUD;
-                    if (ul) return WallDirections.RIGHT_CU;
-                    if (dl) return WallDirections.RIGHT_CD;
-                    return WallDirections.RIGHT;
-                } else if (ur) {
-                    if (ul) {
-                        if (dr) {
-                            if (dl) return WallDirections.CORNER_ALL;
-                            else return WallDirections.CORNER_NDOWNLEFT;
-                        } else {
-                            if (dl) return WallDirections.CORNER_NDOWNRIGHT;
-                            else return WallDirections.CORNER_UP;
-                        }
-                    } else if (dr) {
-                        if (dl) return WallDirections.CORNER_NUPRIGHT;
-                        else return WallDirections.CORNER_RIGHT;
-                    } else {
-                        if (dl) return WallDirections.CORNER_FOR;
-                        else return WallDirections.CORNER_UPRIGHT;
-                    }
-                } else {
-                    if (ul) {
-                        if (dr) {
-                            if (dl) return WallDirections.CORNER_NUPRIGHT;
-                            else return WallDirections.CORNER_BACK;
-                        } else {
-                            if (dl) return WallDirections.CORNER_LEFT;
-                            else return WallDirections.CORNER_UPLEFT;
-                        }
-                    } else if (dr) {
-                        if (dl) return WallDirections.CORNER_DOWN;
-                        else return WallDirections.CORNER_DOWNRIGHT;
-                    } else {
-                        if (dl) return WallDirections.CORNER_DOWNLEFT;
-                        else return WallDirections.NONE;
-                    }
-                }
-            }
-        }
-        return WallDirections.NONE;
-    }
-    getWallDirection(x, y) {
-        return this.getWallDirectionVision(x, y, false);
-    }
-    createMaze(width = this.width, height = this.height) {
-        let rand = _random.getRandomFunction(this.seed);
-        if (width > this.width) width = this.width;
-        if (height > this.height) height = this.height;
-        let cells = [];
-        for(let y2 = 0; y2 < height; y2++)cells.push(new Uint8Array(width));
-        // Initialization
-        for(let y3 = 0; y3 < height; y3++){
-            let row = cells[y3];
-            if (row) for(let x = 0; x < width; x++)// Initialization step
-            row[x] = Wall.WALL;
-        }
-        // http://justinparrtech.com/JustinParr-Tech/wp-content/uploads/Creating%20Mazes%20Using%20Cellular%20Automata_v2.pdf
-        function randCell(rand1) {
-            return {
-                x: 1 + Math.floor(rand1() * (width / 2 - 1.000001)) * 2,
-                y: 1 + Math.floor(rand1() * (height / 2 - 1.000001)) * 2
-            };
-        }
-        function getCell(x, y4) {
-            let row = cells[y4];
-            if (row) {
-                let cell = row[x];
-                if (cell != undefined) return cell;
-            }
-            return -1;
-        }
-        function setCell(x, y4, value) {
-            let row = cells[y4];
-            if (row) row[x] = value;
-        }
-        function getNeighborCells(x, y4) {
-            let neighbors = [];
-            if (x + 2 < width - 1) neighbors.push({
-                x: x + 2,
-                y: y4
-            });
-            if (y4 + 2 < height - 1) neighbors.push({
-                x: x,
-                y: y4 + 2
-            });
-            if (x - 2 >= 1) neighbors.push({
-                x: x - 2,
-                y: y4
-            });
-            if (y4 - 2 >= 1) neighbors.push({
-                x: x,
-                y: y4 - 2
-            });
-            return neighbors;
-        }
-        function getCellWallNeighborCount(x, y4) {
-            let num = 0;
-            if (getCell(x + 1, y4) == Wall.WALL) num += 1;
-            if (getCell(x - 1, y4) == Wall.WALL) num += 1;
-            if (getCell(x, y4 + 1) == Wall.WALL) num += 1;
-            if (getCell(x, y4 - 1)) num += 1;
-            if (getCell(x + 1, y4 + 1) == Wall.WALL) num += 1;
-            if (getCell(x + 1, y4 - 1) == Wall.WALL) num += 1;
-            if (getCell(x - 1, y4 + 1) == Wall.WALL) num += 1;
-            if (getCell(x - 1, y4 - 1) == Wall.WALL) num += 1;
-            return num;
-        }
-        function getCellWallNeighborCountExtended(x, y4) {
-            let num = 0;
-            if (getCell(x + 2, y4) == Wall.WALL) num += 1;
-            if (getCell(x - 2, y4) == Wall.WALL) num += 1;
-            if (getCell(x, y4 + 2) == Wall.WALL) num += 1;
-            if (getCell(x, y4 - 2) == Wall.WALL) num += 1;
-            return num;
-        }
-        let seeds = [
-            {
-                x: 49,
-                y: 49
-            }
-        ];
-        let seed_prob = 0.4; // Branching factor
-        let connect_prob = 0.2; // Reconnection factor
-        let pillar_prob = 0; // Chance of a pillar remaining
-        let freewall_prob = 0; // Chance of a freewall remaining
-        let iters = 0;
-        let max = 10000;
-        while(iters < max && seeds.length > 0){
-            let cur_seed = seeds[Math.floor(rand() * seeds.length)];
-            if (cur_seed) {
-                setCell(cur_seed.x, cur_seed.y, Wall.FLOOR);
-                let neighbors = getNeighborCells(cur_seed.x, cur_seed.y);
-                let neighbors_noConn = 0;
-                for(let i = 0; i < neighbors.length * 2; i++){
-                    let ind = Math.floor(rand() * neighbors.length);
-                    let neighbor = neighbors[ind];
-                    if (neighbor && getCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2) != Wall.FLOOR) neighbors_noConn += 1; // There is no connection
-                    else {
-                        neighbors.splice(ind, 1);
-                        continue;
-                    }
-                    if (rand() > connect_prob && getCell(neighbor.x, neighbor.y) == Wall.FLOOR) {
-                        neighbors.splice(ind, 1);
-                        continue;
-                    }
-                    if (neighbor) {
-                        setCell(neighbor.x, neighbor.y, Wall.FLOOR); // Make the cell empty and a seed
-                        seeds.push(neighbor);
-                        setCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2, Wall.FLOOR); // Create a connection
-                        break;
-                    }
-                }
-                if (neighbors_noConn == 0 || rand() > seed_prob) seeds.splice(seeds.indexOf(cur_seed), 1);
-            }
-            /*for (let y = 1; y < height; y += 2) {
-                let row = this.walls[y];
-                if (row)
-                    for (let x = 1; x < width; x += 2) {
-                        // Processing loop for each cell
-                        // Each 'cell' is a grid square surrounded by walls
-
-
-
-
-                    }
-            }*/ iters += 1;
-        //if (iters % 100 == 0)
-        //    console.log(seeds.length);
-        }
-        this.walls = cells;
-        // Remove freewalls
-        for(let y4 = 2; y4 < height; y4 += 2){
-            let row = this.walls[y4];
-            if (row) for(let x = 2; x < width; x += 2)// Clean up freewalls
-            if (getCell(x, y4) == Wall.WALL && rand() > freewall_prob && getCellWallNeighborCount(x, y4) == 1 && getCellWallNeighborCountExtended(x, y4) == 3) this.set(x, y4, Wall.FLOOR);
-        }
-        // Remove pillars
-        for(let y5 = 2; y5 < height; y5 += 2){
-            let row = this.walls[y5];
-            if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
-            if (getCell(x, y5) == Wall.WALL && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, Wall.FLOOR);
-        }
-    }
-}
-class World {
-    constructor(){
-        this.actors = new Map();
-        this.player = undefined;
-        this.containers = new Map();
-        this.tree_actors = new _quadtree.QuadTree(1);
-        this.id_inc // Increment by one each time an actor is added
-         = 0;
-        this.currentZone = 0;
-        let zone = new Zone(100, 100);
-        this.zones = [
-            zone
-        ];
-        this.scheduler = new _scheduler.Scheduler(this);
-        let start = performance.now();
-        zone.createMaze();
-        console.log("Maze generation took " + (performance.now() - start) / 1000);
-    }
-    actorCanMove(actor, x, y, force) {
-        let ethereal = false; // Here we will add any buff or ability that lets the actor pass through
-        let zone1 = this.zones[this.currentZone];
-        if (!zone1) return false;
-        if (x >= 0 && y >= 0 && x < zone1.width && y < zone1.height) {
-            let occuupied = !force && false; // Cant move into occupied spaces
-            if ((ethereal || !WallProperties[zone1.get(x, y)].collision) && !occuupied) return true;
-        }
-        return false;
-    }
-    moveActor(actor, dir) {
-        if (this.actors.get(actor.id)) {
-            actor.x += dir.x;
-            actor.y += dir.y;
-            if (!actor.type.noFace) actor.faceDir(dir);
-            return Math.max(Math.abs(dir.x), Math.abs(dir.y));
-        }
-        return 0;
-    }
-    update(delta) {
-        this.actors.forEach((ac)=>{
-            ac.update(delta);
-        });
-        this.tree_actors.refresh();
-        let zone1 = this.zones[this.currentZone];
-        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0, 0.05);
-    }
-    render(delta) {
-        this.containers.forEach((ac)=>{
-            ac.render(delta);
-        });
-    }
-    addActor(actor) {
-        let iterations = 0;
-        let max = 10000;
-        while(this.actors.has(this.id_inc))this.id_inc++;
-        actor.id = this.id_inc;
-        this.actors.set(this.id_inc, actor);
-        this.addActorContainer(actor);
-        this.tree_actors.add(actor);
-    }
-    removeActor(actor) {
-        let ac = this.containers.get(actor.id);
-        if (ac) {
-            ac.destroy(true);
-            this.actors.delete(actor.id);
-            this.containers.delete(actor.id);
-            this.tree_actors.remove(actor);
-        }
-    }
-    addActorContainer(actor) {
-        let ac = new _actor.ActorContainer(actor);
-        if (!this.player && actor.type.player) this.player = actor;
-        this.containers.set(actor.id, ac);
-    }
-    // Called upon loading a game
-    populateContainers() {
-        this.actors.forEach((actor)=>{
-            if (!Array.from(this.containers).some((element)=>{
-                return element[1].actor == actor;
-            })) {
-                this.addActorContainer(actor);
-                this.tree_actors.add(actor);
-            }
-        });
-    }
-    serialize() {
-        let oldContainers = this.containers;
-        let oldActorMap = this.tree_actors;
-        this.containers = new Map();
-        let scheduler = this.scheduler;
-        this.scheduler = undefined;
-        // TODO actually serialize
-        // Blorp
-        // TODO finish serializing
-        this.scheduler = scheduler;
-        this.containers = oldContainers;
-        this.tree_actors = oldActorMap;
-    }
-    deserialize(data) {
-        this.populateContainers();
-    }
-}
-
-},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../random":"2ffUi","./light":"e01Wg","./scheduler":"gqpkC"}],"2ffUi":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "rand", ()=>rand
-);
-parcelHelpers.export(exports, "setSeed", ()=>setSeed
-);
-parcelHelpers.export(exports, "getRandomFunction", ()=>getRandomFunction
-);
-function xmur3(str) {
-    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19;
-    return function() {
-        h = Math.imul(h ^ h >>> 16, 2246822507);
-        h = Math.imul(h ^ h >>> 13, 3266489909);
-        return (h ^= h >>> 16) >>> 0;
-    };
-}
-function sfc32(a, b, c, d) {
-    return function() {
-        a >>>= 0;
-        b >>>= 0;
-        c >>>= 0;
-        d >>>= 0;
-        var t = a + b | 0;
-        a = b ^ b >>> 9;
-        b = c + (c << 3) | 0;
-        c = c << 21 | c >>> 11;
-        d = d + 1 | 0;
-        t = t + d | 0;
-        c = c + t | 0;
-        return (t >>> 0) / 4294967296;
-    };
-}
-let seed = "kinky";
-let hash = xmur3(seed);
-let rand = sfc32(hash(), hash(), hash(), hash());
-function setSeed(str) {
-    seed = str;
-    hash = xmur3(seed);
-    rand = sfc32(hash(), hash(), hash(), hash());
-}
-function getRandomFunction(str) {
-    let sd = str;
-    let hsh = xmur3(sd);
-    return sfc32(hsh(), hsh(), hsh(), hsh());
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"e01Wg":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "propagateLight", ()=>propagateLight
-);
-parcelHelpers.export(exports, "lightMap", ()=>lightMap
-);
-parcelHelpers.export(exports, "createLightMap", ()=>createLightMap
-);
-// s = source x and y points and w weights
-// dx, dy = destination x and y
-var _world = require("./world");
-function propagateLight(zone, x, y, range, dispersion, darkness) {
-    zone.light = [];
-    for(let y1 = 0; y1 < zone.height; y1++){
-        let row = [];
-        for(let x1 = 0; x1 < zone.width; x1++)row[x1] = 0;
-        zone.light.push(row);
-    }
-    zone.setLight(x, y, 1);
-    // Begin running the lightmap
-    let lightmult = 1;
-    for(let r = 0; r < range && r < lightMap.length; r++){
-        let ring = lightMap[r]; // Get a ring from the lightmap
-        if (ring) for (let cell of ring){
-            let sum = 0;
-            let block = zone.get(x + cell.dx, y + cell.dy) == _world.Wall.WALL;
-            // For each ring cell we look at dependent light points and add up
-            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL || source.x == 0 && source.y == 0) //if (!block || (source.y >= cell.dy)) {
-            sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
-            if (!block && sum <= 0.99) {
-                let neighbors = zone.getWallNeighborCount(x + cell.dx, y + cell.dy);
-                if (neighbors >= 3 + 3 * sum) sum = Math.max(0, sum - 0.05 * neighbors);
-            }
-            if (sum < dispersion * lightmult) sum = 0;
-            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, lightmult * Math.min(1, sum));
-            else zone.setLight(x + cell.dx, y + cell.dy, -1);
-        }
-        lightmult *= 1 - darkness;
-    }
-}
-let lightMap = [
-    [
+let walls = new _pixiJs.Container();
+let light = new _pixiJs.Container();
+let fog = new _pixiJs.Container();
+let textures = new Map();
+function renderWorld(world) {
+    // Verify all items are loaded
+    let requiredSprites = [
         {
-            dx: 1,
-            dy: 0,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
+            sprite: "bricks",
+            anim: [
+                "floor",
+                "pillar",
+                "call",
+                "n",
+                "lcu",
+                "lcd",
+                "lcud",
+                "rcu",
+                "rcd",
+                "rcud",
+                "ucl",
+                "ucr",
+                "uclr",
+                "dcl",
+                "dcr",
+                "dclr",
+                "urc",
+                "ulc",
+                "drc",
+                "dlc",
+                "cdr",
+                "cur",
+                "cdl",
+                "cul",
+                "cndr",
+                "cnur",
+                "cndl",
+                "cnul",
+                "cl",
+                "cr",
+                "cu",
+                "cd",
+                "cfor",
+                "cback",
+                "lru",
+                "lrd",
+                "udr",
+                "udl",
+                "r",
+                "l",
+                "d",
+                "u",
+                "lr",
+                "ud",
+                "dl",
+                "dr",
+                "ul",
+                "ur"
             ]
-        },
-        {
-            dx: 0,
-            dy: 1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: -1,
-            dy: 0,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: 0,
-            dy: -1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: 1,
-            dy: 1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        },
-        {
-            dx: 1,
-            dy: -1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        },
-        {
-            dx: -1,
-            dy: 1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        },
-        {
-            dx: -1,
-            dy: -1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        }, 
-    ], 
-];
-let maxRange = 10;
-function createLightMap() {
-    if (lightMap.length < maxRange) for(let i = 1; i < maxRange; i++){
-        createLightMapRing();
-        console.log(lightMap);
-    }
-}
-function createLightMapRing() {
-    let d = lightMap.length + 1; // Current radius
-    let ring = [];
-    for(let y = -d; y <= d; y++){
-        for(let x = -d; x <= d; x++)if (Math.abs(x) == d || Math.abs(y) == d) {
-            let cell = {
-                dx: x,
-                dy: y,
-                s: []
-            };
-            let neighbors = [];
-            for(let xx = x - 1; xx <= x + 1; xx++){
-                for(let yy = y - 1; yy <= y + 1; yy++)if (xx != x || yy != y) {
-                    if (Math.abs(xx) < d && Math.abs(yy) < d) // Enforce directionality
-                    {
-                        if (Math.abs(xx) <= Math.abs(x) && Math.abs(yy) <= Math.abs(y)) neighbors.push({
-                            x: xx,
-                            y: yy,
-                            w: 0
-                        });
-                    }
-                }
-            }
-            for (let n of neighbors){
-                if (neighbors.length == 1) n.w = 1;
-                else if (n.x == cell.dx || n.y == cell.dy) n.w = 1;
-                else n.w = 0.7;
-                cell.s.push(n);
-            }
-            ring.push(cell);
         }
+    ];
+    for (let rs of requiredSprites){
+        if (!_sprites.getGeneralSprite(rs.sprite)) return;
     }
-    lightMap.push(ring);
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./world":"hywN6"}],"gqpkC":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Scheduler", ()=>Scheduler
-);
-class Scheduler {
-    constructor(world1){
-        this.requests = [];
-        this.requestDelay = 200;
-        this.lastRequestTime = 0;
-        this.world = world1;
-        this.tasks = [];
+    textures = new Map();
+    for (let rs1 of requiredSprites)for (let rsa of rs1.anim){
+        //let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
+        let genSprite = _sprites.getGeneralSprite(rs1.sprite);
+        if (genSprite) {
+            let animsprite = genSprite.animations.get(rsa);
+            if (animsprite) {
+                let layer = animsprite.get("tile");
+                if (layer && layer.sprite.textures) {
+                    let tex = layer.sprite.textures[0];
+                    if (tex) textures.set(rs1.sprite + rsa, tex);
+                //renderer.render(layer.sprite.textures[0],{renderTexture: texture})
+                } else console.log("Layer not found" + animsprite.keys);
+            } else console.log("Anim not found: " + rsa);
+        } else console.log("Sprite not found");
     }
-    update() {
-        if (this.requests.length > 0 && performance.now() > this.lastRequestTime + this.requestDelay) {
-            let request = this.requests[0];
-            if (request != undefined) {
-                if (request == 0) this.world.update(0);
-                else for(let d = 0; d < request; d++){
-                    let taskQueue = [];
-                    for (let task of this.tasks){
-                        taskQueue.push(task);
-                        this.tasks.splice(this.tasks.indexOf(task), 1);
-                    }
-                    // TODO sort tasks based on priority here
-                    for (let task1 of taskQueue)task1.execute(this.world);
-                    this.world.update(1);
-                }
-                this.lastRequestTime = performance.now();
-                this.requests.splice(0, 1);
-            }
-        //console.log("Updated")
-        }
-    }
-    requestUpdateTick(d) {
-        this.requests.push(d);
-    //console.log("Tick: " + d)
-    }
-    sendActorMoveRequest(actor, dir) {
-        this.tasks.push(new TaskMove(actor, dir));
-    //console.log("Move: " + dir)
-    }
-}
-class Task {
-    constructor(actor, priority = 0){
-        this.target = actor;
-    }
-    execute(world) {
-        return false;
-    }
-}
-class TaskMove extends Task {
-    constructor(actor1, dir, priority1 = 0){
-        super(actor1, priority1);
-        this.direction = dir;
-    }
-    execute(world) {
-        if (world.player && world.actorCanMove(world.player, world.player.x + this.direction.x, world.player.y + this.direction.y)) world.moveActor(world.player, this.direction);
-        return false;
-    }
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "UI", ()=>UI
-);
-var _world = require("../world/world");
-var _pixiJs = require("pixi.js");
-var _pixiFilters = require("pixi-filters");
-var _render = require("../gfx/render");
-var _control = require("./control");
-var _player = require("./player");
-var _sprites = require("../gfx/sprites");
-class UI {
-    constructor(player, world){
-        this.textures = new Map();
-        this.player = new _player.Player(player);
-        this.world = world;
-        this.walls = new _pixiJs.Container();
-        this.light = new _pixiJs.Container();
-        this.fog = new _pixiJs.Container();
-    }
-    initialize(app) {
-        // Listen for animate update
-        var lastTick = performance.now();
-        let snapBack = false;
-        _render.viewport.addListener('moved-end', (event)=>{
-            snapBack = false;
-        });
-        _render.viewport.addListener('drag-start', (event)=>{
-            snapBack = false;
-        });
-        if (this.player.cameraActor) _render.viewport.snap(this.player.cameraActor.xx || 0, this.player.cameraActor.yy || 0, {
-            ease: "easeInOutSine",
-            time: 0,
-            removeOnComplete: true
-        });
-        //viewport.snapZoom({ease: "easeInOutSine", time: 1000, removeOnComplete: true, height: ratio > 1 ? (MIN_ZOOM * TILE_SIZE) : undefined, width: ratio <= 1 ? (MIN_ZOOM * TILE_SIZE) : undefined});
-        app.ticker.add((delta)=>{
-            if (this.world && this.currentZone != this.world.zones[this.world.currentZone]) this.loadWorld();
-            let d = performance.now() - lastTick;
-            lastTick = performance.now();
-            _control.controlTicker(d, this.world, this.player);
-            this.updateWorldRender();
-            if (this.world.scheduler) this.world.scheduler.update();
-            this.world.render(d);
-            if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
-                if (!_control.mouseLeftDown) {
-                    if (!snapBack) _render.viewport.snap(Math.max(0, Math.min(_render.viewport.center.x, _render.viewport.worldWidth)), Math.max(0, Math.min(_render.viewport.center.y, _render.viewport.worldHeight)), {
-                        ease: "easeInOutSine",
-                        time: 500,
-                        removeOnComplete: true,
-                        removeOnInterrupt: true
-                    });
-                    snapBack = true;
-                }
-            } else snapBack = false;
-        });
-    }
-    loadWorld() {
-        // Verify all items are loaded
-        let requiredSprites = [
-            {
-                sprite: "bricks",
-                anim: [
-                    "floor",
-                    "pillar",
-                    "call",
-                    "n",
-                    "lcu",
-                    "lcd",
-                    "lcud",
-                    "rcu",
-                    "rcd",
-                    "rcud",
-                    "ucl",
-                    "ucr",
-                    "uclr",
-                    "dcl",
-                    "dcr",
-                    "dclr",
-                    "urc",
-                    "ulc",
-                    "drc",
-                    "dlc",
-                    "cdr",
-                    "cur",
-                    "cdl",
-                    "cul",
-                    "cndr",
-                    "cnur",
-                    "cndl",
-                    "cnul",
-                    "cl",
-                    "cr",
-                    "cu",
-                    "cd",
-                    "cfor",
-                    "cback",
-                    "lru",
-                    "lrd",
-                    "udr",
-                    "udl",
-                    "r",
-                    "l",
-                    "d",
-                    "u",
-                    "lr",
-                    "ud",
-                    "dl",
-                    "dr",
-                    "ul",
-                    "ur"
-                ]
-            }
-        ];
-        for (let rs of requiredSprites){
-            if (!_sprites.getGeneralSprite(rs.sprite)) return;
-        }
-        this.textures = new Map();
-        for (let rs1 of requiredSprites)for (let rsa of rs1.anim){
-            //let texture = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
-            let genSprite = _sprites.getGeneralSprite(rs1.sprite);
-            if (genSprite) {
-                let animsprite = genSprite.animations.get(rsa);
-                if (animsprite) {
-                    let layer = animsprite.get("tile");
-                    if (layer && layer.sprite.textures) {
-                        let tex = layer.sprite.textures[0];
-                        if (tex) this.textures.set(rs1.sprite + rsa, tex);
-                    //renderer.render(layer.sprite.textures[0],{renderTexture: texture})
-                    } else console.log("Layer not found" + animsprite.keys);
-                } else console.log("Anim not found: " + rsa);
-            } else console.log("Sprite not found");
-        }
-        let lighttex = _pixiJs.RenderTexture.create({
-            width: _render.TILE_SIZE,
-            height: _render.TILE_SIZE
-        });
-        let r1 = new _pixiJs.Graphics();
-        r1.beginFill(0);
-        r1.drawRect(0, 0, 64, 64);
-        r1.endFill();
-        _render.renderer.render(r1, {
-            renderTexture: lighttex
-        });
-        const outlineFilter = new _pixiFilters.OutlineFilter(16, 0);
-        const fogFilter = new _pixiJs.filters.BlurFilter(32); //
-        if (this.world) {
-            let zone = this.world.zones[this.world.currentZone];
-            if (zone) {
-                if (this.walls) _render.viewport.removeChild(this.walls);
-                if (this.light) _render.viewport.removeChild(this.light);
-                if (this.fog) _render.viewport.removeChild(this.fog);
-                delete this.walls;
-                this.walls = new _pixiJs.Container();
-                delete this.light;
-                this.light = new _pixiJs.Container();
-                delete this.fog;
-                this.fog = new _pixiJs.Container();
-                for(let i = 0; i < zone.height; i += 1)for(let ii = 0; ii < zone.width; ii += 1){
-                    let row = zone.walls[i];
-                    if (row && row[ii] != undefined) {
-                        let wall = row[ii];
-                        if (wall > -1) {
-                            let suff = wall == _world.Wall.WALL ? zone.getWallDirection(ii, i) : "floor";
-                            let tex = this.textures.get("bricksfloor");
-                            if (tex) {
-                                let block = new _pixiJs.Sprite(tex);
-                                block.position.x = _render.TILE_SIZE * ii;
-                                block.position.y = _render.TILE_SIZE * i;
-                                block.anchor.x = 0;
-                                block.anchor.y = 0;
-                                this.walls.addChild(block);
-                            } else console.log("Tex not found: bricks" + suff);
-                        }
-                        if (lighttex) {
-                            let block = new _pixiJs.Sprite(lighttex);
-                            block.position.x = _render.TILE_SIZE * ii;
-                            block.position.y = _render.TILE_SIZE * i;
-                            block.anchor.x = 0;
-                            block.anchor.y = 0;
-                            this.light.addChild(block);
-                            block = new _pixiJs.Sprite(lighttex);
-                            block.position.x = _render.TILE_SIZE * ii;
-                            block.position.y = _render.TILE_SIZE * i;
-                            block.anchor.x = 0;
-                            block.anchor.y = 0;
-                            this.fog.addChild(block);
-                        } else console.log("Light tex not found!!!!");
-                    }
-                }
-                _render.viewport.addChild(this.walls);
-                _render.viewport.addChild(this.light);
-                _render.viewport.addChild(this.fog);
-                this.fog.filters = [
-                    outlineFilter,
-                    fogFilter
-                ];
-                _render.viewport.worldWidth = _render.TILE_SIZE * zone.width;
-                _render.viewport.worldHeight = _render.TILE_SIZE * zone.height;
-            }
-            this.currentZone = zone;
-        }
-    }
-    updateWorldRender() {
-        // Update the walls
-        let bounds = _render.viewport.getVisibleBounds().pad(_render.TILE_SIZE, _render.TILE_SIZE);
-        let walls = this.walls?.children;
-        let light = this.light?.children;
-        let fog = this.fog?.children;
-        let t1 = 1 / _render.TILE_SIZE;
-        if (walls && this.currentZone) for (let S of walls){
-            S.visible = bounds.contains(S.x, S.y);
-            if (S.visible) {
-                let li = this.currentZone.getLight(S.x * t1, S.y * t1);
-                let wall = this.currentZone.get(S.x * t1, S.y * t1);
-                if (li > 0 && wall == _world.Wall.WALL) {
-                    let suff = this.currentZone.getWallDirectionVision(S.x * t1, S.y * t1, true);
-                    let tex = this.textures.get("bricks" + suff);
-                    if (tex) S.texture = tex;
-                }
-            }
-        }
-        if (light && this.currentZone) for (let S1 of light){
-            S1.visible = bounds.contains(S1.x, S1.y);
-            if (S1.visible) {
-                let weight = 25;
-                let li = this.currentZone.getLight(S1.x * t1, S1.y * t1);
-                S1.alpha = (S1.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
-                if (S1.alpha < 0.01) S1.alpha = 0;
-                if (S1.alpha > 0.99) S1.alpha = 1;
-            }
-        }
-        if (fog && this.currentZone) for (let S2 of fog){
-            S2.visible = bounds.contains(S2.x, S2.y);
-            if (S2.visible) {
-                let weight = 50;
-                let li = this.currentZone.getLight(S2.x * t1, S2.y * t1) > 0 ? 1 : 0;
-                S2.alpha = (S2.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
-                if (S2.alpha < 0.01) S2.alpha = 0;
-                if (S2.alpha > 0.99) S2.alpha = 1;
-            }
-        }
-    /*
-
-            */ }
-}
-
-},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","./control":"eAdAj","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD","../world/world":"hywN6","pixi-filters":"kxbrB"}],"eAdAj":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
-);
-parcelHelpers.export(exports, "mouseRightDown", ()=>mouseRightDown
-);
-parcelHelpers.export(exports, "mouseMiddleDown", ()=>mouseMiddleDown
-);
-parcelHelpers.export(exports, "keyBindingsDefault", ()=>keyBindingsDefault
-);
-parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
-);
-parcelHelpers.export(exports, "keys", ()=>keys1
-);
-parcelHelpers.export(exports, "controlTick", ()=>controlTick
-);
-parcelHelpers.export(exports, "controlTicker", ()=>controlTicker
-);
-parcelHelpers.export(exports, "initControls", ()=>initControls
-);
-var _world = require("../world/world");
-var _render = require("../gfx/render");
-let mouseLeftDown = false;
-let mouseRightDown = false;
-let mouseMiddleDown = false;
-let keyBindingsDefault = {
-    moveU: [
-        'W',
-        'ArrowUp'
-    ],
-    moveD: [
-        'S',
-        'ArrowDown'
-    ],
-    moveL: [
-        'A',
-        'ArrowLeft'
-    ],
-    moveR: [
-        'D',
-        'ArrowRight'
-    ],
-    spell: [
-        '0',
-        '1',
-        '2',
-        '3',
-        '4',
-        '5',
-        '6',
-        '7',
-        '8',
-        '9'
-    ],
-    wait: [
-        ' ', 
-    ],
-    return: [
-        'Enter', 
-    ]
-};
-class ControlKey {
-    constructor(keys, refreshControlTick = false){
-        this.value = -1;
-        this.refreshControlTick = false;
-        this.keys = keys;
-        this.refreshControlTick = refreshControlTick;
-    }
-}
-let keys1 = {
-    moveU: new ControlKey(keyBindingsDefault.moveU, true),
-    moveD: new ControlKey(keyBindingsDefault.moveD, true),
-    moveL: new ControlKey(keyBindingsDefault.moveL, true),
-    moveR: new ControlKey(keyBindingsDefault.moveR, true),
-    spell: new ControlKey(keyBindingsDefault.spell),
-    wait: new ControlKey(keyBindingsDefault.wait, true),
-    return: new ControlKey(keyBindingsDefault.return)
-};
-let controlTick = false;
-let controlTime = 240;
-let controlDiagGrace = 0;
-let controlDiagGraceTime = 80;
-let controlMove = false;
-let finishMove = false;
-let lastDir = {
-    x: 0,
-    y: 0
-};
-let movePressed = false;
-let lastXX = 0;
-let lastYY = 0;
-let lastCameraMove = 0;
-function controlTicker(delta, world, camera) {
-    controlTime -= delta;
-    if (controlMove) {
-        if (controlDiagGrace < controlDiagGraceTime) controlDiagGrace += delta;
-    } else if (controlDiagGrace > 0) controlDiagGrace -= delta;
-    if (controlTime < 0) {
-        controlTime = 0;
-        controlTick = true;
-    }
-    if (controlTick && world && world.player) {
-        let dir = {
-            x: 0,
-            y: 0
-        };
-        if (keys1.moveU.value > 0) {
-            dir.y = -1;
-            controlMove = true;
-        } else if (keys1.moveD.value > 0) {
-            dir.y = 1;
-            controlMove = true;
-        }
-        if (keys1.moveL.value > 0) {
-            dir.x = -1;
-            controlMove = true;
-        } else if (keys1.moveR.value > 0) {
-            dir.x = 1;
-            controlMove = true;
-        }
+    let lighttex = _pixiJs.RenderTexture.create({
+        width: TILE_SIZE,
+        height: TILE_SIZE
+    });
+    let r1 = new _pixiJs.Graphics();
+    r1.beginFill(0);
+    r1.drawRect(0, 0, 64, 64);
+    r1.endFill();
+    renderer.render(r1, {
+        renderTexture: lighttex
+    });
+    const outlineFilter = new _pixiFilters.OutlineFilter(16, 0);
+    const fogFilter = new _pixiJs.filters.BlurFilter(32); //
+    if (world) {
         let zone = world.zones[world.currentZone];
         if (zone) {
-            if (dir.x != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) dir.y = 0;
-            else if (dir.y != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) dir.x = 0;
-        }
-        if (finishMove) {
-            dir = lastDir;
-            controlMove = true;
-        }
-        if (controlMove && controlDiagGrace > controlDiagGraceTime) {
-            // Replace with WorldSendAIMoveRequest(world.player, dir)
-            //
-            // Replace with WorldRequestUpdateTick(1)
-            if (world.scheduler) {
-                world.scheduler.sendActorMoveRequest(world.player, dir);
-                world.scheduler.requestUpdateTick(1);
-            }
-            controlTick = false;
-            controlTime = 270;
-            //console.log(dir)
-            if (finishMove) {
-                controlMove = false;
-                finishMove = false;
-            }
-            movePressed = false;
-        }
-        lastDir = dir;
-    }
-    if (camera.cameraActor) {
-        let container = world.containers.get(camera.cameraActor.id);
-        if (container) {
-            let bounds = _render.viewport.getVisibleBounds().pad(-_render.TILE_SIZE);
-            let XX = camera.cameraActor.xx + lastDir.x * _render.TILE_SIZE;
-            let YY = camera.cameraActor.yy + lastDir.y * _render.TILE_SIZE;
-            if (!bounds.contains(XX, YY) && performance.now() - lastCameraMove > 500) {
-                let ease = "easeInOutSine";
-                let time = 1000;
-                if (performance.now() - lastCameraMove < 1000) {
-                    time = 1000;
-                    ease = "easeOutSine";
-                }
-                //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
-                if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
-                    let sprites = container.sprite?.currentRender;
-                    if (sprites) {
-                        /*let sprite : Sprite | undefined;
-                            for (let s of sprites) {
-                                if (s[1] && s[1].sprite) {
-                                    sprite = s[1].sprite;
-                                    break;
-                                }
-                            }
-                            if (sprite)
-                                viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/ _render.viewport.snap(XX, YY, {
-                            ease: "easeInOutSine",
-                            time: 1000,
-                            removeOnInterrupt: true
-                        });
-                        lastXX = XX;
-                        lastYY = YY;
-                        lastCameraMove = performance.now();
+            if (walls) viewport.removeChild(walls);
+            if (light) viewport.removeChild(light);
+            if (fog) viewport.removeChild(fog);
+            walls = new _pixiJs.Container();
+            light = new _pixiJs.Container();
+            fog = new _pixiJs.Container();
+            for(let i = 0; i < zone.height; i += 1)for(let ii = 0; ii < zone.width; ii += 1){
+                let row = zone.walls[i];
+                if (row && row[ii] != undefined) {
+                    let wall = row[ii];
+                    if (wall > -1) {
+                        let suff = wall == _world.Wall.WALL ? zone.getWallDirection(ii, i) : "floor";
+                        let tex = textures.get("bricksfloor");
+                        if (tex) {
+                            let block = new _pixiJs.Sprite(tex);
+                            block.position.x = TILE_SIZE * ii;
+                            block.position.y = TILE_SIZE * i;
+                            block.anchor.x = 0;
+                            block.anchor.y = 0;
+                            walls.addChild(block);
+                        } else console.log("Tex not found: bricks" + suff);
                     }
+                    if (lighttex) {
+                        let block = new _pixiJs.Sprite(lighttex);
+                        block.position.x = TILE_SIZE * ii;
+                        block.position.y = TILE_SIZE * i;
+                        block.anchor.x = 0;
+                        block.anchor.y = 0;
+                        light.addChild(block);
+                        block = new _pixiJs.Sprite(lighttex);
+                        block.position.x = TILE_SIZE * ii;
+                        block.position.y = TILE_SIZE * i;
+                        block.anchor.x = 0;
+                        block.anchor.y = 0;
+                        fog.addChild(block);
+                    } else console.log("Light tex not found!!!!");
                 }
-            //else viewport.plugins.remove('follow');
+            }
+            viewport.addChild(walls);
+            viewport.addChild(light);
+            viewport.addChild(fog);
+            fog.filters = [
+                outlineFilter,
+                fogFilter
+            ];
+            viewport.worldWidth = TILE_SIZE * zone.width;
+            viewport.worldHeight = TILE_SIZE * zone.height;
+            return true;
+        }
+    }
+    return false;
+}
+let lastBounds = new _pixiJs.Rectangle(0, 0, 1, 1);
+function updateWorldRender(zone) {
+    //if (this.lastBounds != viewport.getVisibleBounds()) {
+    // Update the walls
+    let bounds = viewport.getVisibleBounds().pad(TILE_SIZE, TILE_SIZE);
+    let cwalls = walls.children;
+    let clight = light.children;
+    let cfog = fog.children;
+    let t1 = 1 / TILE_SIZE;
+    for (let S of cwalls){
+        S.visible = bounds.contains(S.x, S.y);
+        if (S.visible) {
+            let li = zone.getLight(S.x * t1, S.y * t1);
+            let wall = zone.get(S.x * t1, S.y * t1);
+            if (li > 0 && wall == _world.Wall.WALL) {
+                let suff = zone.getWallDirectionVision(S.x * t1, S.y * t1, true);
+                let tex = textures.get("bricks" + suff);
+                if (tex) S.texture = tex;
             }
         }
     }
-}
-function initControls() {
-    window.addEventListener('mousedown', (event)=>{
-        if (event.button == 0) mouseLeftDown = true;
-        else if (event.button == 1) mouseMiddleDown = true;
-        else if (event.button == 2) mouseRightDown = true;
-    //console.log(mouseLeftDown)
-    });
-    window.addEventListener('mouseup', (event)=>{
-        if (event.button == 0) mouseLeftDown = false;
-        else if (event.button == 1) mouseMiddleDown = false;
-        else if (event.button == 2) mouseRightDown = false;
-    //console.log(mouseLeftDown)
-    });
-    window.addEventListener('keydown', (event)=>{
-        if (!event.repeat) {
-            let key = event.key;
-            for (let KB of Object.keys(keys1)){
-                let binding = keys1[KB];
-                if (binding.keys.includes(key)) {
-                    binding.value = binding.keys.indexOf(key);
-                    if (binding.refreshControlTick) movePressed = true;
-                }
-            }
+    for (let S1 of clight){
+        S1.visible = bounds.contains(S1.x, S1.y);
+        if (S1.visible) {
+            let weight = 25;
+            let li = zone.getLight(S1.x * t1, S1.y * t1);
+            S1.alpha = (S1.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
+            if (S1.alpha < 0.01) S1.alpha = 0;
+            if (S1.alpha > 0.99) S1.alpha = 1;
         }
-    });
-    window.addEventListener('keyup', (event)=>{
-        let key = event.key;
-        for (let KB of Object.keys(keys1)){
-            let binding = keys1[KB];
-            if (binding.keys.includes(key)) {
-                binding.value = -1;
-                if (binding.refreshControlTick) {
-                    controlDiagGrace = 0;
-                    controlMove = false;
-                }
-            }
-        }
-        // If all movekeys are released then we simply ignore dialog grace
-        if (keys1.moveD.value == -1 && keys1.moveL.value == -1 && keys1.moveR.value == -1 && keys1.moveU.value == -1) {
-            if (controlTick && controlDiagGrace == 0) {
-                controlDiagGrace = controlDiagGraceTime + 1;
-                finishMove = true;
-            }
-            controlTick = true;
-        }
-    });
-}
-
-},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/world":"hywN6"}],"aunNh":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Player", ()=>Player
-);
-class Player {
-    constructor(player){
-        this.controlActor = null;
-        this.cameraActor = null;
-        this.controlActor = player;
-        this.cameraActor = player;
     }
+    for (let S2 of cfog){
+        S2.visible = bounds.contains(S2.x, S2.y);
+        if (S2.visible) {
+            let weight = 50;
+            let li = zone.getLight(S2.x * t1, S2.y * t1) > 0 ? 1 : 0;
+            S2.alpha = (S2.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
+            if (S2.alpha < 0.01) S2.alpha = 0;
+            if (S2.alpha > 0.99) S2.alpha = 1;
+        }
+    }
+//this.lastBounds = viewport.getVisibleBounds();
+//}
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"kxbrB":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","pixi.js":"3ZUrV","../gfx/sprites":"7UxjD","pixi-filters":"kxbrB","../world/world":"hywN6"}],"kxbrB":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 /*!
@@ -50365,6 +48946,1440 @@ var fragment = "varying vec2 vTextureCoord;\nuniform sampler2D uSampler;\nunifor
     return ZoomBlurFilter2;
 }(_core.Filter);
 
-},{"@pixi/core":"d0INm","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequirebb28")
+},{"@pixi/core":"d0INm","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Wall", ()=>Wall
+);
+parcelHelpers.export(exports, "WallProperties", ()=>WallProperties
+);
+parcelHelpers.export(exports, "WallDirections", ()=>WallDirections
+);
+parcelHelpers.export(exports, "Zone", ()=>Zone
+);
+parcelHelpers.export(exports, "World", ()=>World
+);
+var _actor = require("./actor");
+var _quadtree = require("./quadtree");
+var _random = require("../random");
+var _light = require("./light");
+var _scheduler = require("./scheduler");
+"use strict";
+var Wall;
+(function(Wall1) {
+    Wall1[Wall1["NONE"] = -1] = "NONE";
+    Wall1[Wall1["FLOOR"] = 0] = "FLOOR";
+    Wall1[Wall1["WINDOW"] = 1] = "WINDOW";
+    Wall1[Wall1["WALL"] = 100] = "WALL";
+    Wall1[Wall1["CURTAIN"] = 101] = "CURTAIN";
+})(Wall || (Wall = {
+}));
+let WallProperties = {
+    [Wall.NONE]: {
+        vision: false,
+        collision: true
+    },
+    [Wall.FLOOR]: {
+        vision: true,
+        collision: false
+    },
+    [Wall.WINDOW]: {
+        vision: true,
+        collision: true
+    },
+    [Wall.WALL]: {
+        vision: false,
+        collision: true
+    },
+    [Wall.CURTAIN]: {
+        vision: false,
+        collision: false
+    }
+};
+window.Wall = Wall;
+window.WallProperties = WallProperties;
+var WallDirections;
+(function(WallDirections1) {
+    WallDirections1["PILLAR"] = "pillar";
+    WallDirections1["LEFT"] = "l";
+    WallDirections1["RIGHT"] = "r";
+    WallDirections1["UP"] = "u";
+    WallDirections1["DOWN"] = "d";
+    WallDirections1["UPLEFT"] = "ul";
+    WallDirections1["UPRIGHT"] = "ur";
+    WallDirections1["DOWNLEFT"] = "dl";
+    WallDirections1["DOWNRIGHT"] = "dr";
+    WallDirections1["UPDOWN"] = "ud";
+    WallDirections1["LEFTRIGHT"] = "lr";
+    WallDirections1["LEFTRIGHTDOWN"] = "lrd";
+    WallDirections1["LEFTRIGHTUP"] = "lru";
+    WallDirections1["UPDOWNLEFT"] = "udl";
+    WallDirections1["UPDOWNRIGHT"] = "udr";
+    WallDirections1["NONE"] = "n";
+    WallDirections1["CORNER_DOWNRIGHT"] = "cdr";
+    WallDirections1["CORNER_DOWNLEFT"] = "cdl";
+    WallDirections1["CORNER_UPRIGHT"] = "cur";
+    WallDirections1["CORNER_UPLEFT"] = "cul";
+    WallDirections1["DOWNRIGHT_C"] = "drc";
+    WallDirections1["DOWNLEFT_C"] = "dlc";
+    WallDirections1["UPRIGHT_C"] = "urc";
+    WallDirections1["UPLEFT_C"] = "ulc";
+    WallDirections1["DOWN_CLR"] = "dclr";
+    WallDirections1["DOWN_CL"] = "dcl";
+    WallDirections1["DOWN_CR"] = "dcr";
+    WallDirections1["UP_CLR"] = "uclr";
+    WallDirections1["UP_CL"] = "ucl";
+    WallDirections1["UP_CR"] = "ucr";
+    WallDirections1["RIGHT_CUD"] = "rcud";
+    WallDirections1["RIGHT_CD"] = "rcd";
+    WallDirections1["RIGHT_CU"] = "rcu";
+    WallDirections1["LEFT_CUD"] = "lcud";
+    WallDirections1["LEFT_CD"] = "lcd";
+    WallDirections1["LEFT_CU"] = "lcu";
+    WallDirections1["CORNER_NDOWNRIGHT"] = "cndr";
+    WallDirections1["CORNER_NDOWNLEFT"] = "cndl";
+    WallDirections1["CORNER_NUPRIGHT"] = "cnur";
+    WallDirections1["CORNER_NUPLEFT"] = "cnul";
+    WallDirections1["CORNER_DOWN"] = "cd";
+    WallDirections1["CORNER_LEFT"] = "cl";
+    WallDirections1["CORNER_RIGHT"] = "cr";
+    WallDirections1["CORNER_UP"] = "cu";
+    WallDirections1["CORNER_ALL"] = "call";
+    WallDirections1["CORNER_FOR"] = "cfor";
+    WallDirections1["CORNER_BACK"] = "cback";
+})(WallDirections || (WallDirections = {
+}));
+class Zone {
+    constructor(width1, height1){
+        this.seed = "kinky";
+        this.walls = [];
+        this.light = [];
+        this.width = width1;
+        this.height = height1;
+        for(let y1 = 0; y1 < height1; y1++)this.walls.push(new Uint8Array(width1));
+        _light.createLightMap();
+    }
+    // Range: Number of tiles to propagate vision out towards
+    // Dispersion: Coefficient to go around corners
+    updateLight(x, y, range, dispersion, darkness) {
+        _light.propagateLight(this, x, y, range, dispersion, darkness);
+    }
+    getLight(x, y) {
+        let row = this.light[y];
+        if (row) {
+            let cell = row[x];
+            if (cell != undefined) return cell;
+        }
+        return 0;
+    }
+    setLight(x, y, value) {
+        let row = this.light[y];
+        if (row) row[x] = value;
+    }
+    get(x, y) {
+        let row = this.walls[y];
+        if (row) {
+            let cell = row[x];
+            if (cell != undefined) return cell;
+        }
+        return -1;
+    }
+    set(x, y, value) {
+        let row = this.walls[y];
+        if (row) row[x] = value;
+    }
+    isEdge(x, y) {
+        return x == 0 || x == this.width - 1 || y == 0 || y == this.height - 1;
+    }
+    // Returns the number of walls (1) around the area
+    getWallNeighborCount(x, y) {
+        let num = 0;
+        let maxX = Math.min(this.width - 1, x + 1);
+        let maxY = Math.min(this.height - 1, y + 1);
+        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if ((xx != x || yy != y) && this.get(xx, yy) == Wall.WALL) num += 1;
+        return num;
+    }
+    // Returns the neighbors of a cells as WorldVec
+    getNeighbors(x, y) {
+        let neighbors = [];
+        let maxX = Math.min(this.width - 1, x + 1);
+        let maxY = Math.min(this.height - 1, y + 1);
+        for(let xx = Math.max(0, x - 1); xx <= maxX; xx++)for(let yy = Math.max(0, y - 1); yy <= maxY; yy++)if (xx != x || yy != y) neighbors.push({
+            x: xx,
+            y: yy
+        });
+        return neighbors;
+    }
+    getWallDirectionVision(x, y, light) {
+        let u, d, l, r = false;
+        let ul, dl, ur, dr = false;
+        let gu = !light || this.getLight(x, y - 1) > 0 ? this.get(x, y - 1) : Wall.WALL;
+        let gd = !light || this.getLight(x, y + 1) > 0 ? this.get(x, y + 1) : Wall.WALL;
+        let gl = !light || this.getLight(x - 1, y) > 0 ? this.get(x - 1, y) : Wall.WALL;
+        let gr = !light || this.getLight(x + 1, y) > 0 ? this.get(x + 1, y) : Wall.WALL;
+        let gur = !light || this.getLight(x + 1, y - 1) > 0 ? this.get(x + 1, y - 1) : Wall.WALL;
+        let gul = !light || this.getLight(x - 1, y - 1) > 0 ? this.get(x - 1, y - 1) : Wall.WALL;
+        let gdr = !light || this.getLight(x + 1, y + 1) > 0 ? this.get(x + 1, y + 1) : Wall.WALL;
+        let gdl = !light || this.getLight(x - 1, y + 1) > 0 ? this.get(x - 1, y + 1) : Wall.WALL;
+        if (gr != Wall.WALL && gr != Wall.NONE) r = true;
+        if (gl != Wall.WALL && gl != Wall.NONE) l = true;
+        if (gu != Wall.WALL && gu != Wall.NONE) u = true;
+        if (gd != Wall.WALL && gd != Wall.NONE) d = true;
+        if (gur != Wall.WALL && gur != Wall.NONE) ur = true;
+        if (gul != Wall.WALL && gul != Wall.NONE) ul = true;
+        if (gdr != Wall.WALL && gdr != Wall.NONE) dr = true;
+        if (gdl != Wall.WALL && gdl != Wall.NONE) dl = true;
+        if (u) {
+            if (d) {
+                if (l) {
+                    if (r) return WallDirections.PILLAR;
+                    else return WallDirections.UPDOWNLEFT;
+                } else {
+                    if (r) return WallDirections.UPDOWNRIGHT;
+                    else return WallDirections.UPDOWN;
+                }
+            } else {
+                if (l) {
+                    if (r) return WallDirections.LEFTRIGHTUP;
+                    else {
+                        if (dr) return WallDirections.UPLEFT_C;
+                        else return WallDirections.UPLEFT;
+                    }
+                } else if (r) {
+                    if (dl) return WallDirections.UPRIGHT_C;
+                    else return WallDirections.UPRIGHT;
+                } else {
+                    if (dr && dl) return WallDirections.UP_CLR;
+                    if (dl) return WallDirections.UP_CL;
+                    if (dr) return WallDirections.UP_CR;
+                    else return WallDirections.UP;
+                }
+            }
+        } else {
+            if (d) {
+                if (l) {
+                    if (r) return WallDirections.LEFTRIGHTDOWN;
+                    else {
+                        if (ur) return WallDirections.DOWNLEFT_C;
+                        else return WallDirections.DOWNLEFT;
+                    }
+                } else if (r) {
+                    if (ul) return WallDirections.DOWNRIGHT_C;
+                    else return WallDirections.DOWNRIGHT;
+                } else {
+                    if (ur && ul) return WallDirections.DOWN_CLR;
+                    if (ul) return WallDirections.DOWN_CL;
+                    if (ur) return WallDirections.DOWN_CR;
+                    return WallDirections.DOWN;
+                }
+            } else if (l) {
+                if (r) return WallDirections.LEFTRIGHT;
+                else {
+                    if (ur && dr) return WallDirections.LEFT_CUD;
+                    if (ur) return WallDirections.LEFT_CU;
+                    if (dr) return WallDirections.LEFT_CD;
+                    return WallDirections.LEFT;
+                }
+            } else {
+                if (r) {
+                    if (ul && dl) return WallDirections.RIGHT_CUD;
+                    if (ul) return WallDirections.RIGHT_CU;
+                    if (dl) return WallDirections.RIGHT_CD;
+                    return WallDirections.RIGHT;
+                } else if (ur) {
+                    if (ul) {
+                        if (dr) {
+                            if (dl) return WallDirections.CORNER_ALL;
+                            else return WallDirections.CORNER_NDOWNLEFT;
+                        } else {
+                            if (dl) return WallDirections.CORNER_NDOWNRIGHT;
+                            else return WallDirections.CORNER_UP;
+                        }
+                    } else if (dr) {
+                        if (dl) return WallDirections.CORNER_NUPRIGHT;
+                        else return WallDirections.CORNER_RIGHT;
+                    } else {
+                        if (dl) return WallDirections.CORNER_FOR;
+                        else return WallDirections.CORNER_UPRIGHT;
+                    }
+                } else {
+                    if (ul) {
+                        if (dr) {
+                            if (dl) return WallDirections.CORNER_NUPRIGHT;
+                            else return WallDirections.CORNER_BACK;
+                        } else {
+                            if (dl) return WallDirections.CORNER_LEFT;
+                            else return WallDirections.CORNER_UPLEFT;
+                        }
+                    } else if (dr) {
+                        if (dl) return WallDirections.CORNER_DOWN;
+                        else return WallDirections.CORNER_DOWNRIGHT;
+                    } else {
+                        if (dl) return WallDirections.CORNER_DOWNLEFT;
+                        else return WallDirections.NONE;
+                    }
+                }
+            }
+        }
+        return WallDirections.NONE;
+    }
+    getWallDirection(x, y) {
+        return this.getWallDirectionVision(x, y, false);
+    }
+    createMaze(width = this.width, height = this.height) {
+        let rand = _random.getRandomFunction(this.seed);
+        if (width > this.width) width = this.width;
+        if (height > this.height) height = this.height;
+        let cells = [];
+        for(let y2 = 0; y2 < height; y2++)cells.push(new Uint8Array(width));
+        // Initialization
+        for(let y3 = 0; y3 < height; y3++){
+            let row = cells[y3];
+            if (row) for(let x = 0; x < width; x++)// Initialization step
+            row[x] = Wall.WALL;
+        }
+        // http://justinparrtech.com/JustinParr-Tech/wp-content/uploads/Creating%20Mazes%20Using%20Cellular%20Automata_v2.pdf
+        function randCell(rand1) {
+            return {
+                x: 1 + Math.floor(rand1() * (width / 2 - 1.000001)) * 2,
+                y: 1 + Math.floor(rand1() * (height / 2 - 1.000001)) * 2
+            };
+        }
+        function getCell(x, y4) {
+            let row = cells[y4];
+            if (row) {
+                let cell = row[x];
+                if (cell != undefined) return cell;
+            }
+            return -1;
+        }
+        function setCell(x, y4, value) {
+            let row = cells[y4];
+            if (row) row[x] = value;
+        }
+        function getNeighborCells(x, y4) {
+            let neighbors = [];
+            if (x + 2 < width - 1) neighbors.push({
+                x: x + 2,
+                y: y4
+            });
+            if (y4 + 2 < height - 1) neighbors.push({
+                x: x,
+                y: y4 + 2
+            });
+            if (x - 2 >= 1) neighbors.push({
+                x: x - 2,
+                y: y4
+            });
+            if (y4 - 2 >= 1) neighbors.push({
+                x: x,
+                y: y4 - 2
+            });
+            return neighbors;
+        }
+        function getCellWallNeighborCount(x, y4) {
+            let num = 0;
+            if (getCell(x + 1, y4) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y4) == Wall.WALL) num += 1;
+            if (getCell(x, y4 + 1) == Wall.WALL) num += 1;
+            if (getCell(x, y4 - 1)) num += 1;
+            if (getCell(x + 1, y4 + 1) == Wall.WALL) num += 1;
+            if (getCell(x + 1, y4 - 1) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y4 + 1) == Wall.WALL) num += 1;
+            if (getCell(x - 1, y4 - 1) == Wall.WALL) num += 1;
+            return num;
+        }
+        function getCellWallNeighborCountExtended(x, y4) {
+            let num = 0;
+            if (getCell(x + 2, y4) == Wall.WALL) num += 1;
+            if (getCell(x - 2, y4) == Wall.WALL) num += 1;
+            if (getCell(x, y4 + 2) == Wall.WALL) num += 1;
+            if (getCell(x, y4 - 2) == Wall.WALL) num += 1;
+            return num;
+        }
+        let seeds = [
+            {
+                x: 49,
+                y: 49
+            }
+        ];
+        let seed_prob = 0.4; // Branching factor
+        let connect_prob = 0.2; // Reconnection factor
+        let pillar_prob = 0; // Chance of a pillar remaining
+        let freewall_prob = 0; // Chance of a freewall remaining
+        let iters = 0;
+        let max = 10000;
+        while(iters < max && seeds.length > 0){
+            let cur_seed = seeds[Math.floor(rand() * seeds.length)];
+            if (cur_seed) {
+                setCell(cur_seed.x, cur_seed.y, Wall.FLOOR);
+                let neighbors = getNeighborCells(cur_seed.x, cur_seed.y);
+                let neighbors_noConn = 0;
+                for(let i = 0; i < neighbors.length * 2; i++){
+                    let ind = Math.floor(rand() * neighbors.length);
+                    let neighbor = neighbors[ind];
+                    if (neighbor && getCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2) != Wall.FLOOR) neighbors_noConn += 1; // There is no connection
+                    else {
+                        neighbors.splice(ind, 1);
+                        continue;
+                    }
+                    if (rand() > connect_prob && getCell(neighbor.x, neighbor.y) == Wall.FLOOR) {
+                        neighbors.splice(ind, 1);
+                        continue;
+                    }
+                    if (neighbor) {
+                        setCell(neighbor.x, neighbor.y, Wall.FLOOR); // Make the cell empty and a seed
+                        seeds.push(neighbor);
+                        setCell((cur_seed.x + neighbor.x) / 2, (cur_seed.y + neighbor.y) / 2, Wall.FLOOR); // Create a connection
+                        break;
+                    }
+                }
+                if (neighbors_noConn == 0 || rand() > seed_prob) seeds.splice(seeds.indexOf(cur_seed), 1);
+            }
+            /*for (let y = 1; y < height; y += 2) {
+                let row = this.walls[y];
+                if (row)
+                    for (let x = 1; x < width; x += 2) {
+                        // Processing loop for each cell
+                        // Each 'cell' is a grid square surrounded by walls
+
+
+
+
+                    }
+            }*/ iters += 1;
+        //if (iters % 100 == 0)
+        //    console.log(seeds.length);
+        }
+        this.walls = cells;
+        // Remove freewalls
+        for(let y4 = 2; y4 < height; y4 += 2){
+            let row = this.walls[y4];
+            if (row) for(let x = 2; x < width; x += 2)// Clean up freewalls
+            if (getCell(x, y4) == Wall.WALL && rand() > freewall_prob && getCellWallNeighborCount(x, y4) == 1 && getCellWallNeighborCountExtended(x, y4) == 3) this.set(x, y4, Wall.FLOOR);
+        }
+        // Remove pillars
+        for(let y5 = 2; y5 < height; y5 += 2){
+            let row = this.walls[y5];
+            if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
+            if (getCell(x, y5) == Wall.WALL && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, Wall.FLOOR);
+        }
+    }
+}
+class World {
+    constructor(){
+        this.actors = new Map();
+        this.player = undefined;
+        this.containers = new Map();
+        this.tree_actors = new _quadtree.QuadTree(1);
+        this.id_inc // Increment by one each time an actor is added
+         = 0;
+        this.currentZone = 0;
+        let zone = new Zone(60, 60);
+        this.zones = [
+            zone
+        ];
+        this.scheduler = new _scheduler.Scheduler(this);
+        let start = performance.now();
+        zone.createMaze();
+        console.log("Maze generation took " + (performance.now() - start) / 1000);
+    }
+    actorCanMove(actor, x, y, force) {
+        let ethereal = false; // Here we will add any buff or ability that lets the actor pass through
+        let zone1 = this.zones[this.currentZone];
+        if (!zone1) return false;
+        if (x >= 0 && y >= 0 && x < zone1.width && y < zone1.height) {
+            let occuupied = !force && false; // Cant move into occupied spaces
+            if ((ethereal || !WallProperties[zone1.get(x, y)].collision) && !occuupied) return true;
+        }
+        return false;
+    }
+    moveActor(actor, dir) {
+        if (this.actors.get(actor.id)) {
+            actor.x += dir.x;
+            actor.y += dir.y;
+            if (!actor.type.noFace) actor.faceDir(dir);
+            return Math.max(Math.abs(dir.x), Math.abs(dir.y));
+        }
+        return 0;
+    }
+    update(delta) {
+        this.actors.forEach((ac)=>{
+            ac.update(delta);
+        });
+        this.tree_actors.refresh();
+        let zone1 = this.zones[this.currentZone];
+        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0, 0.05);
+    }
+    render(delta) {
+        this.containers.forEach((ac)=>{
+            ac.render(delta);
+        });
+    }
+    addActor(actor) {
+        let iterations = 0;
+        let max = 10000;
+        while(this.actors.has(this.id_inc))this.id_inc++;
+        actor.id = this.id_inc;
+        this.actors.set(this.id_inc, actor);
+        this.addActorContainer(actor);
+        this.tree_actors.add(actor);
+    }
+    removeActor(actor) {
+        let ac = this.containers.get(actor.id);
+        if (ac) {
+            ac.destroy(true);
+            this.actors.delete(actor.id);
+            this.containers.delete(actor.id);
+            this.tree_actors.remove(actor);
+        }
+    }
+    addActorContainer(actor) {
+        let ac = new _actor.ActorContainer(actor);
+        if (!this.player && actor.type.player) this.player = actor;
+        this.containers.set(actor.id, ac);
+    }
+    // Called upon loading a game
+    populateContainers() {
+        this.actors.forEach((actor)=>{
+            if (!Array.from(this.containers).some((element)=>{
+                return element[1].actor == actor;
+            })) {
+                this.addActorContainer(actor);
+                this.tree_actors.add(actor);
+            }
+        });
+    }
+    serialize() {
+        let oldContainers = this.containers;
+        let oldActorMap = this.tree_actors;
+        this.containers = new Map();
+        let scheduler = this.scheduler;
+        this.scheduler = undefined;
+        // TODO actually serialize
+        // Blorp
+        // TODO finish serializing
+        this.scheduler = scheduler;
+        this.containers = oldContainers;
+        this.tree_actors = oldActorMap;
+    }
+    deserialize(data) {
+        this.populateContainers();
+    }
+}
+
+},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../random":"2ffUi","./light":"e01Wg","./scheduler":"gqpkC"}],"hVA85":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Dir", ()=>Dir
+);
+parcelHelpers.export(exports, "Actor", ()=>Actor
+);
+parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
+);
+var _sprites = require("../gfx/sprites");
+var _render = require("../gfx/render");
+var _quadtree = require("./quadtree");
+"use strict";
+var Dir;
+(function(Dir1) {
+    Dir1["UP"] = "_up";
+    Dir1["DOWN"] = "_down";
+    Dir1["LEFT"] = "_left";
+    Dir1["RIGHT"] = "_right";
+})(Dir || (Dir = {
+}));
+class Actor extends _quadtree.WorldObject {
+    constructor(x, y, type){
+        super(x, y);
+        this.type = type;
+        this.direction = Dir.DOWN;
+        this.data = new Map();
+    }
+    update(delta) {
+        if (this.type.updateHooks) {
+            for(let H in this.type.updateHooks);
+        }
+    }
+    // Returns if the actor turned
+    faceDir(dir) {
+        if (dir.x == 0 && dir.y == 0) return false;
+        let DirIdeal = Dir.DOWN;
+        let DirNonIdeal = [];
+        if (dir.y > 0) {
+            DirIdeal = Dir.DOWN;
+            if (dir.x > 0) DirNonIdeal = [
+                Dir.RIGHT
+            ];
+            else if (dir.x < 0) DirNonIdeal = [
+                Dir.LEFT
+            ];
+        } else if (dir.y < 0) {
+            DirIdeal = Dir.UP;
+            if (dir.x > 0) DirNonIdeal = [
+                Dir.RIGHT
+            ];
+            else if (dir.x < 0) DirNonIdeal = [
+                Dir.LEFT
+            ];
+        } else if (dir.x > 0) {
+            DirIdeal = Dir.RIGHT;
+            if (dir.y > 0) DirNonIdeal = [
+                Dir.UP
+            ];
+            else if (dir.y < 0) DirNonIdeal = [
+                Dir.DOWN
+            ];
+        } else if (dir.x < 0) {
+            DirIdeal = Dir.LEFT;
+            if (dir.y > 0) DirNonIdeal = [
+                Dir.UP
+            ];
+            else if (dir.y < 0) DirNonIdeal = [
+                Dir.DOWN
+            ];
+        }
+        if (DirNonIdeal.includes(this.direction)) return false;
+        else if (DirIdeal != this.direction) {
+            this.direction = DirIdeal;
+            return true;
+        }
+        return false;
+    }
+    get sprite() {
+        return this.type.sprite;
+    }
+    get xx() {
+        return this.x * _render.TILE_SIZE + _render.TILE_SIZE / 2;
+    }
+    get yy() {
+        return this.y * _render.TILE_SIZE + _render.TILE_SIZE / 2;
+    }
+    // Trigger on destruction events
+    destroy(code = -1) {
+        if (code == -1) return; // Exit doing nothing if no return code is given
+    }
+}
+class ActorContainer {
+    constructor(actor){
+        this.sprite = undefined;
+        this.xx = 0;
+        this.yy = 0;
+        this.actor = actor;
+        this.xx = actor.xx;
+        this.yy = actor.yy;
+    }
+    render(delta) {
+        if (!this.sprite && this.actor.sprite) this.sprite = _sprites.getNewSprite(this.actor.sprite);
+        let dx = this.actor.xx - this.xx;
+        let dy = this.actor.yy - this.yy;
+        let speed = 1;
+        if (Math.abs(dx) > Math.abs(dy) - 0.1 && Math.abs(dx) < Math.abs(dy) + 0.1) speed = 1.41;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) > _render.TILE_SIZE * 1.1) speed = Math.max(Math.abs(dx), Math.abs(dy)) / (_render.TILE_SIZE * 1.1);
+        if (dx != 0 || dy != 0) {
+            let speedMult = Math.min(_render.TILE_SIZE / 30 * speed, 30);
+            this.xx += speedMult * Math.cos(Math.atan2(dy, dx));
+            this.yy += speedMult * Math.sin(Math.atan2(dy, dx));
+            if (Math.abs(dx) < speedMult) this.xx = this.actor.xx;
+            if (Math.abs(dy) < speedMult) this.yy = this.actor.yy;
+        }
+        // TODO if actor is player, get player outfit
+        if (this.sprite) {
+            let playAnim = this.actor.type.idleAnim || dx != 0 || dy != 0;
+            let pose = [
+                "walk"
+            ];
+            this.sprite.render(this.actor.direction, pose, this.xx, this.yy);
+            if (!this.sprite.playing && playAnim) this.sprite.animate(true, false, 1);
+            if (!playAnim && this.sprite.playing) this.sprite.animate(false, true, 0);
+        }
+    }
+    destroy(destroyActor, code = -1) {
+        if (this.sprite) this.sprite.destroy();
+        if (destroyActor) this.actor.destroy(code);
+    }
+}
+
+},{"../gfx/sprites":"7UxjD","../gfx/render":"jTB3f","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"l75T3":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "WorldObject", ()=>WorldObject
+);
+parcelHelpers.export(exports, "QuadTree", ()=>QuadTree
+);
+"use strict";
+class WorldObject {
+    constructor(x1, y1){
+        this.id = 0;
+        this.x = x1;
+        this.y = y1;
+    }
+}
+class QuadTree {
+    constructor(radius1){
+        this.head = new QuadCell(0, 0, radius1);
+    }
+    // Checks all actors to make sure the x and y are correct
+    refresh() {
+        let refList = [];
+        for (let ref of this.head.refs){
+            let obj = ref[1];
+            let cell = this.getCell(obj.x, obj.y);
+            if (obj.x >= cell.x + cell.radius || obj.x < cell.x - cell.radius || obj.y >= cell.y + cell.radius || obj.y < cell.y - cell.radius) refList.push(obj);
+        }
+        for (let obj of refList){
+            this.remove(obj);
+            this.add(obj);
+        }
+    }
+    getAll(x, y, radius) {
+        return this.head.getAll(x, y, radius);
+    }
+    getCell(x, y) {
+        return this.head.getCell(x, y);
+    }
+    add(obj) {
+        let dir = -1;
+        let iter = 0;
+        let max = 1000;
+        while(this.getDir(obj.x, obj.y) > -1 && iter < max){
+            this.expand(this.getDir(obj.x, obj.y));
+            iter += 1;
+        }
+        if (iter >= max) console.log("Error, overflow when populating quad tree");
+        this.head.add(obj);
+    }
+    remove(obj) {
+        return this.head.remove(obj);
+    }
+    getDir(x, y) {
+        if (x >= this.head.x + this.head.radius) {
+            if (y >= this.head.y + this.head.radius) return 3;
+            else if (y <= this.head.y - this.head.radius) return 1;
+        } else if (x <= this.head.x - this.head.radius) {
+            if (y >= this.head.y + this.head.radius) return 2;
+            else if (y <= this.head.y - this.head.radius) return 0;
+        }
+        return -1;
+    }
+    // 0 = nw
+    // 1 = ne
+    // 2 = sw
+    // 3 = se
+    expand(dir) {
+        let radius2 = this.head.radius;
+        let x2 = this.head.x;
+        let y2 = this.head.y;
+        if (dir == 3) {
+            let newCell = new QuadCell(x2 + radius2, y2 + radius2, radius2 * 2);
+            newCell.nw = this.head;
+            newCell.ne = new QuadCell(x2 + radius2 * 2, y2, radius2);
+            newCell.sw = new QuadCell(x2, y2 + radius2 * 2, radius2);
+            newCell.se = new QuadCell(x2 + radius2 * 2, y2 + radius2 * 2, radius2);
+            this.head = newCell;
+        } else if (dir == 2) {
+            let newCell = new QuadCell(x2 - radius2, y2 + radius2, radius2 * 2);
+            newCell.nw = new QuadCell(x2 - radius2 * 2, y2, radius2);
+            newCell.ne = this.head;
+            newCell.sw = new QuadCell(x2 - radius2 * 2, y2 + radius2 * 2, radius2);
+            newCell.se = new QuadCell(x2, y2 + radius2 * 2, radius2);
+            this.head = newCell;
+        } else if (dir == 1) {
+            let newCell = new QuadCell(x2 + radius2, y2 - radius2, radius2 * 2);
+            newCell.nw = new QuadCell(x2, y2 - radius2 * 2, radius2);
+            newCell.ne = new QuadCell(x2 + radius2 * 2, y2 - radius2 * 2, radius2);
+            newCell.sw = this.head;
+            newCell.se = new QuadCell(x2 + radius2 * 2, y2, radius2);
+            this.head = newCell;
+        } else {
+            let newCell = new QuadCell(x2 - radius2, y2 - radius2, radius2 * 2);
+            newCell.nw = new QuadCell(x2 - radius2 * 2, y2 - radius2 * 2, radius2);
+            newCell.ne = new QuadCell(x2, y2 - radius2 * 2, radius2);
+            newCell.sw = new QuadCell(x2 - radius2 * 2, y2, radius2);
+            newCell.se = this.head;
+            this.head = newCell;
+        }
+    }
+}
+class QuadCell {
+    constructor(x2, y2, radius2, quad_max = 10){
+        this.nw = undefined;
+        this.ne = undefined;
+        this.sw = undefined;
+        this.se = undefined;
+        this.refs = new Map();
+        this.minRadius = 10;
+        this.x = x2;
+        this.y = y2;
+        this.radius = radius2;
+        this.quad_max = quad_max;
+    }
+    // Gets the current cell associated with the x, y point
+    getCell(x, y) {
+        if (this.se && x > this.x && y > this.y) return this.se.getCell(x, y);
+        if (this.sw && x <= this.x && y > this.y) return this.sw.getCell(x, y);
+        if (this.ne && x > this.x && y <= this.y) return this.ne.getCell(x, y);
+        if (this.nw && x <= this.x && y <= this.y) return this.nw.getCell(x, y);
+        return this;
+    }
+    getAll(x, y, radius) {
+        let ret = [];
+        let search = [];
+        if (this.se && x + radius > this.x && y + radius > this.y) search.push(this.se);
+        if (this.sw && x - radius <= this.x && y + radius > this.y) search.push(this.sw);
+        if (this.ne && x + radius > this.x && y - radius <= this.y) search.push(this.ne);
+        if (this.nw && x - radius <= this.x && y - radius <= this.y) search.push(this.nw);
+        if (search.length > 0) {
+            for (let s of search)for (let ss of s.getAll(x, y, radius))ret.push(ss);
+        } else {
+            for (let r of this.refs)if (r[1].x >= x - radius && r[1].x <= x + radius && r[1].y >= y - radius && r[1].y <= y + radius) ret.push(r[1]);
+        }
+        return ret;
+    }
+    add(obj) {
+        this.refs.set(obj.id, obj);
+        if (this.refs.size > this.quad_max && !this.nw && this.radius > this.minRadius) {
+            let radius3 = this.radius / 2;
+            this.nw = new QuadCell(this.x - radius3, this.y - radius3, radius3);
+            this.ne = new QuadCell(this.x + radius3, this.y - radius3, radius3);
+            this.sw = new QuadCell(this.x - radius3, this.y + radius3, radius3);
+            this.se = new QuadCell(this.x + radius3, this.y + radius3, radius3);
+            for (let r of this.refs){
+                if (r[1].x > this.x && r[1].y > this.y && this.se) this.se.add(r[1]);
+                else if (r[1].x <= this.x && r[1].y > this.y && this.sw) this.sw.add(r[1]);
+                else if (r[1].x > this.x && r[1].y <= this.y && this.ne) this.ne.add(r[1]);
+                else if (r[1].x <= this.x && r[1].y <= this.y && this.nw) this.nw.add(r[1]);
+            }
+        } else {
+            if (obj.x > this.x && obj.y > this.y && this.se) this.se.add(obj);
+            else if (obj.x <= this.x && obj.y > this.y && this.sw) this.sw.add(obj);
+            else if (obj.x > this.x && obj.y <= this.y && this.ne) this.ne.add(obj);
+            else if (obj.x <= this.x && obj.y <= this.y && this.nw) this.nw.add(obj);
+        }
+    }
+    remove(obj) {
+        if (this.refs.has(obj.id)) {
+            this.refs.delete(obj.id);
+            if (this.refs.size <= this.quad_max) {
+                delete this.nw;
+                delete this.sw;
+                delete this.ne;
+                delete this.se;
+                this.nw = undefined;
+                this.ne = undefined;
+                this.sw = undefined;
+                this.se = undefined;
+                return true;
+            } else {
+                if (obj.x > this.x && obj.y > this.y && this.se) return this.se.remove(obj);
+                else if (obj.x <= this.x && obj.y > this.y && this.sw) return this.sw.remove(obj);
+                else if (obj.x > this.x && obj.y <= this.y && this.ne) return this.ne.remove(obj);
+                else if (obj.x <= this.x && obj.y <= this.y && this.nw) return this.nw.remove(obj);
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"2ffUi":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "rand", ()=>rand
+);
+parcelHelpers.export(exports, "setSeed", ()=>setSeed
+);
+parcelHelpers.export(exports, "getRandomFunction", ()=>getRandomFunction
+);
+function xmur3(str) {
+    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19;
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    };
+}
+function sfc32(a, b, c, d) {
+    return function() {
+        a >>>= 0;
+        b >>>= 0;
+        c >>>= 0;
+        d >>>= 0;
+        var t = a + b | 0;
+        a = b ^ b >>> 9;
+        b = c + (c << 3) | 0;
+        c = c << 21 | c >>> 11;
+        d = d + 1 | 0;
+        t = t + d | 0;
+        c = c + t | 0;
+        return (t >>> 0) / 4294967296;
+    };
+}
+let seed = "kinky";
+let hash = xmur3(seed);
+let rand = sfc32(hash(), hash(), hash(), hash());
+function setSeed(str) {
+    seed = str;
+    hash = xmur3(seed);
+    rand = sfc32(hash(), hash(), hash(), hash());
+}
+function getRandomFunction(str) {
+    let sd = str;
+    let hsh = xmur3(sd);
+    return sfc32(hsh(), hsh(), hsh(), hsh());
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"e01Wg":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "propagateLight", ()=>propagateLight
+);
+parcelHelpers.export(exports, "lightMap", ()=>lightMap
+);
+parcelHelpers.export(exports, "createLightMap", ()=>createLightMap
+);
+// s = source x and y points and w weights
+// dx, dy = destination x and y
+var _world = require("./world");
+function propagateLight(zone, x, y, range, dispersion, darkness) {
+    zone.light = [];
+    for(let y1 = 0; y1 < zone.height; y1++){
+        let row = [];
+        for(let x1 = 0; x1 < zone.width; x1++)row[x1] = 0;
+        zone.light.push(row);
+    }
+    zone.setLight(x, y, 1);
+    // Begin running the lightmap
+    let lightmult = 1;
+    for(let r = 0; r < range && r < lightMap.length; r++){
+        let ring = lightMap[r]; // Get a ring from the lightmap
+        if (ring) for (let cell of ring){
+            let sum = 0;
+            let block = zone.get(x + cell.dx, y + cell.dy) == _world.Wall.WALL;
+            // For each ring cell we look at dependent light points and add up
+            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL || source.x == 0 && source.y == 0) //if (!block || (source.y >= cell.dy)) {
+            sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
+            if (!block && sum <= 0.99) {
+                let neighbors = zone.getWallNeighborCount(x + cell.dx, y + cell.dy);
+                if (neighbors >= 3 + 3 * sum) sum = Math.max(0, sum - 0.05 * neighbors);
+            }
+            if (sum < dispersion * lightmult) sum = 0;
+            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, lightmult * Math.min(1, sum));
+            else zone.setLight(x + cell.dx, y + cell.dy, -1);
+        }
+        lightmult *= 1 - darkness;
+    }
+}
+let lightMap = [
+    [
+        {
+            dx: 1,
+            dy: 0,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: 0,
+            dy: 1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: -1,
+            dy: 0,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: 0,
+            dy: -1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: 1,
+            dy: 1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        },
+        {
+            dx: 1,
+            dy: -1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        },
+        {
+            dx: -1,
+            dy: 1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        },
+        {
+            dx: -1,
+            dy: -1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        }, 
+    ], 
+];
+let maxRange = 10;
+function createLightMap() {
+    if (lightMap.length < maxRange) for(let i = 1; i < maxRange; i++)createLightMapRing();
+}
+function createLightMapRing() {
+    let d = lightMap.length + 1; // Current radius
+    let ring = [];
+    for(let y = -d; y <= d; y++){
+        for(let x = -d; x <= d; x++)if (Math.abs(x) == d || Math.abs(y) == d) {
+            let cell = {
+                dx: x,
+                dy: y,
+                s: []
+            };
+            let neighbors = [];
+            for(let xx = x - 1; xx <= x + 1; xx++){
+                for(let yy = y - 1; yy <= y + 1; yy++)if (xx != x || yy != y) {
+                    if (Math.abs(xx) < d && Math.abs(yy) < d) // Enforce directionality
+                    {
+                        if (Math.abs(xx) <= Math.abs(x) && Math.abs(yy) <= Math.abs(y)) neighbors.push({
+                            x: xx,
+                            y: yy,
+                            w: 0
+                        });
+                    }
+                }
+            }
+            for (let n of neighbors){
+                if (neighbors.length == 1) n.w = 1;
+                else if (n.x == cell.dx || n.y == cell.dy) n.w = 1;
+                else n.w = 0.7;
+                cell.s.push(n);
+            }
+            ring.push(cell);
+        }
+    }
+    lightMap.push(ring);
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./world":"hywN6"}],"gqpkC":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Scheduler", ()=>Scheduler
+);
+class Scheduler {
+    constructor(world1){
+        this.requests = [];
+        this.requestDelay = 200;
+        this.lastRequestTime = 0;
+        this.world = world1;
+        this.tasks = [];
+    }
+    update() {
+        if (this.requests.length > 0 && performance.now() > this.lastRequestTime + this.requestDelay) {
+            let request = this.requests[0];
+            if (request != undefined) {
+                if (request == 0) this.world.update(0);
+                else for(let d = 0; d < request; d++){
+                    let taskQueue = [];
+                    for (let task of this.tasks){
+                        taskQueue.push(task);
+                        this.tasks.splice(this.tasks.indexOf(task), 1);
+                    }
+                    // TODO sort tasks based on priority here
+                    for (let task1 of taskQueue)task1.execute(this.world);
+                    this.world.update(1);
+                }
+                this.lastRequestTime = performance.now();
+                this.requests.splice(0, 1);
+            }
+        //console.log("Updated")
+        }
+    }
+    requestUpdateTick(d) {
+        this.requests.push(d);
+    //console.log("Tick: " + d)
+    }
+    sendActorMoveRequest(actor, dir) {
+        this.tasks.push(new TaskMove(actor, dir));
+    //console.log("Move: " + dir)
+    }
+}
+class Task {
+    constructor(actor, priority = 0){
+        this.target = actor;
+    }
+    execute(world) {
+        return false;
+    }
+}
+class TaskMove extends Task {
+    constructor(actor1, dir, priority1 = 0){
+        super(actor1, priority1);
+        this.direction = dir;
+    }
+    execute(world) {
+        if (world.player && world.actorCanMove(world.player, world.player.x + this.direction.x, world.player.y + this.direction.y)) world.moveActor(world.player, this.direction);
+        return false;
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "UI", ()=>UI
+);
+var _render = require("../gfx/render");
+var _control = require("./control");
+var _hud = require("./hud");
+var _player = require("./player");
+class UI {
+    constructor(player, world){
+        this.player = new _player.Player(player);
+        this.world = world;
+    }
+    initialize(app) {
+        // Listen for animate update
+        var lastTick = performance.now();
+        let snapBack = false;
+        _render.viewport.addListener('moved-end', (event)=>{
+            snapBack = false;
+        });
+        _render.viewport.addListener('drag-start', (event)=>{
+            snapBack = false;
+        });
+        if (this.player.cameraActor) _render.viewport.snap(this.player.cameraActor.xx || 0, this.player.cameraActor.yy || 0, {
+            ease: "easeInOutSine",
+            time: 0,
+            removeOnComplete: true
+        });
+        //viewport.snapZoom({ease: "easeInOutSine", time: 1000, removeOnComplete: true, height: ratio > 1 ? (MIN_ZOOM * TILE_SIZE) : undefined, width: ratio <= 1 ? (MIN_ZOOM * TILE_SIZE) : undefined});
+        app.ticker.add((delta)=>{
+            if (this.world && this.currentZone != this.world.zones[this.world.currentZone]) {
+                if (_render.renderWorld(this.world)) this.currentZone = this.world.zones[this.world.currentZone];
+            }
+            let d = performance.now() - lastTick;
+            lastTick = performance.now();
+            _control.controlTicker(d, this.world, this.player);
+            if (this.currentZone) _render.updateWorldRender(this.currentZone);
+            if (this.world.scheduler) this.world.scheduler.update();
+            this.world.render(d);
+            _hud.renderHUD(this.world);
+            if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
+                if (!_control.mouseLeftDown) {
+                    if (!snapBack) _render.viewport.snap(Math.max(0, Math.min(_render.viewport.center.x, _render.viewport.worldWidth)), Math.max(0, Math.min(_render.viewport.center.y, _render.viewport.worldHeight)), {
+                        ease: "easeInOutSine",
+                        time: 500,
+                        removeOnComplete: true,
+                        removeOnInterrupt: true
+                    });
+                    snapBack = true;
+                }
+            } else snapBack = false;
+        });
+    }
+}
+
+},{"../gfx/render":"jTB3f","./control":"eAdAj","./player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./hud":"iPuXr"}],"eAdAj":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "mouseLeftDown", ()=>mouseLeftDown
+);
+parcelHelpers.export(exports, "mouseRightDown", ()=>mouseRightDown
+);
+parcelHelpers.export(exports, "mouseMiddleDown", ()=>mouseMiddleDown
+);
+parcelHelpers.export(exports, "keyBindingsDefault", ()=>keyBindingsDefault
+);
+parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
+);
+parcelHelpers.export(exports, "keys", ()=>keys1
+);
+parcelHelpers.export(exports, "controlTick", ()=>controlTick
+);
+parcelHelpers.export(exports, "controlTicker", ()=>controlTicker
+);
+parcelHelpers.export(exports, "initControls", ()=>initControls
+);
+var _world = require("../world/world");
+var _render = require("../gfx/render");
+let mouseLeftDown = false;
+let mouseRightDown = false;
+let mouseMiddleDown = false;
+let keyBindingsDefault = {
+    moveU: [
+        'W',
+        'ArrowUp'
+    ],
+    moveD: [
+        'S',
+        'ArrowDown'
+    ],
+    moveL: [
+        'A',
+        'ArrowLeft'
+    ],
+    moveR: [
+        'D',
+        'ArrowRight'
+    ],
+    spell: [
+        '0',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9'
+    ],
+    wait: [
+        ' ', 
+    ],
+    return: [
+        'Enter', 
+    ]
+};
+class ControlKey {
+    constructor(keys, refreshControlTick = false){
+        this.value = -1;
+        this.refreshControlTick = false;
+        this.keys = keys;
+        this.refreshControlTick = refreshControlTick;
+    }
+}
+let keys1 = {
+    moveU: new ControlKey(keyBindingsDefault.moveU, true),
+    moveD: new ControlKey(keyBindingsDefault.moveD, true),
+    moveL: new ControlKey(keyBindingsDefault.moveL, true),
+    moveR: new ControlKey(keyBindingsDefault.moveR, true),
+    spell: new ControlKey(keyBindingsDefault.spell),
+    wait: new ControlKey(keyBindingsDefault.wait, true),
+    return: new ControlKey(keyBindingsDefault.return)
+};
+let controlTick = false;
+let controlTime = 240;
+let controlDiagGrace = 0;
+let controlDiagGraceTime = 80;
+let controlMove = false;
+let finishMove = false;
+let lastDir = {
+    x: 0,
+    y: 0
+};
+let movePressed = false;
+let lastXX = 0;
+let lastYY = 0;
+let lastCameraMove = 0;
+function controlTicker(delta, world, camera) {
+    controlTime -= delta;
+    if (controlMove) {
+        if (controlDiagGrace < controlDiagGraceTime) controlDiagGrace += delta;
+    } else if (controlDiagGrace > 0) controlDiagGrace -= delta;
+    if (controlTime < 0) {
+        controlTime = 0;
+        controlTick = true;
+    }
+    if (controlTick && world && world.player) {
+        let dir = {
+            x: 0,
+            y: 0
+        };
+        if (keys1.moveU.value > 0) {
+            dir.y = -1;
+            controlMove = true;
+        } else if (keys1.moveD.value > 0) {
+            dir.y = 1;
+            controlMove = true;
+        }
+        if (keys1.moveL.value > 0) {
+            dir.x = -1;
+            controlMove = true;
+        } else if (keys1.moveR.value > 0) {
+            dir.x = 1;
+            controlMove = true;
+        }
+        let zone = world.zones[world.currentZone];
+        if (zone) {
+            if (dir.x != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) dir.y = 0;
+            else if (dir.y != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) dir.x = 0;
+        }
+        if (finishMove) {
+            dir = lastDir;
+            controlMove = true;
+        }
+        if (controlMove && controlDiagGrace > controlDiagGraceTime) {
+            // Replace with WorldSendAIMoveRequest(world.player, dir)
+            //
+            // Replace with WorldRequestUpdateTick(1)
+            if (world.scheduler) {
+                world.scheduler.sendActorMoveRequest(world.player, dir);
+                world.scheduler.requestUpdateTick(1);
+            }
+            controlTick = false;
+            controlTime = 270;
+            //console.log(dir)
+            if (finishMove) {
+                controlMove = false;
+                finishMove = false;
+            }
+            movePressed = false;
+        }
+        lastDir = dir;
+    }
+    if (camera.cameraActor) {
+        let container = world.containers.get(camera.cameraActor.id);
+        if (container) {
+            let bounds = _render.viewport.getVisibleBounds().pad(-_render.TILE_SIZE);
+            let XX = camera.cameraActor.xx + lastDir.x * _render.TILE_SIZE;
+            let YY = camera.cameraActor.yy + lastDir.y * _render.TILE_SIZE;
+            if (!bounds.contains(XX, YY) && performance.now() - lastCameraMove > 500) {
+                let ease = "easeInOutSine";
+                let time = 1000;
+                if (performance.now() - lastCameraMove < 1000) {
+                    time = 1000;
+                    ease = "easeOutSine";
+                }
+                //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
+                if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
+                    let sprites = container.sprite?.currentRender;
+                    if (sprites) {
+                        /*let sprite : Sprite | undefined;
+                            for (let s of sprites) {
+                                if (s[1] && s[1].sprite) {
+                                    sprite = s[1].sprite;
+                                    break;
+                                }
+                            }
+                            if (sprite)
+                                viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/ _render.viewport.snap(XX, YY, {
+                            ease: "easeInOutSine",
+                            time: 1000,
+                            removeOnInterrupt: true
+                        });
+                        lastXX = XX;
+                        lastYY = YY;
+                        lastCameraMove = performance.now();
+                    }
+                }
+            //else viewport.plugins.remove('follow');
+            }
+        }
+    }
+}
+function initControls() {
+    window.addEventListener('mousedown', (event)=>{
+        if (event.button == 0) mouseLeftDown = true;
+        else if (event.button == 1) mouseMiddleDown = true;
+        else if (event.button == 2) mouseRightDown = true;
+    //console.log(mouseLeftDown)
+    });
+    window.addEventListener('mouseup', (event)=>{
+        if (event.button == 0) mouseLeftDown = false;
+        else if (event.button == 1) mouseMiddleDown = false;
+        else if (event.button == 2) mouseRightDown = false;
+    //console.log(mouseLeftDown)
+    });
+    window.addEventListener('keydown', (event)=>{
+        if (!event.repeat) {
+            let key = event.key;
+            for (let KB of Object.keys(keys1)){
+                let binding = keys1[KB];
+                if (binding.keys.includes(key)) {
+                    binding.value = binding.keys.indexOf(key);
+                    if (binding.refreshControlTick) movePressed = true;
+                }
+            }
+        }
+    });
+    window.addEventListener('keyup', (event)=>{
+        let key = event.key;
+        for (let KB of Object.keys(keys1)){
+            let binding = keys1[KB];
+            if (binding.keys.includes(key)) {
+                binding.value = -1;
+                if (binding.refreshControlTick) {
+                    controlDiagGrace = 0;
+                    controlMove = false;
+                }
+            }
+        }
+        // If all movekeys are released then we simply ignore dialog grace
+        if (keys1.moveD.value == -1 && keys1.moveL.value == -1 && keys1.moveR.value == -1 && keys1.moveU.value == -1) {
+            if (controlTick && controlDiagGrace == 0) {
+                controlDiagGrace = controlDiagGraceTime + 1;
+                finishMove = true;
+            }
+            controlTick = true;
+        }
+    });
+}
+
+},{"../gfx/render":"jTB3f","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/world":"hywN6"}],"aunNh":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Player", ()=>Player
+);
+class Player {
+    constructor(player){
+        this.controlActor = null;
+        this.cameraActor = null;
+        this.controlActor = player;
+        this.cameraActor = player;
+    }
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iPuXr":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "renderHUD", ()=>renderHUD
+);
+let uiSprites = new Map();
+function renderHUD(world) {
+    let zone = world.zones[world.currentZone];
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequirebb28")
 
 //# sourceMappingURL=index.6bdff185.js.map

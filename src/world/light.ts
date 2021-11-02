@@ -101,7 +101,7 @@ export function createLightMap() {
     if (lightMap.length < maxRange) {
         for (let i = 1; i < maxRange; i++) {
             createLightMapRing();
-            console.log(lightMap);
+            //console.log(lightMap);
         }
     }
 }

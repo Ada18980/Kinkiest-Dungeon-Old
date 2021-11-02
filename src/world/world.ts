@@ -523,7 +523,7 @@ export class World {
     scheduler : Scheduler | undefined;
 
     constructor() {
-        let zone = new Zone(100, 100);
+        let zone = new Zone(60, 60);
         this.zones = [zone];
         this.scheduler = new Scheduler(this);
         let start = performance.now();
