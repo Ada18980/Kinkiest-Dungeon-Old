@@ -1,5 +1,5 @@
 {
-  "name": "trespassers",
+  "name": "kinkiest-dungeon",
   "version": "0.0.1",
   "description": "",
   "directories": {
@@ -36,14 +36,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Ada18980/trespassers.git"
+    "url": "git+https://github.com/Ada18980/kinkiest-dungeon.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Ada18980/trespassers/issues"
+    "url": "https://github.com/Ada18980/kinkiest-dungeon/issues"
   },
-  "homepage": "https://github.com/Ada18980/trespassers",
+  "homepage": "https://github.com/Ada18980/kinkiest-dungeon",
   "nwjs-packager": {
     "nwVersion": "0.58.0",
     "appFriendlyName": "Kinkiest Dungeon",

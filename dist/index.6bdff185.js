@@ -50601,6 +50601,6 @@ class Player {
     }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequirebb28")
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
 
 //# sourceMappingURL=index.6bdff185.js.map
