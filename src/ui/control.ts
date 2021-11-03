@@ -4,7 +4,7 @@ import { TILE_SIZE, viewport } from '../gfx/render';
 import { Sprite } from "@pixi/sprite";
 import { windowSize } from "../launcher";
 import { UI } from "./ui";
-import { TargetMode } from "./hud";
+import { clearSpriteHover, TargetMode } from "./hud";
 import { getGridDir } from "../world/math";
 
 export let mouseLeftDown = false;
@@ -18,8 +18,23 @@ export let worldMouseX = 0;
 export let worldMouseY = 0;
 
 export let mouseInActiveArea = true;
+export let mouseEnteringActiveArea = false;
 export let currentTargeting : TargetMode = TargetMode.MOVE;
 export let targetLocation : WorldVec = {x : 0, y : 0};
+
+export let UIModes = {
+    follow : false,
+};
+
+export function mouseEnterUI() {
+    mouseInActiveArea = false;
+}
+export function mouseEnterIntoActiveArea() {
+    mouseInActiveArea = true;
+}
+export function mouseQueueEnterActiveArea() {
+    mouseEnteringActiveArea = true;
+}
 
 export let keyBindingsDefault = {
     moveU : ['W', 'ArrowUp'],
@@ -79,6 +94,8 @@ let mouseDragStartX = 0;
 let mouseDragStartY = 0;
 let maxDrag = 5;
 
+export let touchDown = false;
+
 export function updateMouseTargeting(world : World) {
     if (world.player) {
         if (currentTargeting == TargetMode.MOVE) {
@@ -101,6 +118,8 @@ function controlLeftClick(world : World, camera : Player) {
             world.scheduler.requestUpdateTick(1);
         }
     }
+
+    if (!mouseInActiveArea && mouseEnteringActiveArea) mouseInActiveArea = true;
 
 
 }
@@ -247,6 +266,9 @@ export function initControls(GUI : UI) {
             leftClicked = true;
         mouseLeftDown = false;
         mouseDragged = false
+        touchDown = false;
+
+        clearSpriteHover();
 
         let touch = event.changedTouches[0];
         if (touch) {
@@ -255,9 +277,12 @@ export function initControls(GUI : UI) {
             mouseDragStartX = mouseX;
             mouseDragStartY = mouseY;
         }
+
+        mouseQueueEnterActiveArea();
     });
     window.addEventListener('touchstart',(event) => {
         mouseLeftDown = true;
+        touchDown = true;
         let touch = event.changedTouches[0];
         if (touch) {
             mouseX = touch.pageX; // Gets Mouse X

@@ -43335,6 +43335,16 @@ let spriteResources = [
         name: "ui_follow",
         path: "img/ui/follow.png",
         antialias: true
+    },
+    {
+        name: "ui_follow_on",
+        path: "img/ui/player.png",
+        antialias: true
+    },
+    {
+        name: "ui_interact",
+        path: "img/ui/interact.png",
+        antialias: true
     }, 
 ];
 let sprites = new Map();
@@ -50164,9 +50174,19 @@ parcelHelpers.export(exports, "worldMouseY", ()=>worldMouseY
 );
 parcelHelpers.export(exports, "mouseInActiveArea", ()=>mouseInActiveArea
 );
+parcelHelpers.export(exports, "mouseEnteringActiveArea", ()=>mouseEnteringActiveArea
+);
 parcelHelpers.export(exports, "currentTargeting", ()=>currentTargeting
 );
 parcelHelpers.export(exports, "targetLocation", ()=>targetLocation
+);
+parcelHelpers.export(exports, "UIModes", ()=>UIModes
+);
+parcelHelpers.export(exports, "mouseEnterUI", ()=>mouseEnterUI
+);
+parcelHelpers.export(exports, "mouseEnterIntoActiveArea", ()=>mouseEnterIntoActiveArea
+);
+parcelHelpers.export(exports, "mouseQueueEnterActiveArea", ()=>mouseQueueEnterActiveArea
 );
 parcelHelpers.export(exports, "keyBindingsDefault", ()=>keyBindingsDefault
 );
@@ -50175,6 +50195,8 @@ parcelHelpers.export(exports, "ControlKey", ()=>ControlKey
 parcelHelpers.export(exports, "keys", ()=>keys1
 );
 parcelHelpers.export(exports, "controlTick", ()=>controlTick
+);
+parcelHelpers.export(exports, "touchDown", ()=>touchDown
 );
 parcelHelpers.export(exports, "updateMouseTargeting", ()=>updateMouseTargeting
 );
@@ -50197,11 +50219,24 @@ let viewportMouseY = 0;
 let worldMouseX = 0;
 let worldMouseY = 0;
 let mouseInActiveArea = true;
+let mouseEnteringActiveArea = false;
 let currentTargeting = _hud.TargetMode.MOVE;
 let targetLocation = {
     x: 0,
     y: 0
 };
+let UIModes = {
+    follow: false
+};
+function mouseEnterUI() {
+    mouseInActiveArea = false;
+}
+function mouseEnterIntoActiveArea() {
+    mouseInActiveArea = true;
+}
+function mouseQueueEnterActiveArea() {
+    mouseEnteringActiveArea = true;
+}
 let keyBindingsDefault = {
     moveU: [
         'W',
@@ -50276,6 +50311,7 @@ let mouseDragged = false;
 let mouseDragStartX = 0;
 let mouseDragStartY = 0;
 let maxDrag = 5;
+let touchDown = false;
 function updateMouseTargeting(world) {
     if (world.player) {
         if (currentTargeting == _hud.TargetMode.MOVE) {
@@ -50302,6 +50338,7 @@ function controlLeftClick(world, camera) {
             world.scheduler.requestUpdateTick(1);
         }
     }
+    if (!mouseInActiveArea && mouseEnteringActiveArea) mouseInActiveArea = true;
 }
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
@@ -50436,6 +50473,8 @@ function initControls(GUI) {
         if (!mouseDragged) leftClicked = true;
         mouseLeftDown = false;
         mouseDragged = false;
+        touchDown = false;
+        _hud.clearSpriteHover();
         let touch = event.changedTouches[0];
         if (touch) {
             mouseX = touch.pageX; // Gets Mouse X
@@ -50443,9 +50482,11 @@ function initControls(GUI) {
             mouseDragStartX = mouseX;
             mouseDragStartY = mouseY;
         }
+        mouseQueueEnterActiveArea();
     });
     window.addEventListener('touchstart', (event)=>{
         mouseLeftDown = true;
+        touchDown = true;
         let touch = event.changedTouches[0];
         if (touch) {
             mouseX = touch.pageX; // Gets Mouse X
@@ -50522,6 +50563,9 @@ function initControls(GUI) {
 },{"../world/world":"hywN6","../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iPuXr":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+// This is for making things touch friendly
+parcelHelpers.export(exports, "clearSpriteHover", ()=>clearSpriteHover
+);
 parcelHelpers.export(exports, "TargetMode", ()=>TargetMode
 );
 parcelHelpers.export(exports, "addHudElements", ()=>addHudElements
@@ -50539,6 +50583,11 @@ let uiSprites = new Map();
 let HUDMarkers = new _pixiJs.Container(); // Displayed on the field
 let HUDScreen = new _pixiJs.Container(); // Displayed on the screen
 let lastViewport;
+let spriteHover = new Map();
+let scaleHover = 1.2;
+function clearSpriteHover() {
+    spriteHover = new Map();
+}
 var TargetMode;
 (function(TargetMode1) {
     TargetMode1[TargetMode1["MOVE"] = 16777215] = "MOVE";
@@ -50565,9 +50614,7 @@ function renderHUD(world) {
     let zone = world.zones[world.currentZone];
     if (zone) {
         let reticule = uiSprites.get("reticule");
-        let button_follow = uiSprites.get("follow");
         if (!reticule) reticule = renderUISprite("reticule", world, zone);
-        if (!button_follow) button_follow = renderUISprite("follow", world, zone);
         if (reticule) {
             if (world.player && _control.mouseInActiveArea) {
                 _control.updateMouseTargeting(world);
@@ -50580,17 +50627,39 @@ function renderHUD(world) {
         let minDimension = Math.min(_launcher.windowSize.height, _launcher.windowSize.width);
         let player = world.player;
         if (player) {
-            if (button_follow) {
+            let button_follow = uiSprites.get("follow");
+            let button_follow_on = uiSprites.get("follow_on");
+            if (!button_follow) button_follow = renderUISprite("follow", world, zone);
+            if (!button_follow_on) button_follow_on = renderUISprite("follow_on", world, zone);
+            if (button_follow && button_follow_on) {
+                let scale = spriteHover.get("follow") || 1;
                 button_follow.visible = true;
-                button_follow.x = 0;
-                button_follow.y = 0;
-                button_follow.scale.x = Math.min(0.4 * minDimension / button_follow.texture.width, 1);
+                button_follow.scale.x = scale * Math.min(0.25 * minDimension / button_follow.texture.width, 1);
                 button_follow.scale.y = button_follow.scale.x;
+                button_follow.x = button_follow.texture.width / 2 * button_follow.scale.x / scale;
+                button_follow.y = button_follow.texture.height / 2 * button_follow.scale.y / scale;
+                button_follow_on.visible = _control.UIModes.follow && button_follow.visible;
+                button_follow_on.x = button_follow.x;
+                button_follow_on.y = button_follow.y;
+                button_follow_on.scale.x = button_follow.scale.x;
+                button_follow_on.scale.y = button_follow.scale.y;
+            }
+            let button_interact = uiSprites.get("interact");
+            if (!button_interact) button_interact = renderUISprite("interact", world, zone);
+            if (button_interact) {
+                let scale = spriteHover.get("interact") || 1;
+                button_interact.visible = true;
+                button_interact.scale.x = scale * Math.min(0.25 * minDimension / button_interact.texture.width, 1);
+                button_interact.scale.y = button_interact.scale.x;
+                button_interact.x = _launcher.windowSize.width - button_interact.texture.width / 2 * button_interact.scale.x / scale;
+                button_interact.y = _launcher.windowSize.height - button_interact.texture.height / 2 * button_interact.scale.y / scale;
             }
         }
     }
 }
 function renderUISprite(name, world, zone) {
+    let ret;
+    let ui = false;
     if (name == "reticule") {
         let tex = _pixiJs.RenderTexture.create({
             width: _render.TILE_SIZE,
@@ -50607,7 +50676,7 @@ function renderUISprite(name, world, zone) {
         _render.renderer.render(r1, {
             renderTexture: tex
         });
-        let ret = new _pixiJs.Sprite(tex);
+        ret = new _pixiJs.Sprite(tex);
         ret.position.x = 0;
         ret.position.y = 0;
         ret.anchor.x = 0;
@@ -50616,25 +50685,80 @@ function renderUISprite(name, world, zone) {
         ret.filters = [
             new _pixiFilters.BloomFilter(5)
         ];
-        HUDMarkers.addChild(ret);
-        uiSprites.set("reticule", ret);
-        return ret;
     }
     if (name == "follow") {
+        ui = true;
         let tex = _sprites.textures.get("ui_follow");
         if (tex) {
-            let ret = new _pixiJs.Sprite(tex);
+            ret = new _pixiJs.Sprite(tex);
             ret.position.x = 0;
             ret.position.y = 0;
-            ret.anchor.x = 0;
-            ret.anchor.y = 0;
+            ret.anchor.x = 0.5;
+            ret.anchor.y = 0.5;
             ret.visible = false;
-            HUDScreen.addChild(ret);
-            uiSprites.set("follow", ret);
-            return ret;
+            registerButton(name, ret);
         }
     }
+    if (name == "follow_on") {
+        ui = true;
+        let tex = _sprites.textures.get("ui_follow_on");
+        if (tex) {
+            ret = new _pixiJs.Sprite(tex);
+            ret.position.x = 0;
+            ret.position.y = 0;
+            ret.anchor.x = 0.5;
+            ret.anchor.y = 0.5;
+            ret.visible = false;
+        }
+    }
+    if (name == "interact") {
+        ui = true;
+        let tex = _sprites.textures.get("ui_interact");
+        if (tex) {
+            ret = new _pixiJs.Sprite(tex);
+            ret.position.x = 0;
+            ret.position.y = 0;
+            ret.anchor.x = 0.5;
+            ret.anchor.y = 0.5;
+            ret.visible = false;
+            registerButton(name, ret);
+        }
+    }
+    if (ret) {
+        if (ui) HUDScreen.addChild(ret);
+        else HUDMarkers.addChild(ret);
+        uiSprites.set(name, ret);
+        return ret;
+    }
     return undefined;
+}
+function registerButton(name, button) {
+    button.interactive = true;
+    button.on('pointerdown', (event)=>uiButtonClick(name, event)
+    ).on('pointerup', (event)=>uiButtonClickEnd(name, event)
+    ).on('pointerupout', (event)=>uiButtonClickEndOutside(name)
+    ).on('pointerover', (event)=>uiButtonOver(name)
+    ).on('pointerout', (event)=>uiButtonOut(name)
+    );
+}
+function uiButtonClick(name, event) {
+    _control.mouseEnterUI();
+    spriteHover.set(name, 1.1);
+}
+function uiButtonClickEnd(name, event) {
+    spriteHover.set(name, 1.2);
+// Actually send the click
+}
+function uiButtonClickEndOutside(name) {
+    spriteHover.set(name, 1);
+}
+function uiButtonOver(name) {
+    spriteHover.set(name, 1.2);
+    _control.mouseEnterUI();
+}
+function uiButtonOut(name) {
+    spriteHover.set(name, 1);
+    _control.mouseEnterIntoActiveArea();
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz"}],"73WWw":[function(require,module,exports) {

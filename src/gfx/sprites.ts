@@ -25,6 +25,16 @@ let spriteResources : SpriteResource[] = [
         path: "img/ui/follow.png",
         antialias: true,
     },
+    {
+        name: "ui_follow_on",
+        path: "img/ui/player.png",
+        antialias: true,
+    },
+    {
+        name: "ui_interact",
+        path: "img/ui/interact.png",
+        antialias: true,
+    },
 ];
 
 let sprites : Map<string, BaseImage> = new Map<string, BaseImage>();
