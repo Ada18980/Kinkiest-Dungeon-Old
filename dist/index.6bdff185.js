@@ -43606,6 +43606,9 @@ function setRenderer(r) {
 function setViewport(v) {
     viewport = v;
 }
+let blurQuality; // scale of 8 to 2 or OFF
+let blurQualityMax; // scale of 8 to 2 or OFF
+let blurQualityMin; // scale of 8 to 2 or OFF
 let walls = new _pixiJs.Container();
 let light = new _pixiJs.Container();
 let fog = new _pixiJs.Container();
@@ -43697,8 +43700,8 @@ function renderWorld(world) {
     renderer.render(r1, {
         renderTexture: lighttex
     });
-    const outlineFilter = new _pixiFilters.OutlineFilter(16, 0);
-    const fogFilter = new _pixiJs.filters.BlurFilter(32); //
+    const outlineFilter = new _pixiFilters.OutlineFilter(24, 0);
+    const fogFilter = new _pixiJs.filters.BlurFilter(28, blurQuality); //
     if (world) {
         let zone = world.zones[world.currentZone];
         if (zone) {
@@ -43742,11 +43745,13 @@ function renderWorld(world) {
             }
             viewport.addChild(walls);
             viewport.addChild(light);
-            viewport.addChild(fog);
-            fog.filters = [
-                outlineFilter,
-                fogFilter
-            ];
+            if (blurQuality != blurQualityMin || !blurQuality) {
+                fog.filters = [
+                    outlineFilter,
+                    fogFilter
+                ];
+                viewport.addChild(fog);
+            } else viewport.removeChild(fog);
             viewport.worldWidth = TILE_SIZE * zone.width;
             viewport.worldHeight = TILE_SIZE * zone.height;
             return true;
@@ -43775,7 +43780,35 @@ function updateWorldRender(zone) {
             }
         }
     }
-    for (let S1 of clight){
+    if (blurQuality != blurQualityMin || !blurQuality) {
+        for (let S1 of clight){
+            S1.visible = bounds.contains(S1.x, S1.y);
+            if (S1.visible) {
+                let weight = 25;
+                let li = zone.getLight(S1.x * t1, S1.y * t1);
+                let wa = zone.get(S1.x * t1, S1.y * t1);
+                if (li > 0 && !wa) {
+                    S1.visible = false;
+                    S1.alpha = 0;
+                } else {
+                    S1.alpha = (S1.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
+                    if (S1.alpha < 0.01) S1.alpha = 0;
+                    if (S1.alpha > 0.99) S1.alpha = 1;
+                }
+            }
+        }
+        for (let S2 of cfog){
+            S2.visible = bounds.contains(S2.x, S2.y);
+            if (S2.visible) {
+                let weight = 50;
+                let li = zone.getLight(S2.x * t1, S2.y * t1);
+                if (li == 0) weight = 25;
+                S2.alpha = (S2.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
+                if (S2.alpha < 0.01) S2.alpha = 0;
+                if (S2.alpha > 0.99) S2.alpha = 1;
+            }
+        }
+    } else for (let S1 of clight){
         S1.visible = bounds.contains(S1.x, S1.y);
         if (S1.visible) {
             let weight = 25;
@@ -43783,16 +43816,6 @@ function updateWorldRender(zone) {
             S1.alpha = (S1.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
             if (S1.alpha < 0.01) S1.alpha = 0;
             if (S1.alpha > 0.99) S1.alpha = 1;
-        }
-    }
-    for (let S2 of cfog){
-        S2.visible = bounds.contains(S2.x, S2.y);
-        if (S2.visible) {
-            let weight = 50;
-            let li = zone.getLight(S2.x * t1, S2.y * t1) > 0 ? 1 : 0;
-            S2.alpha = (S2.alpha * weight + (1 - Math.min(1, 1.2 * li))) / (1 + weight);
-            if (S2.alpha < 0.01) S2.alpha = 0;
-            if (S2.alpha > 0.99) S2.alpha = 1;
         }
     }
 //this.lastBounds = viewport.getVisibleBounds();
@@ -50634,10 +50657,10 @@ function renderHUD(world) {
             if (button_follow && button_follow_on) {
                 let scale = spriteHover.get("follow") || 1;
                 button_follow.visible = true;
-                button_follow.scale.x = scale * Math.min(0.25 * minDimension / button_follow.texture.width, 1);
+                button_follow.scale.x = scale * Math.min(0.15 * minDimension / button_follow.texture.width, 1);
                 button_follow.scale.y = button_follow.scale.x;
-                button_follow.x = button_follow.texture.width / 2 * button_follow.scale.x / scale;
-                button_follow.y = button_follow.texture.height / 2 * button_follow.scale.y / scale;
+                button_follow.x = _launcher.windowSize.width - button_follow.texture.width * 1.5 * button_follow.scale.x / scale;
+                button_follow.y = _launcher.windowSize.height - button_follow.texture.height * 0.5 * button_follow.scale.y / scale;
                 button_follow_on.visible = _control.UIModes.follow && button_follow.visible;
                 button_follow_on.x = button_follow.x;
                 button_follow_on.y = button_follow.y;
@@ -50649,10 +50672,10 @@ function renderHUD(world) {
             if (button_interact) {
                 let scale = spriteHover.get("interact") || 1;
                 button_interact.visible = true;
-                button_interact.scale.x = scale * Math.min(0.25 * minDimension / button_interact.texture.width, 1);
+                button_interact.scale.x = scale * Math.min(0.15 * minDimension / button_interact.texture.width, 1);
                 button_interact.scale.y = button_interact.scale.x;
-                button_interact.x = _launcher.windowSize.width - button_interact.texture.width / 2 * button_interact.scale.x / scale;
-                button_interact.y = _launcher.windowSize.height - button_interact.texture.height / 2 * button_interact.scale.y / scale;
+                button_interact.x = _launcher.windowSize.width - button_interact.texture.width * 0.5 * button_interact.scale.x / scale;
+                button_interact.y = _launcher.windowSize.height - button_interact.texture.height * 0.5 * button_interact.scale.y / scale;
             }
         }
     }

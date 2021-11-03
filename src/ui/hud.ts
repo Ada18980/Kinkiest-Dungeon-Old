@@ -84,10 +84,10 @@ export function renderHUD(world : World) {
             if (button_follow && button_follow_on) {
                 let scale = spriteHover.get("follow") || 1.0;
                 button_follow.visible = true;
-                button_follow.scale.x = scale * Math.min(0.25 * minDimension / button_follow.texture.width, 1);
+                button_follow.scale.x = scale * Math.min(0.15 * minDimension / button_follow.texture.width, 1);
                 button_follow.scale.y = button_follow.scale.x;
-                button_follow.x = button_follow.texture.width/2 * button_follow.scale.x / scale;
-                button_follow.y = button_follow.texture.height/2 * button_follow.scale.y / scale;
+                button_follow.x = windowSize.width - button_follow.texture.width*1.5 * button_follow.scale.x / scale;
+                button_follow.y = windowSize.height - button_follow.texture.height*0.5 * button_follow.scale.y / scale;
 
                 button_follow_on.visible = UIModes.follow && button_follow.visible;
                 button_follow_on.x = button_follow.x;
@@ -102,10 +102,10 @@ export function renderHUD(world : World) {
             if (button_interact) {
                 let scale = spriteHover.get("interact") || 1.0;
                 button_interact.visible = true;
-                button_interact.scale.x = scale * Math.min(0.25 * minDimension / button_interact.texture.width, 1);
+                button_interact.scale.x = scale * Math.min(0.15 * minDimension / button_interact.texture.width, 1);
                 button_interact.scale.y = button_interact.scale.x;
-                button_interact.x = windowSize.width - button_interact.texture.width/2 * button_interact.scale.x / scale;
-                button_interact.y = windowSize.height - button_interact.texture.height/2 * button_interact.scale.y / scale;
+                button_interact.x = windowSize.width - button_interact.texture.width*0.5 * button_interact.scale.x / scale;
+                button_interact.y = windowSize.height - button_interact.texture.height*0.5 * button_interact.scale.y / scale;
             }
         }
 

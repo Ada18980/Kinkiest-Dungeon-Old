@@ -20,6 +20,10 @@ export function setViewport(v : Viewport) {
     viewport = v;
 }
 
+let blurQuality : number | undefined; // scale of 8 to 2 or OFF
+let blurQualityMax : 8; // scale of 8 to 2 or OFF
+let blurQualityMin : 2; // scale of 8 to 2 or OFF
+
 let walls = new PIXI.Container();
 let light = new PIXI.Container();
 let fog = new PIXI.Container();
@@ -77,8 +81,8 @@ export function renderWorld(world : World) {
     renderer.render(r1,{renderTexture: lighttex});
 
 
-    const outlineFilter = new filters.OutlineFilter(16, 0x000000);
-    const fogFilter = new PIXI.filters.BlurFilter(32.0);//
+    const outlineFilter = new filters.OutlineFilter(24, 0x000000);
+    const fogFilter = new PIXI.filters.BlurFilter(28.0, blurQuality);//
 
     if (world) {
         let zone = world.zones[world.currentZone]
@@ -132,8 +136,12 @@ export function renderWorld(world : World) {
             }
             viewport.addChild(walls);
             viewport.addChild(light);
-            viewport.addChild(fog);
-            fog.filters = [outlineFilter, fogFilter];
+            if (blurQuality != blurQualityMin || !blurQuality) {
+                fog.filters = [outlineFilter, fogFilter];
+                viewport.addChild(fog);
+            } else {
+                viewport.removeChild(fog);
+            }
             viewport.worldWidth = TILE_SIZE * zone.width;
             viewport.worldHeight = TILE_SIZE * zone.height;
             return true;
@@ -167,27 +175,47 @@ export function updateWorldRender(zone : Zone) {
                 }
             }
         }
-        for (let S of clight) {
-            S.visible = bounds.contains(S.x, S.y);
-            if (S.visible) {
-                let weight = 25.0;
-                let li = zone.getLight(S.x*t1, (S.y)*t1);
+        if (blurQuality != blurQualityMin || !blurQuality) {
+            for (let S of clight) {
+                S.visible = bounds.contains(S.x, S.y);
+                if (S.visible) {
+                    let weight = 25.0;
+                    let li = zone.getLight(S.x*t1, (S.y)*t1);
+                    let wa = zone.get(S.x*t1, (S.y)*t1);
 
-                S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
-                if (S.alpha < 0.01) S.alpha = 0.0;
-                if (S.alpha > 0.99) S.alpha = 1.0;
+                    if (li > 0 && !wa) {
+                        S.visible = false;
+                        S.alpha = 0.0;
+                    } else {
+                        S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
+                        if (S.alpha < 0.01) S.alpha = 0.0;
+                        if (S.alpha > 0.99) S.alpha = 1.0;
+                    }
+                }
             }
-        }
+            for (let S of cfog) {
+                S.visible = bounds.contains(S.x, S.y);
+                if (S.visible) {
+                    let weight = 50.0;
+                    let li = zone.getLight(S.x*t1, (S.y)*t1);
 
-        for (let S of cfog) {
-            S.visible = bounds.contains(S.x, S.y);
-            if (S.visible) {
-                let weight = 50.0;
-                let li = zone.getLight(S.x*t1, (S.y)*t1) > 0 ? 1.0 : 0;
+                    if (li == 0) weight = 25.0;
+                    S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
+                    if (S.alpha < 0.01) S.alpha = 0.0;
+                    if (S.alpha > 0.99) S.alpha = 1.0;
+                }
+            }
+        } else {
+            for (let S of clight) {
+                S.visible = bounds.contains(S.x, S.y);
+                if (S.visible) {
+                    let weight = 25.0;
+                    let li = zone.getLight(S.x*t1, (S.y)*t1);
 
-                S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
-                if (S.alpha < 0.01) S.alpha = 0.0;
-                if (S.alpha > 0.99) S.alpha = 1.0;
+                    S.alpha = (S.alpha * weight + (1.0 - Math.min(1.0, 1.2*li))) / (1.0 + weight);
+                    if (S.alpha < 0.01) S.alpha = 0.0;
+                    if (S.alpha > 0.99) S.alpha = 1.0;
+                }
             }
         }
         //this.lastBounds = viewport.getVisibleBounds();
