@@ -1,7 +1,8 @@
 
 import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport'
-import { Wall, World, Zone } from '../world/world';
+import { World} from '../world/world';
+import { Wall, Zone } from '../world/zone';
 import { getGeneralSprite } from "../gfx/sprites";
 import * as filters from 'pixi-filters';
 
@@ -33,7 +34,7 @@ let textures : Map<string, PIXI.Texture> = new Map<string, PIXI.Texture>();
 export function renderWorld(world : World) {
 
     // Verify all items are loaded
-    let requiredSprites = [{sprite: "bricks", anim: ["floor",
+    let requiredSprites = [{sprite: "bricks", anim: ["floor", "door_open", "door_closed",
                             "pillar", "call", "n",
                             "lcu", "lcd", "lcud",
                             "rcu", "rcd", "rcud",
@@ -104,9 +105,11 @@ export function renderWorld(world : World) {
                     if (row && row[ii] != undefined) {
                         let wall = row[ii] as number;
                         if (wall > -1) {
-                            let suff = (wall == Wall.WALL) ? zone.getWallDirection(ii, i) :
-                                ("floor");
-                            let tex = textures.get("bricksfloor");
+                            let suff = "floor";
+                            if (wall == Wall.WALL) suff = zone.getWallDirection(ii, i);
+                            else if (wall == Wall.DOOR_CLOSED) suff = "door_closed";
+                            else if (wall == Wall.DOOR_OPEN) suff = "door_open";
+                            let tex = textures.get("bricks" + suff);
                             if (tex) {
                                 let block = new PIXI.Sprite(tex);
                                 block.position.x = TILE_SIZE*ii;

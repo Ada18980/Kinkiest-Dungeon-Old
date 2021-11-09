@@ -1,4 +1,5 @@
-import { WallProperties, World, WorldVec } from "../world/world";
+import { World, WorldVec } from "../world/world";
+import { WallProperties } from '../world/zone';
 import { Player } from "./player";
 import { TILE_SIZE, viewport } from '../gfx/render';
 import { Sprite } from "@pixi/sprite";

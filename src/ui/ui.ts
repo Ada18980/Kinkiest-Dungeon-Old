@@ -1,5 +1,6 @@
 import { Viewport } from "pixi-viewport";
-import { Wall, World, Zone } from "../world/world";
+import { World} from '../world/world';
+import { Wall, Zone } from '../world/zone';
 import * as PIXI from 'pixi.js';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport, renderWorld, updateWorldRender} from '../gfx/render';
 import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls, controlTick, controlTicker, updateCamera } from './control';

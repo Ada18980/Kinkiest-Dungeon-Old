@@ -4,7 +4,7 @@
 // s = source x and y points and w weights
 // dx, dy = destination x and y
 
-import { Wall, Zone } from "./world";
+import { Wall, Zone } from '../world/zone';
 
 // w = weight multiplier
 export interface LightMapPoint {

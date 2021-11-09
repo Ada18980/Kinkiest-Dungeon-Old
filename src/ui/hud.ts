@@ -1,4 +1,5 @@
-import { WallProperties, World, WorldVec, Zone } from "../world/world";
+import { World, WorldVec, } from "../world/world";
+import { Wall, WallProperties, Zone } from '../world/zone';
 import { textures } from "../gfx/sprites";
 import { Player } from "./player";
 import { renderer, TILE_SIZE, viewport } from '../gfx/render';

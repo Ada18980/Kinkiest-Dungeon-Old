@@ -43618,7 +43618,7 @@ parcelHelpers.export(exports, "renderWorld", ()=>renderWorld
 parcelHelpers.export(exports, "updateWorldRender", ()=>updateWorldRender
 );
 var _pixiJs = require("pixi.js");
-var _world = require("../world/world");
+var _zone = require("../world/zone");
 var _sprites = require("../gfx/sprites");
 var _pixiFilters = require("pixi-filters");
 const TILE_SIZE = 64;
@@ -43646,6 +43646,8 @@ function renderWorld(world) {
             sprite: "bricks",
             anim: [
                 "floor",
+                "door_open",
+                "door_closed",
                 "pillar",
                 "call",
                 "n",
@@ -43742,8 +43744,11 @@ function renderWorld(world) {
                 if (row && row[ii] != undefined) {
                     let wall = row[ii];
                     if (wall > -1) {
-                        let suff = wall == _world.Wall.WALL ? zone.getWallDirection(ii, i) : "floor";
-                        let tex = textures.get("bricksfloor");
+                        let suff = "floor";
+                        if (wall == _zone.Wall.WALL) suff = zone.getWallDirection(ii, i);
+                        else if (wall == _zone.Wall.DOOR_CLOSED) suff = "door_closed";
+                        else if (wall == _zone.Wall.DOOR_OPEN) suff = "door_open";
+                        let tex = textures.get("bricks" + suff);
                         if (tex) {
                             let block = new _pixiJs.Sprite(tex);
                             block.position.x = TILE_SIZE * ii;
@@ -43799,7 +43804,7 @@ function updateWorldRender(zone) {
         if (S.visible) {
             let li = zone.getLight(S.x * t1, S.y * t1);
             let wall = zone.get(S.x * t1, S.y * t1);
-            if (li > 0 && wall == _world.Wall.WALL) {
+            if (li > 0 && wall == _zone.Wall.WALL) {
                 let suff = zone.getWallDirectionVision(S.x * t1, S.y * t1, true);
                 let tex = textures.get("bricks" + suff);
                 if (tex) S.texture = tex;
@@ -43848,7 +43853,7 @@ function updateWorldRender(zone) {
 //}
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","pixi.js":"3ZUrV","../gfx/sprites":"7UxjD","pixi-filters":"kxbrB","../world/world":"hywN6"}],"kxbrB":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","pixi.js":"3ZUrV","../gfx/sprites":"7UxjD","pixi-filters":"kxbrB","../world/zone":"9xLaY"}],"kxbrB":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 /*!
@@ -49027,7 +49032,7 @@ var fragment = "varying vec2 vTextureCoord;\nuniform sampler2D uSampler;\nunifor
     return ZoomBlurFilter2;
 }(_core.Filter);
 
-},{"@pixi/core":"d0INm","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
+},{"@pixi/core":"d0INm","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"9xLaY":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Wall", ()=>Wall
@@ -49038,21 +49043,18 @@ parcelHelpers.export(exports, "WallDirections", ()=>WallDirections
 );
 parcelHelpers.export(exports, "Zone", ()=>Zone
 );
-parcelHelpers.export(exports, "World", ()=>World
-);
-var _actor = require("./actor");
-var _quadtree = require("./quadtree");
 var _random = require("../random");
 var _light = require("./light");
-var _scheduler = require("./scheduler");
 "use strict";
 var Wall;
 (function(Wall1) {
     Wall1[Wall1["NONE"] = -1] = "NONE";
     Wall1[Wall1["FLOOR"] = 0] = "FLOOR";
     Wall1[Wall1["WINDOW"] = 1] = "WINDOW";
+    Wall1[Wall1["DOOR_OPEN"] = 2] = "DOOR_OPEN";
     Wall1[Wall1["WALL"] = 100] = "WALL";
     Wall1[Wall1["CURTAIN"] = 101] = "CURTAIN";
+    Wall1[Wall1["DOOR_CLOSED"] = 102] = "DOOR_CLOSED";
 })(Wall || (Wall = {
 }));
 let WallProperties = {
@@ -49061,6 +49063,10 @@ let WallProperties = {
         collision: true
     },
     [Wall.FLOOR]: {
+        vision: true,
+        collision: false
+    },
+    [Wall.DOOR_OPEN]: {
         vision: true,
         collision: false
     },
@@ -49075,6 +49081,10 @@ let WallProperties = {
     [Wall.CURTAIN]: {
         vision: false,
         collision: false
+    },
+    [Wall.DOOR_CLOSED]: {
+        vision: false,
+        collision: true
     }
 };
 window.Wall = Wall;
@@ -49389,6 +49399,8 @@ class Zone {
         let connect_prob = 0.2; // Reconnection factor
         let pillar_prob = 0; // Chance of a pillar remaining
         let freewall_prob = 0; // Chance of a freewall remaining
+        let door_prob = 1; // Chance of a door
+        let door_open_prob = 0.3; // Chance of an open door
         let iters = 0;
         let max = 10000;
         while(iters < max && seeds.length > 0){
@@ -49446,112 +49458,249 @@ class Zone {
             if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
             if (getCell(x, y5) == Wall.WALL && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, Wall.FLOOR);
         }
+        // Add Doors
+        for(let y6 = 1; y6 < height; y6 += 1){
+            let row = this.walls[y6];
+            if (row) for(let x = 1; x < width; x += 1)// Clean up pillars
+            if (getCell(x, y6) == Wall.FLOOR && rand() < door_prob) {
+                let neighbors = getCellWallNeighborCount(x, y6);
+                if (neighbors <= 4 && neighbors >= 2 && (getCell(x + 1, y6) == Wall.FLOOR && getCell(x - 1, y6) == Wall.FLOOR && getCell(x, y6 + 1) == Wall.WALL && getCell(x, y6 - 1) == Wall.WALL && (getCell(x + 2, y6) == Wall.FLOOR || getCell(x - 2, y6) == Wall.FLOOR) && (getCell(x, y6 + 2) == Wall.WALL || getCell(x, y6 - 2) == Wall.WALL) || getCell(x + 1, y6) == Wall.WALL && getCell(x - 1, y6) == Wall.WALL && getCell(x, y6 + 1) == Wall.FLOOR && getCell(x, y6 - 1) == Wall.FLOOR && (getCell(x + 2, y6) == Wall.WALL || getCell(x - 2, y6) == Wall.WALL) && (getCell(x, y6 + 2) == Wall.FLOOR || getCell(x, y6 - 2) == Wall.FLOOR))) {
+                    //
+                    this.set(x, y6, Wall.DOOR_CLOSED);
+                    console.log("added a door");
+                }
+            }
+        }
+        // Open some doors
+        for(let y7 = 1; y7 < height; y7 += 1){
+            let row = this.walls[y7];
+            if (row) for(let x = 1; x < width; x += 1)// Clean up pillars
+            if (getCell(x, y7) == Wall.DOOR_CLOSED && rand() < door_open_prob) this.set(x, y7, Wall.DOOR_OPEN);
+        }
         console.log("Maze generation took " + (performance.now() - start));
     }
 }
-class World {
-    constructor(){
-        this.actors = new Map();
-        this.player = undefined;
-        this.containers = new Map();
-        this.tree_actors = new _quadtree.QuadTree(1);
-        this.id_inc // Increment by one each time an actor is added
-         = 0;
-        this.currentZone = 0;
-        let zone = new Zone(60, 60);
-        this.zones = [
-            zone
-        ];
-        this.scheduler = new _scheduler.Scheduler(this);
-        let start = performance.now();
-        zone.createMaze();
-        console.log("Maze generation took " + (performance.now() - start) / 1000);
-    }
-    actorCanMove(actor, x, y, force) {
-        let ethereal = false; // Here we will add any buff or ability that lets the actor pass through
-        let zone1 = this.zones[this.currentZone];
-        if (!zone1) return false;
-        if (x >= 0 && y >= 0 && x < zone1.width && y < zone1.height) {
-            let occuupied = !force && false; // Cant move into occupied spaces
-            if ((ethereal || !WallProperties[zone1.get(x, y)].collision) && !occuupied) return true;
-        }
-        return false;
-    }
-    moveActor(actor, dir) {
-        if (this.actors.get(actor.id)) {
-            actor.x += dir.x;
-            actor.y += dir.y;
-            if (!actor.type.noFace) actor.faceDir(dir);
-            return Math.max(Math.abs(dir.x), Math.abs(dir.y));
-        }
-        return 0;
-    }
-    update(delta) {
-        this.actors.forEach((ac)=>{
-            ac.update(delta);
-        });
-        this.tree_actors.refresh();
-        let zone1 = this.zones[this.currentZone];
-        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0, 0.05);
-    }
-    render(delta) {
-        this.containers.forEach((ac)=>{
-            ac.render(delta);
-        });
-    }
-    addActor(actor) {
-        let iterations = 0;
-        let max = 10000;
-        while(this.actors.has(this.id_inc))this.id_inc++;
-        actor.id = this.id_inc;
-        this.actors.set(this.id_inc, actor);
-        this.addActorContainer(actor);
-        this.tree_actors.add(actor);
-    }
-    removeActor(actor) {
-        let ac = this.containers.get(actor.id);
-        if (ac) {
-            ac.destroy(true);
-            this.actors.delete(actor.id);
-            this.containers.delete(actor.id);
-            this.tree_actors.remove(actor);
-        }
-    }
-    addActorContainer(actor) {
-        let ac = new _actor.ActorContainer(actor);
-        if (!this.player && actor.type.player) this.player = actor;
-        this.containers.set(actor.id, ac);
-    }
-    // Called upon loading a game
-    populateContainers() {
-        this.actors.forEach((actor)=>{
-            if (!Array.from(this.containers).some((element)=>{
-                return element[1].actor == actor;
-            })) {
-                this.addActorContainer(actor);
-                this.tree_actors.add(actor);
-            }
-        });
-    }
-    serialize() {
-        let oldContainers = this.containers;
-        let oldActorMap = this.tree_actors;
-        this.containers = new Map();
-        let scheduler = this.scheduler;
-        this.scheduler = undefined;
-        // TODO actually serialize
-        // Blorp
-        // TODO finish serializing
-        this.scheduler = scheduler;
-        this.containers = oldContainers;
-        this.tree_actors = oldActorMap;
-    }
-    deserialize(data) {
-        this.populateContainers();
-    }
+
+},{"../random":"2ffUi","./light":"e01Wg","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"2ffUi":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "rand", ()=>rand
+);
+parcelHelpers.export(exports, "setSeed", ()=>setSeed
+);
+parcelHelpers.export(exports, "getRandomFunction", ()=>getRandomFunction
+);
+function xmur3(str) {
+    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19;
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    };
+}
+function sfc32(a, b, c, d) {
+    return function() {
+        a >>>= 0;
+        b >>>= 0;
+        c >>>= 0;
+        d >>>= 0;
+        var t = a + b | 0;
+        a = b ^ b >>> 9;
+        b = c + (c << 3) | 0;
+        c = c << 21 | c >>> 11;
+        d = d + 1 | 0;
+        t = t + d | 0;
+        c = c + t | 0;
+        return (t >>> 0) / 4294967296;
+    };
+}
+let seed = "kinky";
+let hash = xmur3(seed);
+let rand = sfc32(hash(), hash(), hash(), hash());
+function setSeed(str) {
+    seed = str;
+    hash = xmur3(seed);
+    rand = sfc32(hash(), hash(), hash(), hash());
+}
+function getRandomFunction(str) {
+    let sd = str;
+    let hsh = xmur3(sd);
+    return sfc32(hsh(), hsh(), hsh(), hsh());
 }
 
-},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../random":"2ffUi","./light":"e01Wg","./scheduler":"gqpkC"}],"hVA85":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"e01Wg":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "propagateLight", ()=>propagateLight
+);
+parcelHelpers.export(exports, "lightMap", ()=>lightMap
+);
+parcelHelpers.export(exports, "createLightMap", ()=>createLightMap
+);
+// s = source x and y points and w weights
+// dx, dy = destination x and y
+var _zone = require("../world/zone");
+function propagateLight(zone, x, y, range, dispersion, darkness) {
+    zone.light = [];
+    for(let y1 = 0; y1 < zone.height; y1++){
+        let row = [];
+        for(let x1 = 0; x1 < zone.width; x1++)row[x1] = 0;
+        zone.light.push(row);
+    }
+    zone.setLight(x, y, 1);
+    // Begin running the lightmap
+    let lightmult = 1;
+    for(let r = 0; r < range && r < lightMap.length; r++){
+        let ring = lightMap[r]; // Get a ring from the lightmap
+        if (ring) for (let cell of ring){
+            let sum = 0;
+            let block = zone.get(x + cell.dx, y + cell.dy) == _zone.Wall.WALL;
+            // For each ring cell we look at dependent light points and add up
+            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _zone.Wall.WALL || source.x == 0 && source.y == 0) //if (!block || (source.y >= cell.dy)) {
+            sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
+            if (!block && sum <= 0.99) {
+                let neighbors = zone.getWallNeighborCount(x + cell.dx, y + cell.dy);
+                if (neighbors >= 3 + 3 * sum) sum = Math.max(0, sum - 0.05 * neighbors);
+            }
+            if (sum < dispersion * lightmult) sum = 0;
+            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, lightmult * Math.min(1, sum));
+            else zone.setLight(x + cell.dx, y + cell.dy, -1);
+        }
+        lightmult *= 1 - darkness;
+    }
+}
+let lightMap = [
+    [
+        {
+            dx: 1,
+            dy: 0,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: 0,
+            dy: 1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: -1,
+            dy: 0,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: 0,
+            dy: -1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 1
+                }, 
+            ]
+        },
+        {
+            dx: 1,
+            dy: 1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        },
+        {
+            dx: 1,
+            dy: -1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        },
+        {
+            dx: -1,
+            dy: 1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        },
+        {
+            dx: -1,
+            dy: -1,
+            s: [
+                {
+                    x: 0,
+                    y: 0,
+                    w: 0.99
+                }, 
+            ]
+        }, 
+    ], 
+];
+let maxRange = 10;
+function createLightMap() {
+    if (lightMap.length < maxRange) for(let i = 1; i < maxRange; i++)createLightMapRing();
+}
+function createLightMapRing() {
+    let d = lightMap.length + 1; // Current radius
+    let ring = [];
+    for(let y = -d; y <= d; y++){
+        for(let x = -d; x <= d; x++)if (Math.abs(x) == d || Math.abs(y) == d) {
+            let cell = {
+                dx: x,
+                dy: y,
+                s: []
+            };
+            let neighbors = [];
+            for(let xx = x - 1; xx <= x + 1; xx++){
+                for(let yy = y - 1; yy <= y + 1; yy++)if (xx != x || yy != y) {
+                    if (Math.abs(xx) < d && Math.abs(yy) < d) // Enforce directionality
+                    {
+                        if (Math.abs(xx) <= Math.abs(x) && Math.abs(yy) <= Math.abs(y)) neighbors.push({
+                            x: xx,
+                            y: yy,
+                            w: 0
+                        });
+                    }
+                }
+            }
+            for (let n of neighbors){
+                if (neighbors.length == 1) n.w = 1;
+                else if (n.x == cell.dx || n.y == cell.dy) n.w = 1;
+                else n.w = 0.7;
+                cell.s.push(n);
+            }
+            ring.push(cell);
+        }
+    }
+    lightMap.push(ring);
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/zone":"9xLaY"}],"hVA85":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Dir", ()=>Dir
@@ -49865,226 +50014,119 @@ class QuadCell {
     }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"2ffUi":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"hywN6":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "rand", ()=>rand
+parcelHelpers.export(exports, "World", ()=>World
 );
-parcelHelpers.export(exports, "setSeed", ()=>setSeed
-);
-parcelHelpers.export(exports, "getRandomFunction", ()=>getRandomFunction
-);
-function xmur3(str) {
-    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19;
-    return function() {
-        h = Math.imul(h ^ h >>> 16, 2246822507);
-        h = Math.imul(h ^ h >>> 13, 3266489909);
-        return (h ^= h >>> 16) >>> 0;
-    };
-}
-function sfc32(a, b, c, d) {
-    return function() {
-        a >>>= 0;
-        b >>>= 0;
-        c >>>= 0;
-        d >>>= 0;
-        var t = a + b | 0;
-        a = b ^ b >>> 9;
-        b = c + (c << 3) | 0;
-        c = c << 21 | c >>> 11;
-        d = d + 1 | 0;
-        t = t + d | 0;
-        c = c + t | 0;
-        return (t >>> 0) / 4294967296;
-    };
-}
-let seed = "kinky";
-let hash = xmur3(seed);
-let rand = sfc32(hash(), hash(), hash(), hash());
-function setSeed(str) {
-    seed = str;
-    hash = xmur3(seed);
-    rand = sfc32(hash(), hash(), hash(), hash());
-}
-function getRandomFunction(str) {
-    let sd = str;
-    let hsh = xmur3(sd);
-    return sfc32(hsh(), hsh(), hsh(), hsh());
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"e01Wg":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "propagateLight", ()=>propagateLight
-);
-parcelHelpers.export(exports, "lightMap", ()=>lightMap
-);
-parcelHelpers.export(exports, "createLightMap", ()=>createLightMap
-);
-// s = source x and y points and w weights
-// dx, dy = destination x and y
-var _world = require("./world");
-function propagateLight(zone, x, y, range, dispersion, darkness) {
-    zone.light = [];
-    for(let y1 = 0; y1 < zone.height; y1++){
-        let row = [];
-        for(let x1 = 0; x1 < zone.width; x1++)row[x1] = 0;
-        zone.light.push(row);
+var _actor = require("./actor");
+var _quadtree = require("./quadtree");
+var _scheduler = require("./scheduler");
+var _zone = require("./zone");
+"use strict";
+class World {
+    constructor(){
+        this.actors = new Map();
+        this.player = undefined;
+        this.containers = new Map();
+        this.tree_actors = new _quadtree.QuadTree(1);
+        this.id_inc // Increment by one each time an actor is added
+         = 0;
+        this.currentZone = 0;
+        let zone = new _zone.Zone(60, 60);
+        this.zones = [
+            zone
+        ];
+        this.scheduler = new _scheduler.Scheduler(this);
+        let start = performance.now();
+        zone.createMaze();
+        console.log("Maze generation took " + (performance.now() - start) / 1000);
     }
-    zone.setLight(x, y, 1);
-    // Begin running the lightmap
-    let lightmult = 1;
-    for(let r = 0; r < range && r < lightMap.length; r++){
-        let ring = lightMap[r]; // Get a ring from the lightmap
-        if (ring) for (let cell of ring){
-            let sum = 0;
-            let block = zone.get(x + cell.dx, y + cell.dy) == _world.Wall.WALL;
-            // For each ring cell we look at dependent light points and add up
-            for (let source of cell.s)if (zone.get(x + source.x, y + source.y) < _world.Wall.WALL || source.x == 0 && source.y == 0) //if (!block || (source.y >= cell.dy)) {
-            sum = Math.max(sum, zone.getLight(x + source.x, y + source.y) * source.w);
-            if (!block && sum <= 0.99) {
-                let neighbors = zone.getWallNeighborCount(x + cell.dx, y + cell.dy);
-                if (neighbors >= 3 + 3 * sum) sum = Math.max(0, sum - 0.05 * neighbors);
-            }
-            if (sum < dispersion * lightmult) sum = 0;
-            if (sum > 0) zone.setLight(x + cell.dx, y + cell.dy, lightmult * Math.min(1, sum));
-            else zone.setLight(x + cell.dx, y + cell.dy, -1);
+    actorCanMove(actor, x, y, force) {
+        let ethereal = false; // Here we will add any buff or ability that lets the actor pass through
+        let zone1 = this.zones[this.currentZone];
+        if (!zone1) return false;
+        if (x >= 0 && y >= 0 && x < zone1.width && y < zone1.height) {
+            let occuupied = !force && false; // Cant move into occupied spaces
+            if ((ethereal || !_zone.WallProperties[zone1.get(x, y)].collision) && !occuupied) return true;
         }
-        lightmult *= 1 - darkness;
+        return false;
     }
-}
-let lightMap = [
-    [
-        {
-            dx: 1,
-            dy: 0,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: 0,
-            dy: 1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: -1,
-            dy: 0,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: 0,
-            dy: -1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 1
-                }, 
-            ]
-        },
-        {
-            dx: 1,
-            dy: 1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        },
-        {
-            dx: 1,
-            dy: -1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        },
-        {
-            dx: -1,
-            dy: 1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        },
-        {
-            dx: -1,
-            dy: -1,
-            s: [
-                {
-                    x: 0,
-                    y: 0,
-                    w: 0.99
-                }, 
-            ]
-        }, 
-    ], 
-];
-let maxRange = 10;
-function createLightMap() {
-    if (lightMap.length < maxRange) for(let i = 1; i < maxRange; i++)createLightMapRing();
-}
-function createLightMapRing() {
-    let d = lightMap.length + 1; // Current radius
-    let ring = [];
-    for(let y = -d; y <= d; y++){
-        for(let x = -d; x <= d; x++)if (Math.abs(x) == d || Math.abs(y) == d) {
-            let cell = {
-                dx: x,
-                dy: y,
-                s: []
-            };
-            let neighbors = [];
-            for(let xx = x - 1; xx <= x + 1; xx++){
-                for(let yy = y - 1; yy <= y + 1; yy++)if (xx != x || yy != y) {
-                    if (Math.abs(xx) < d && Math.abs(yy) < d) // Enforce directionality
-                    {
-                        if (Math.abs(xx) <= Math.abs(x) && Math.abs(yy) <= Math.abs(y)) neighbors.push({
-                            x: xx,
-                            y: yy,
-                            w: 0
-                        });
-                    }
-                }
-            }
-            for (let n of neighbors){
-                if (neighbors.length == 1) n.w = 1;
-                else if (n.x == cell.dx || n.y == cell.dy) n.w = 1;
-                else n.w = 0.7;
-                cell.s.push(n);
-            }
-            ring.push(cell);
+    moveActor(actor, dir) {
+        if (this.actors.get(actor.id)) {
+            actor.x += dir.x;
+            actor.y += dir.y;
+            if (!actor.type.noFace) actor.faceDir(dir);
+            return Math.max(Math.abs(dir.x), Math.abs(dir.y));
+        }
+        return 0;
+    }
+    update(delta) {
+        this.actors.forEach((ac)=>{
+            ac.update(delta);
+        });
+        this.tree_actors.refresh();
+        let zone1 = this.zones[this.currentZone];
+        if (this.player && zone1) zone1.updateLight(this.player.x, this.player.y, 7, 0, 0.05);
+    }
+    render(delta) {
+        this.containers.forEach((ac)=>{
+            ac.render(delta);
+        });
+    }
+    addActor(actor) {
+        let iterations = 0;
+        let max = 10000;
+        while(this.actors.has(this.id_inc))this.id_inc++;
+        actor.id = this.id_inc;
+        this.actors.set(this.id_inc, actor);
+        this.addActorContainer(actor);
+        this.tree_actors.add(actor);
+    }
+    removeActor(actor) {
+        let ac = this.containers.get(actor.id);
+        if (ac) {
+            ac.destroy(true);
+            this.actors.delete(actor.id);
+            this.containers.delete(actor.id);
+            this.tree_actors.remove(actor);
         }
     }
-    lightMap.push(ring);
+    addActorContainer(actor) {
+        let ac = new _actor.ActorContainer(actor);
+        if (!this.player && actor.type.player) this.player = actor;
+        this.containers.set(actor.id, ac);
+    }
+    // Called upon loading a game
+    populateContainers() {
+        this.actors.forEach((actor)=>{
+            if (!Array.from(this.containers).some((element)=>{
+                return element[1].actor == actor;
+            })) {
+                this.addActorContainer(actor);
+                this.tree_actors.add(actor);
+            }
+        });
+    }
+    serialize() {
+        let oldContainers = this.containers;
+        let oldActorMap = this.tree_actors;
+        this.containers = new Map();
+        let scheduler = this.scheduler;
+        this.scheduler = undefined;
+        // TODO actually serialize
+        // Blorp
+        // TODO finish serializing
+        this.scheduler = scheduler;
+        this.containers = oldContainers;
+        this.tree_actors = oldActorMap;
+    }
+    deserialize(data) {
+        this.populateContainers();
+    }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./world":"hywN6"}],"gqpkC":[function(require,module,exports) {
+},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./scheduler":"gqpkC","./zone":"9xLaY"}],"gqpkC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Scheduler", ()=>Scheduler
@@ -50416,7 +50458,7 @@ parcelHelpers.export(exports, "updateCamera", ()=>updateCamera
 );
 parcelHelpers.export(exports, "initControls", ()=>initControls
 );
-var _world = require("../world/world");
+var _zone = require("../world/zone");
 var _render = require("../gfx/render");
 var _launcher = require("../launcher");
 var _hud = require("./hud");
@@ -50651,14 +50693,14 @@ function controlTicker(delta, world, camera) {
         }
         let zone = world.zones[world.currentZone];
         if (zone && compoundInput) {
-            if (dir.x != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) dir.y = 0;
-            else if (dir.y != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) dir.x = 0;
+            if (dir.x != 0 && _zone.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_zone.WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) dir.y = 0;
+            else if (dir.y != 0 && _zone.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_zone.WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) dir.x = 0;
         }
         if (finishMove) {
             dir = lastDir;
             controlMove = true;
         }
-        if (zone && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision) {
+        if (zone && _zone.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision) {
             controlMove = false;
             controlTick = false;
             controlTime = 10;
@@ -50844,7 +50886,7 @@ function initControls(GUI) {
     });
 }
 
-},{"../world/world":"hywN6","../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iPuXr":[function(require,module,exports) {
+},{"../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/zone":"9xLaY"}],"iPuXr":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 // This is for making things touch friendly
