@@ -21,13 +21,23 @@ let spriteResources : SpriteResource[] = [
         path: "img/tiles/bricks.json",
     },
     {
-        name: "ui_follow",
-        path: "img/ui/follow.png",
+        name: "ui_follow_off",
+        path: "img/ui/follow_off.png",
         antialias: true,
     },
     {
         name: "ui_follow_on",
-        path: "img/ui/player.png",
+        path: "img/ui/follow_on.png",
+        antialias: true,
+    },
+    {
+        name: "ui_sprint_off",
+        path: "img/ui/sprint_off.png",
+        antialias: true,
+    },
+    {
+        name: "ui_sprint_on",
+        path: "img/ui/sprint_on.png",
         antialias: true,
     },
     {

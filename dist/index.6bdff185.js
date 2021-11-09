@@ -43333,13 +43333,23 @@ let spriteResources = [
         path: "img/tiles/bricks.json"
     },
     {
-        name: "ui_follow",
-        path: "img/ui/follow.png",
+        name: "ui_follow_off",
+        path: "img/ui/follow_off.png",
         antialias: true
     },
     {
         name: "ui_follow_on",
-        path: "img/ui/player.png",
+        path: "img/ui/follow_on.png",
+        antialias: true
+    },
+    {
+        name: "ui_sprint_off",
+        path: "img/ui/sprint_off.png",
+        antialias: true
+    },
+    {
+        name: "ui_sprint_on",
+        path: "img/ui/sprint_on.png",
         antialias: true
     },
     {
@@ -50314,6 +50324,7 @@ class UI {
             if (this.currentZone) _render.updateWorldRender(this.currentZone);
             if (this.world.scheduler) this.world.scheduler.update();
             this.world.render(d);
+            _control.updateCamera(this.world, this.player);
             _hud.renderHUD(this.world);
             if (!_render.viewport.moving) _render.viewport.moveCorner(Math.round(_render.viewport.corner.x), Math.round(_render.viewport.corner.y));
             if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
@@ -50364,6 +50375,8 @@ parcelHelpers.export(exports, "effTargetLocation", ()=>effTargetLocation
 );
 parcelHelpers.export(exports, "UIModes", ()=>UIModes
 );
+parcelHelpers.export(exports, "UIModeClick", ()=>UIModeClick
+);
 parcelHelpers.export(exports, "mouseEnterUI", ()=>mouseEnterUI
 );
 parcelHelpers.export(exports, "mouseEnterIntoActiveArea", ()=>mouseEnterIntoActiveArea
@@ -50383,6 +50396,8 @@ parcelHelpers.export(exports, "touchDown", ()=>touchDown
 parcelHelpers.export(exports, "updateMouseTargeting", ()=>updateMouseTargeting
 );
 parcelHelpers.export(exports, "controlTicker", ()=>controlTicker
+);
+parcelHelpers.export(exports, "updateCamera", ()=>updateCamera
 );
 parcelHelpers.export(exports, "initControls", ()=>initControls
 );
@@ -50412,9 +50427,14 @@ let effTargetLocation = {
     y: 0
 };
 let UIModes = {
-    follow: false,
-    sprint: true
+    "interact": false,
+    "follow": false,
+    "sprint": true
 };
+function UIModeClick(name) {
+    if (!UIModes[name]) UIModes[name] = true;
+    else UIModes[name] = false;
+}
 function mouseEnterUI() {
     mouseInActiveArea = false;
 }
@@ -50535,8 +50555,16 @@ function controlLeftClick(world, camera) {
     }
     if (!mouseInActiveArea && mouseEnteringActiveArea) mouseInActiveArea = true;
 }
+function consuleUIModes(delta, world, camera) {
+    if (UIModes["interact"]) {
+        if (currentTargeting == _hud.TargetMode.INTERACT) currentTargeting = _hud.TargetMode.MOVE;
+        else if (currentTargeting == _hud.TargetMode.MOVE) currentTargeting = _hud.TargetMode.INTERACT;
+        UIModes["interact"] = false;
+    }
+}
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
+    consuleUIModes(delta, world, camera);
     if (leftClicked && !mouseDragged) {
         // Do left mouse click
         controlLeftClick(world, camera);
@@ -50603,42 +50631,50 @@ function controlTicker(delta, world, camera) {
         }
         lastDir = dir;
     }
+}
+function updateCamera(world, camera) {
     if (camera.cameraActor) {
         let container = world.containers.get(camera.cameraActor.id);
         if (container) {
-            let bounds = _render.viewport.getVisibleBounds().pad(-_render.TILE_SIZE);
-            let XX = camera.cameraActor.xx + lastDir.x * _render.TILE_SIZE;
-            let YY = camera.cameraActor.yy + lastDir.y * _render.TILE_SIZE;
-            if (!bounds.contains(XX, YY) && performance.now() - lastCameraMove > 500) {
-                let ease = "easeInOutSine";
-                let time = 1000;
-                if (performance.now() - lastCameraMove < 1000) {
-                    time = 1000;
-                    ease = "easeOutSine";
-                }
-                //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
-                if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
-                    let sprites = container.sprite?.currentRender;
-                    if (sprites) {
-                        /*let sprite : Sprite | undefined;
-                            for (let s of sprites) {
-                                if (s[1] && s[1].sprite) {
-                                    sprite = s[1].sprite;
-                                    break;
-                                }
-                            }
-                            if (sprite)
-                                viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/ _render.viewport.snap(XX, YY, {
-                            ease: "easeInOutSine",
-                            time: 1000,
-                            removeOnInterrupt: true
-                        });
-                        lastXX = XX;
-                        lastYY = YY;
-                        lastCameraMove = performance.now();
+            if (!UIModes["follow"]) {
+                let bounds = _render.viewport.getVisibleBounds().pad(-_render.TILE_SIZE);
+                let XX = camera.cameraActor.xx + lastDir.x * _render.TILE_SIZE;
+                let YY = camera.cameraActor.yy + lastDir.y * _render.TILE_SIZE;
+                if (!bounds.contains(XX, YY) && performance.now() - lastCameraMove > 500) {
+                    let ease = "easeInOutSine";
+                    let time = 1000;
+                    if (performance.now() - lastCameraMove < 1000) {
+                        time = 1000;
+                        ease = "easeOutSine";
                     }
+                    //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
+                    if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
+                        let sprites = container.sprite?.currentRender;
+                        if (sprites) {
+                            /*let sprite : Sprite | undefined;
+                                for (let s of sprites) {
+                                    if (s[1] && s[1].sprite) {
+                                        sprite = s[1].sprite;
+                                        break;
+                                    }
+                                }
+                                if (sprite)
+                                    viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/ _render.viewport.snap(XX, YY, {
+                                ease: "easeInOutSine",
+                                time: 1000,
+                                removeOnInterrupt: true
+                            });
+                            lastXX = XX;
+                            lastYY = YY;
+                            lastCameraMove = performance.now();
+                        }
+                    }
+                //else viewport.plugins.remove('follow');
                 }
-            //else viewport.plugins.remove('follow');
+            } else {
+                lastXX = Math.round(container.xx);
+                lastYY = Math.round(container.yy);
+                _render.viewport.moveCenter(container.xx, container.yy);
             }
         }
     }
@@ -50780,16 +50816,32 @@ let HUDScreen = new _pixiJs.Container(); // Displayed on the screen
 let lastViewport;
 let spriteHover = new Map();
 let scaleHover = 1.2;
+let currentClick = "";
+let showUI = true;
+let showMarkers = true;
+let uiSpritesList = {
+    "reticule": {
+        name: "reticule"
+    },
+    "interact": {
+        name: "single",
+        quadrant: 3
+    },
+    "follow": {
+        name: "toggle",
+        quadrant: 3
+    }
+};
 function clearSpriteHover() {
     spriteHover = new Map();
 }
 var TargetMode;
 (function(TargetMode1) {
     TargetMode1[TargetMode1["MOVE"] = 16777215] = "MOVE";
-    TargetMode1[TargetMode1["FASTMOVE"] = 16776994] = "FASTMOVE";
     TargetMode1[TargetMode1["AIM"] = 16768324] = "AIM";
     TargetMode1[TargetMode1["ENCHANT"] = 8978329] = "ENCHANT";
-    TargetMode1[TargetMode1["INTERACT"] = 5605631] = "INTERACT";
+    TargetMode1[TargetMode1["SPELL"] = 5605631] = "SPELL";
+    TargetMode1[TargetMode1["INTERACT"] = 16777079] = "INTERACT";
 })(TargetMode || (TargetMode = {
 }));
 function addHudElements(stage, viewport) {
@@ -50808,12 +50860,22 @@ function renderHUD(world) {
     }
     let zone = world.zones[world.currentZone];
     if (zone) {
+        for(let spr in uiSpritesList){
+            if (uiSpritesList[spr]?.name == "toggle") {
+                if (!uiSprites.get(spr + "_on")) renderUISprite(spr + "_on", world, zone, spr);
+                if (!uiSprites.get(spr + "_off")) renderUISprite(spr + "_off", world, zone, spr);
+            } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr);
+        }
         let reticule = uiSprites.get("reticule");
-        if (!reticule) reticule = renderUISprite("reticule", world, zone);
-        if (reticule) {
+        /*
+        let button_sprint_off = uiSprites.get("sprint_off");
+        let button_sprint_on = uiSprites.get("sprint_on");
+        let button_follow_off = uiSprites.get("follow_off");
+        let button_follow_on = uiSprites.get("follow_on");
+        let button_interact = uiSprites.get("interact");*/ if (reticule) {
             if (world.player && _control.mouseInActiveArea) {
                 _control.updateMouseTargeting(world);
-                reticule.visible = true;
+                reticule.visible = showMarkers;
                 reticule.x = _render.TILE_SIZE * _control.effTargetLocation.x;
                 reticule.y = _render.TILE_SIZE * _control.effTargetLocation.y;
                 reticule.tint = _control.currentTargeting;
@@ -50821,38 +50883,65 @@ function renderHUD(world) {
         }
         let minDimension = Math.min(_launcher.windowSize.height, _launcher.windowSize.width);
         let player = world.player;
-        if (player) {
-            let button_follow = uiSprites.get("follow");
-            let button_follow_on = uiSprites.get("follow_on");
-            if (!button_follow) button_follow = renderUISprite("follow", world, zone);
-            if (!button_follow_on) button_follow_on = renderUISprite("follow_on", world, zone);
-            if (button_follow && button_follow_on) {
-                let scale = spriteHover.get("follow") || 1;
-                button_follow.visible = true;
-                button_follow.scale.x = scale * Math.min(0.15 * minDimension / button_follow.texture.width, 1);
-                button_follow.scale.y = button_follow.scale.x;
-                button_follow.x = _launcher.windowSize.width - button_follow.texture.width * 1.5 * button_follow.scale.x / scale;
-                button_follow.y = _launcher.windowSize.height - button_follow.texture.height * 0.5 * button_follow.scale.y / scale;
-                button_follow_on.visible = _control.UIModes.follow && button_follow.visible;
-                button_follow_on.x = button_follow.x;
-                button_follow_on.y = button_follow.y;
-                button_follow_on.scale.x = button_follow.scale.x;
-                button_follow_on.scale.y = button_follow.scale.y;
+        let bottomRightIndex = 0;
+        let bottomLeftIndex = 0;
+        let topRightIndex = 0;
+        let topLeftIndex = 0;
+        function getIndex(quadrant) {
+            if (quadrant == 1) return topRightIndex;
+            else if (quadrant == 2) return topLeftIndex;
+            else if (quadrant == 3) return bottomLeftIndex;
+            else return bottomRightIndex;
+        }
+        function setIndex(quadrant, amount) {
+            if (quadrant == 1) topRightIndex += amount;
+            else if (quadrant == 2) topLeftIndex += amount;
+            else if (quadrant == 3) bottomLeftIndex += amount;
+            else bottomRightIndex += amount;
+        }
+        function updateSingleButton(name, quadrant) {
+            let sprite = uiSprites.get(name);
+            if (sprite) {
+                let index = getIndex(quadrant ? quadrant : 3);
+                let scale = spriteHover.get(name) || 1;
+                sprite.visible = showUI;
+                sprite.scale.x = scale * Math.min(0.15 * minDimension / sprite.texture.width, 1);
+                sprite.scale.y = sprite.scale.x;
+                sprite.x = _launcher.windowSize.width - sprite.texture.width * 0.5 * sprite.scale.x / scale - index;
+                sprite.y = _launcher.windowSize.height - sprite.texture.height * 0.5 * sprite.scale.y / scale;
+                setIndex(quadrant ? quadrant : 3, sprite.width / scale);
             }
-            let button_interact = uiSprites.get("interact");
-            if (!button_interact) button_interact = renderUISprite("interact", world, zone);
-            if (button_interact) {
-                let scale = spriteHover.get("interact") || 1;
-                button_interact.visible = true;
-                button_interact.scale.x = scale * Math.min(0.15 * minDimension / button_interact.texture.width, 1);
-                button_interact.scale.y = button_interact.scale.x;
-                button_interact.x = _launcher.windowSize.width - button_interact.texture.width * 0.5 * button_interact.scale.x / scale;
-                button_interact.y = _launcher.windowSize.height - button_interact.texture.height * 0.5 * button_interact.scale.y / scale;
+        }
+        function updateDoubleButton(name, quadrant) {
+            let sprite_on = uiSprites.get(name + "_on");
+            let sprite_off = uiSprites.get(name + "_off");
+            if (sprite_off && sprite_on) {
+                let index = getIndex(quadrant ? quadrant : 3);
+                let scale = spriteHover.get(name) || 1;
+                sprite_off.visible = showUI && !_control.UIModes[name];
+                sprite_off.scale.x = scale * Math.min(0.15 * minDimension / sprite_off.texture.width, 1);
+                sprite_off.scale.y = sprite_off.scale.x;
+                sprite_off.x = _launcher.windowSize.width - sprite_off.texture.width * 0.5 * sprite_off.scale.x / scale - index;
+                sprite_off.y = _launcher.windowSize.height - sprite_off.texture.height * 0.5 * sprite_off.scale.y / scale;
+                sprite_on.visible = showUI && !sprite_off.visible;
+                sprite_on.x = sprite_off.x;
+                sprite_on.y = sprite_off.y;
+                sprite_on.scale.x = sprite_off.scale.x;
+                sprite_on.scale.y = sprite_off.scale.y;
+                bottomRightIndex += sprite_on.width;
+                setIndex(quadrant ? quadrant : 3, sprite_on.width / scale);
+            }
+        }
+        if (player) for(let spr1 in uiSpritesList){
+            let sprite = uiSpritesList[spr1];
+            if (sprite) {
+                if (sprite.name == "single") updateSingleButton(spr1, sprite.quadrant);
+                else if (sprite.name == "toggle") updateDoubleButton(spr1, sprite.quadrant);
             }
         }
     }
 }
-function renderUISprite(name, world, zone) {
+function renderUISprite(name, world, zone, uiElementName) {
     let ret;
     let ui = false;
     if (name == "reticule") {
@@ -50881,48 +50970,76 @@ function renderUISprite(name, world, zone) {
             new _pixiFilters.BloomFilter(5)
         ];
     }
-    if (name == "follow") {
+    if (name == "sprint_marker") {
         ui = true;
-        let tex = _sprites.textures.get("ui_follow");
+        let tex = _sprites.textures.get("ui_sprint_on");
         if (tex) {
             ret = new _pixiJs.Sprite(tex);
             ret.position.x = 0;
             ret.position.y = 0;
+            ret.scale.x = _render.TILE_SIZE / tex.width;
+            ret.scale.y = _render.TILE_SIZE / tex.height;
             ret.anchor.x = 0.5;
             ret.anchor.y = 0.5;
             ret.visible = false;
             registerButton(name, ret);
         }
     }
-    if (name == "follow_on") {
-        ui = true;
-        let tex = _sprites.textures.get("ui_follow_on");
-        if (tex) {
-            ret = new _pixiJs.Sprite(tex);
-            ret.position.x = 0;
-            ret.position.y = 0;
-            ret.anchor.x = 0.5;
-            ret.anchor.y = 0.5;
-            ret.visible = false;
+    function loadMarker(str, radius, sprite) {
+        let marker = loadGenericButton(str, sprite, uiElementName);
+        if (marker && radius != undefined) {
+            marker.scale.x = radius / marker.texture.width;
+            marker.scale.y = radius / marker.texture.height;
         }
+        ret = marker;
     }
-    if (name == "interact") {
-        ui = true;
-        let tex = _sprites.textures.get("ui_interact");
-        if (tex) {
-            ret = new _pixiJs.Sprite(tex);
-            ret.position.x = 0;
-            ret.position.y = 0;
-            ret.anchor.x = 0.5;
-            ret.anchor.y = 0.5;
-            ret.visible = false;
-            registerButton(name, ret);
+    function loadButton(str, sprite) {
+        ret = loadGenericButton(str, sprite, uiElementName);
+        if (ret) ui = true;
+    }
+    let genericButtons = [
+        "sprint_off",
+        "sprint_on",
+        "follow_off",
+        "follow_on",
+        "interact", 
+    ];
+    let genericMarkers = [
+        {
+            name: "sprint",
+            radius: _render.TILE_SIZE,
+            sprite: "ui_sprint_on"
+        }, 
+    ];
+    if (genericButtons.includes(name)) loadButton(name);
+    else if (genericMarkers.some((element)=>{
+        return element.name == name;
+    })) {
+        for (let gm of genericMarkers)if (gm.name == name) {
+            loadMarker(name, _render.TILE_SIZE, "ui_sprint_on");
+            break;
         }
     }
     if (ret) {
         if (ui) HUDScreen.addChild(ret);
         else HUDMarkers.addChild(ret);
         uiSprites.set(name, ret);
+        return ret;
+    }
+    return undefined;
+}
+function loadGenericButton(name, sprite, uiElementName) {
+    let spr = sprite ? sprite : "ui_" + name;
+    let tex = _sprites.textures.get(spr);
+    if (tex) {
+        let ret;
+        ret = new _pixiJs.Sprite(tex);
+        ret.position.x = 0;
+        ret.position.y = 0;
+        ret.anchor.x = 0.5;
+        ret.anchor.y = 0.5;
+        ret.visible = false;
+        registerButton(uiElementName ? uiElementName : name, ret);
         return ret;
     }
     return undefined;
@@ -50939,13 +51056,17 @@ function registerButton(name, button) {
 function uiButtonClick(name, event) {
     _control.mouseEnterUI();
     spriteHover.set(name, 1.1);
+    currentClick = name;
 }
 function uiButtonClickEnd(name, event) {
     spriteHover.set(name, 1.2);
-// Actually send the click
+    // Actually send the click
+    if (currentClick == name) _control.UIModeClick(name);
+    if (currentClick == name) currentClick = "";
 }
 function uiButtonClickEndOutside(name) {
     spriteHover.set(name, 1);
+    if (currentClick == name) currentClick = "";
 }
 function uiButtonOver(name) {
     spriteHover.set(name, 1.2);
@@ -50954,6 +51075,7 @@ function uiButtonOver(name) {
 function uiButtonOut(name) {
     spriteHover.set(name, 1);
     _control.mouseEnterIntoActiveArea();
+    if (currentClick == name) currentClick = "";
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz"}],"aunNh":[function(require,module,exports) {

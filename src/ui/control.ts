@@ -23,10 +23,16 @@ export let currentTargeting : TargetMode = TargetMode.MOVE;
 export let targetLocation : WorldVec = {x : 0, y : 0};
 export let effTargetLocation : WorldVec = {x : 0, y : 0};
 
-export let UIModes = {
-    follow : false,
-    sprint : true,
+export let UIModes : Record<string, boolean> = {
+    "interact" : false,
+    "follow" : false,
+    "sprint" : true,
 };
+
+export function UIModeClick(name : string) {
+    if (!UIModes[name]) UIModes[name] = true;
+    else UIModes[name] = false;
+}
 
 export function mouseEnterUI() {
     mouseInActiveArea = false;
@@ -128,8 +134,18 @@ function controlLeftClick(world : World, camera : Player) {
 
 }
 
+function consuleUIModes(delta : number, world : World, camera : Player) {
+    if (UIModes["interact"]) {
+        if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
+        else if (currentTargeting == TargetMode.MOVE) currentTargeting = TargetMode.INTERACT;
+        UIModes["interact"] = false;
+    }
+}
+
 export function controlTicker(delta : number, world : World, camera : Player) {
     controlTime -= delta;
+
+    consuleUIModes(delta, world, camera);
 
     if (leftClicked && !mouseDragged) {
         // Do left mouse click
@@ -198,46 +214,54 @@ export function controlTicker(delta : number, world : World, camera : Player) {
         }
         lastDir = dir;
     }
+}
 
+export function updateCamera(world : World, camera : Player) {
     if (camera.cameraActor) {
         let container = world.containers.get(camera.cameraActor.id)
             if (container) {
-                let bounds = viewport.getVisibleBounds().pad(-TILE_SIZE);
-                let XX = camera.cameraActor.xx + lastDir.x * TILE_SIZE;
-                let YY = camera.cameraActor.yy + lastDir.y * TILE_SIZE;
-                if (!bounds.contains(XX, YY) && performance.now() - lastCameraMove > 500) {
-                    let ease = "easeInOutSine";
-                    let time = 1000;
-                    if (performance.now() - lastCameraMove < 1000 ) {
-                        time = 1000;
-                        ease = "easeOutSine";
-                    }
-                    //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
-
-                    if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
-                        let sprites = container.sprite?.currentRender;
-                        if (sprites) {
-                            /*let sprite : Sprite | undefined;
-                            for (let s of sprites) {
-                                if (s[1] && s[1].sprite) {
-                                    sprite = s[1].sprite;
-                                    break;
-                                }
-                            }
-                            if (sprite)
-                                viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/
-                            viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000, removeOnInterrupt: true});
-                            lastXX = XX;
-                            lastYY = YY;
-                            lastCameraMove = performance.now();
+                if (!UIModes["follow"]) {
+                    let bounds = viewport.getVisibleBounds().pad(-TILE_SIZE);
+                    let XX = camera.cameraActor.xx + lastDir.x * TILE_SIZE;
+                    let YY = camera.cameraActor.yy + lastDir.y * TILE_SIZE;
+                    if (!bounds.contains(XX, YY) && performance.now() - lastCameraMove > 500) {
+                        let ease = "easeInOutSine";
+                        let time = 1000;
+                        if (performance.now() - lastCameraMove < 1000 ) {
+                            time = 1000;
+                            ease = "easeOutSine";
                         }
-                    }
-                    //else viewport.plugins.remove('follow');
+                        //viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000});
 
+                        if (container.xx != container.actor.xx || container.yy != container.actor.yy) {
+                            let sprites = container.sprite?.currentRender;
+                            if (sprites) {
+                                /*let sprite : Sprite | undefined;
+                                for (let s of sprites) {
+                                    if (s[1] && s[1].sprite) {
+                                        sprite = s[1].sprite;
+                                        break;
+                                    }
+                                }
+                                if (sprite)
+                                    viewport.follow(sprite, {speed: 100, acceleration: 0.15});*/
+                                viewport.snap(XX, YY, {ease: "easeInOutSine", time: 1000, removeOnInterrupt: true});
+                                lastXX = XX;
+                                lastYY = YY;
+                                lastCameraMove = performance.now();
+                            }
+                        }
+                        //else viewport.plugins.remove('follow');
+
+                    }
+                } else {
+                    lastXX = Math.round(container.xx);
+                    lastYY = Math.round(container.yy);
+                    viewport.moveCenter(container.xx, container.yy);
                 }
+
             }
         }
-
 }
 
 function updateMouse(GUI : UI) {

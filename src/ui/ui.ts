@@ -2,7 +2,7 @@ import { Viewport } from "pixi-viewport";
 import { Wall, World, Zone } from "../world/world";
 import * as PIXI from 'pixi.js';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport, renderWorld, updateWorldRender} from '../gfx/render';
-import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls, controlTick, controlTicker } from './control';
+import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls, controlTick, controlTicker, updateCamera } from './control';
 import { renderHUD } from './hud';
 import { ratio, windowSize } from '../launcher';
 
@@ -45,6 +45,7 @@ export class UI {
             if (this.currentZone) updateWorldRender(this.currentZone);
             if (this.world.scheduler) this.world.scheduler.update();
             this.world.render(d);
+            updateCamera(this.world, this.player);
 
             renderHUD(this.world);
             if (!viewport.moving)
