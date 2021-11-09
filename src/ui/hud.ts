@@ -8,6 +8,7 @@ import * as PIXI from 'pixi.js';
 import { Viewport } from "pixi-viewport";
 import * as filters from 'pixi-filters';
 import { app, windowSize } from "../launcher";
+import { cDist } from "../world/math";
 
 let uiSprites = new Map<string, Sprite>();
 let HUDMarkers = new PIXI.Container(); // Displayed on the field
@@ -20,11 +21,31 @@ let currentClick = "";
 
 let showUI = true;
 let showMarkers = true;
+interface MarkerType {
+    name : string,
+    radius? : number,
+    sprite? : string,
+}
 let uiSpritesList : Record<string, {name: string, quadrant?: number}> = {
-    "reticule" : {name : "reticule"},
+    "reticule" : {name : "marker"},
+    "sprintmarker" : {name : "marker"},
     "interact" : {name : "single", quadrant : 3},
     "follow" : {name : "toggle", quadrant : 3},
+    "sprint" : {name : "toggle", quadrant : 3},
+    //"safe" : {name : "toggle", quadrant : 3}, // not implemented yet
 };
+let genericMarkers : MarkerType[] = [
+    {name : "sprintmarker", radius: TILE_SIZE},
+];
+let genericButtons : string[] = [
+    "safe_off",
+    "safe_on",
+    "sprint_off",
+    "sprint_on",
+    "follow_off",
+    "follow_on",
+    "interact",
+];
 
 // This is for making things touch friendly
 export function clearSpriteHover() {
@@ -69,6 +90,7 @@ export function renderHUD(world : World) {
             } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr);
         }
         let reticule = uiSprites.get("reticule");
+        let sprint = uiSprites.get("sprintmarker");
         /*
         let button_sprint_off = uiSprites.get("sprint_off");
         let button_sprint_on = uiSprites.get("sprint_on");
@@ -84,8 +106,19 @@ export function renderHUD(world : World) {
                 reticule.x = TILE_SIZE * effTargetLocation.x;
                 reticule.y = TILE_SIZE * effTargetLocation.y;
                 reticule.tint = currentTargeting;
+
+                if (sprint) {
+                    if (currentTargeting == TargetMode.MOVE && UIModes["sprint"] && cDist({x: world.player.x - effTargetLocation.x, y: world.player.y - effTargetLocation.y}) > 1) {
+                        sprint.visible = showMarkers;
+                        sprint.x = TILE_SIZE * effTargetLocation.x;
+                        sprint.y = TILE_SIZE * effTargetLocation.y;
+                    } else {
+                        sprint.visible = false;
+                    }
+                }
             } else {
                 reticule.visible = false;
+                if (sprint) sprint.visible = false;
             }
         }
 
@@ -202,7 +235,7 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
     }
 
     function loadMarker(str : string, radius?: number, sprite? : string) {
-        let marker = loadGenericButton(str, sprite, uiElementName);
+        let marker = loadGenericButton(str, true, sprite, uiElementName);
         if (marker && radius != undefined) {
             marker.scale.x = radius / marker.texture.width;
             marker.scale.y = radius / marker.texture.height;
@@ -210,31 +243,15 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
         ret = marker;
     }
     function loadButton(str : string, sprite? : string) {
-        ret = loadGenericButton(str, sprite, uiElementName);
+        ret = loadGenericButton(str, false, sprite, uiElementName);
         if (ret) ui = true;
     }
-    interface MarkerType {
-        name : string,
-        radius? : number,
-        sprite? : string,
-    }
-
-    let genericButtons : string[] = [
-        "sprint_off",
-        "sprint_on",
-        "follow_off",
-        "follow_on",
-        "interact",
-    ];
-    let genericMarkers : MarkerType[] = [
-        {name : "sprint", radius: TILE_SIZE, sprite: "ui_sprint_on"},
-    ];
 
     if (genericButtons.includes(name)) loadButton(name);
     else if (genericMarkers.some((element) => {return (element.name == name);})) {
         for (let gm of genericMarkers) {
             if (gm.name == name) {
-                loadMarker(name, TILE_SIZE, "ui_sprint_on");
+                loadMarker(name, TILE_SIZE);
                 break;
             }
         }
@@ -251,7 +268,7 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
     return undefined;
 }
 
-function loadGenericButton(name : string, sprite? : string, uiElementName? : string) : PIXI.Sprite | undefined {
+function loadGenericButton(name : string, marker: boolean, sprite? : string, uiElementName? : string) : PIXI.Sprite | undefined {
     let spr = sprite ? sprite : "ui_" + name;
     let tex = textures.get(spr);
     if (tex) {
@@ -259,11 +276,14 @@ function loadGenericButton(name : string, sprite? : string, uiElementName? : str
         ret = new PIXI.Sprite(tex);
         ret.position.x = 0;
         ret.position.y = 0;
-        ret.anchor.x = 0.5;
-        ret.anchor.y = 0.5;
+        if (!marker) {
+            ret.anchor.x = 0.5;
+            ret.anchor.y = 0.5;
+        }
         ret.visible = false;
 
-        registerButton(uiElementName? uiElementName : name, ret);
+        if (!marker)
+            registerButton(uiElementName? uiElementName : name, ret);
         return ret;
     }
     return undefined;

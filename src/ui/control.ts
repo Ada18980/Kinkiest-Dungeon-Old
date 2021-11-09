@@ -27,6 +27,7 @@ export let UIModes : Record<string, boolean> = {
     "interact" : false,
     "follow" : false,
     "sprint" : true,
+    "safe" : false,
 };
 
 export function UIModeClick(name : string) {
@@ -45,13 +46,17 @@ export function mouseQueueEnterActiveArea() {
 }
 
 export let keyBindingsDefault = {
-    moveU : ['W', 'ArrowUp'],
-    moveD : ['S', 'ArrowDown'],
-    moveL : ['A', 'ArrowLeft'],
-    moveR : ['D', 'ArrowRight'],
+    moveU : ['W', 'ARROWUP'],
+    moveD : ['X', 'ARROWDOWN'],
+    moveL : ['A', 'ARROWLEFT'],
+    moveR : ['D', 'ARROWRIGHT'],
+    moveUR : ['E'],
+    moveUL : ['Q'],
+    moveDR : ['C'],
+    moveDL : ['Z'],
     spell : ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
-    wait : [' ',],
-    return : ['Enter',],
+    wait : [' ', 'S'],
+    return : ['ENTER',],
 
 };
 
@@ -72,6 +77,10 @@ export let keys = {
     moveD : new ControlKey(keyBindingsDefault.moveD, true),
     moveL : new ControlKey(keyBindingsDefault.moveL, true),
     moveR : new ControlKey(keyBindingsDefault.moveR, true),
+    moveUL : new ControlKey(keyBindingsDefault.moveUL, true),
+    moveDL : new ControlKey(keyBindingsDefault.moveDL, true),
+    moveUR : new ControlKey(keyBindingsDefault.moveUR, true),
+    moveDR : new ControlKey(keyBindingsDefault.moveDR, true),
     spell : new ControlKey(keyBindingsDefault.spell),
     wait : new ControlKey(keyBindingsDefault.wait, true),
     return : new ControlKey(keyBindingsDefault.return),
@@ -164,13 +173,21 @@ export function controlTicker(delta : number, world : World, camera : Player) {
 
     if (controlTick && world && world.player) {
         let dir = {x : 0, y : 0};
-        if (keys.moveU.value > 0) {dir.y = -1; controlMove = true;}
-        else if (keys.moveD.value > 0) {dir.y = 1; controlMove = true;}
-        if (keys.moveL.value > 0) {dir.x = -1; controlMove = true;}
-        else if (keys.moveR.value > 0) {dir.x = 1; controlMove = true;}
+        let compoundInput = false
+        if (keys.moveUL.value >= 0) {dir.x = -1; dir.y = -1; controlMove = true;}
+        else if (keys.moveUR.value >= 0) {dir.x = 1; dir.y = -1; controlMove = true;}
+        else if (keys.moveDL.value >= 0) {dir.x = -1; dir.y = 1; controlMove = true;}
+        else if (keys.moveDR.value >= 0) {dir.x = 1; dir.y = 1; controlMove = true;}
+        else {
+            compoundInput = true;
+            if (keys.moveU.value >= 0) {dir.y = -1; controlMove = true;}
+            else if (keys.moveD.value >= 0) {dir.y = 1; controlMove = true;}
+            if (keys.moveL.value >= 0) {dir.x = -1; controlMove = true;}
+            else if (keys.moveR.value >= 0) {dir.x = 1; controlMove = true;}
+        }
 
         let zone = world.zones[world.currentZone];
-        if (zone) {
+        if (zone && compoundInput) {
             if (dir.x != 0
                 && WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision
                 && !WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) {
@@ -344,8 +361,8 @@ export function initControls(GUI : UI) {
             let key = event.key;
             for (let KB of Object.keys(keys)) {
                 let binding = keys[KB as keyof typeof keys];
-                if (binding.keys.includes(key)) {
-                    binding.value = binding.keys.indexOf(key);
+                if (binding.keys.includes(key.toUpperCase())) {
+                    binding.value = binding.keys.indexOf(key.toUpperCase());
                     if (binding.refreshControlTick) {movePressed = true;}
                 }
             }
@@ -355,14 +372,15 @@ export function initControls(GUI : UI) {
         let key = event.key;
         for (let KB of Object.keys(keys)) {
             let binding = keys[KB as keyof typeof keys];
-            if (binding.keys.includes(key)) {
+            if (binding.keys.includes(key.toUpperCase())) {
                 binding.value = -1;
                 if (binding.refreshControlTick) {controlDiagGrace = 0; controlMove = false;}
             }
         }
 
         // If all movekeys are released then we simply ignore dialog grace
-        if (keys.moveD.value == -1 && keys.moveL.value == -1 && keys.moveR.value == -1 && keys.moveU.value == -1) {
+        if (keys.moveD.value == -1 && keys.moveL.value == -1 && keys.moveR.value == -1 && keys.moveU.value == -1
+            && keys.moveDL.value == -1 && keys.moveUL.value == -1 && keys.moveDR.value == -1 && keys.moveUR.value == -1) {
             if (controlTick && controlDiagGrace == 0) {
                 controlDiagGrace = controlDiagGraceTime + 1;
                 finishMove = true;

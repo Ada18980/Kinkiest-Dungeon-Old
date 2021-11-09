@@ -43333,6 +43333,16 @@ let spriteResources = [
         path: "img/tiles/bricks.json"
     },
     {
+        name: "ui_safe_off",
+        path: "img/ui/safe_off.png",
+        antialias: true
+    },
+    {
+        name: "ui_safe_on",
+        path: "img/ui/safe_on.png",
+        antialias: true
+    },
+    {
         name: "ui_follow_off",
         path: "img/ui/follow_off.png",
         antialias: true
@@ -43350,6 +43360,11 @@ let spriteResources = [
     {
         name: "ui_sprint_on",
         path: "img/ui/sprint_on.png",
+        antialias: true
+    },
+    {
+        name: "ui_sprintmarker",
+        path: "img/ui/sprintmarker.png",
         antialias: true
     },
     {
@@ -50429,7 +50444,8 @@ let effTargetLocation = {
 let UIModes = {
     "interact": false,
     "follow": false,
-    "sprint": true
+    "sprint": true,
+    "safe": false
 };
 function UIModeClick(name) {
     if (!UIModes[name]) UIModes[name] = true;
@@ -50447,19 +50463,31 @@ function mouseQueueEnterActiveArea() {
 let keyBindingsDefault = {
     moveU: [
         'W',
-        'ArrowUp'
+        'ARROWUP'
     ],
     moveD: [
-        'S',
-        'ArrowDown'
+        'X',
+        'ARROWDOWN'
     ],
     moveL: [
         'A',
-        'ArrowLeft'
+        'ARROWLEFT'
     ],
     moveR: [
         'D',
-        'ArrowRight'
+        'ARROWRIGHT'
+    ],
+    moveUR: [
+        'E'
+    ],
+    moveUL: [
+        'Q'
+    ],
+    moveDR: [
+        'C'
+    ],
+    moveDL: [
+        'Z'
     ],
     spell: [
         '0',
@@ -50474,10 +50502,11 @@ let keyBindingsDefault = {
         '9'
     ],
     wait: [
-        ' ', 
+        ' ',
+        'S'
     ],
     return: [
-        'Enter', 
+        'ENTER', 
     ]
 };
 class ControlKey {
@@ -50493,6 +50522,10 @@ let keys1 = {
     moveD: new ControlKey(keyBindingsDefault.moveD, true),
     moveL: new ControlKey(keyBindingsDefault.moveL, true),
     moveR: new ControlKey(keyBindingsDefault.moveR, true),
+    moveUL: new ControlKey(keyBindingsDefault.moveUL, true),
+    moveDL: new ControlKey(keyBindingsDefault.moveDL, true),
+    moveUR: new ControlKey(keyBindingsDefault.moveUR, true),
+    moveDR: new ControlKey(keyBindingsDefault.moveDR, true),
     spell: new ControlKey(keyBindingsDefault.spell),
     wait: new ControlKey(keyBindingsDefault.wait, true),
     return: new ControlKey(keyBindingsDefault.return)
@@ -50582,22 +50615,42 @@ function controlTicker(delta, world, camera) {
             x: 0,
             y: 0
         };
-        if (keys1.moveU.value > 0) {
+        let compoundInput = false;
+        if (keys1.moveUL.value >= 0) {
+            dir.x = -1;
             dir.y = -1;
             controlMove = true;
-        } else if (keys1.moveD.value > 0) {
+        } else if (keys1.moveUR.value >= 0) {
+            dir.x = 1;
+            dir.y = -1;
+            controlMove = true;
+        } else if (keys1.moveDL.value >= 0) {
+            dir.x = -1;
             dir.y = 1;
             controlMove = true;
-        }
-        if (keys1.moveL.value > 0) {
-            dir.x = -1;
-            controlMove = true;
-        } else if (keys1.moveR.value > 0) {
+        } else if (keys1.moveDR.value >= 0) {
             dir.x = 1;
+            dir.y = 1;
             controlMove = true;
+        } else {
+            compoundInput = true;
+            if (keys1.moveU.value >= 0) {
+                dir.y = -1;
+                controlMove = true;
+            } else if (keys1.moveD.value >= 0) {
+                dir.y = 1;
+                controlMove = true;
+            }
+            if (keys1.moveL.value >= 0) {
+                dir.x = -1;
+                controlMove = true;
+            } else if (keys1.moveR.value >= 0) {
+                dir.x = 1;
+                controlMove = true;
+            }
         }
         let zone = world.zones[world.currentZone];
-        if (zone) {
+        if (zone && compoundInput) {
             if (dir.x != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x + dir.x, world.player.y)].collision) dir.y = 0;
             else if (dir.y != 0 && _world.WallProperties[zone.get(world.player.x + dir.x, world.player.y + dir.y)].collision && !_world.WallProperties[zone.get(world.player.x, world.player.y + dir.y)].collision) dir.x = 0;
         }
@@ -50761,8 +50814,8 @@ function initControls(GUI) {
             let key = event.key;
             for (let KB of Object.keys(keys1)){
                 let binding = keys1[KB];
-                if (binding.keys.includes(key)) {
-                    binding.value = binding.keys.indexOf(key);
+                if (binding.keys.includes(key.toUpperCase())) {
+                    binding.value = binding.keys.indexOf(key.toUpperCase());
                     if (binding.refreshControlTick) movePressed = true;
                 }
             }
@@ -50772,7 +50825,7 @@ function initControls(GUI) {
         let key = event.key;
         for (let KB of Object.keys(keys1)){
             let binding = keys1[KB];
-            if (binding.keys.includes(key)) {
+            if (binding.keys.includes(key.toUpperCase())) {
                 binding.value = -1;
                 if (binding.refreshControlTick) {
                     controlDiagGrace = 0;
@@ -50781,7 +50834,7 @@ function initControls(GUI) {
             }
         }
         // If all movekeys are released then we simply ignore dialog grace
-        if (keys1.moveD.value == -1 && keys1.moveL.value == -1 && keys1.moveR.value == -1 && keys1.moveU.value == -1) {
+        if (keys1.moveD.value == -1 && keys1.moveL.value == -1 && keys1.moveR.value == -1 && keys1.moveU.value == -1 && keys1.moveDL.value == -1 && keys1.moveUL.value == -1 && keys1.moveDR.value == -1 && keys1.moveUR.value == -1) {
             if (controlTick && controlDiagGrace == 0) {
                 controlDiagGrace = controlDiagGraceTime + 1;
                 finishMove = true;
@@ -50810,6 +50863,7 @@ var _sprite = require("@pixi/sprite");
 var _pixiJs = require("pixi.js");
 var _pixiFilters = require("pixi-filters");
 var _launcher = require("../launcher");
+var _math = require("../world/math");
 let uiSprites = new Map();
 let HUDMarkers = new _pixiJs.Container(); // Displayed on the field
 let HUDScreen = new _pixiJs.Container(); // Displayed on the screen
@@ -50821,7 +50875,10 @@ let showUI = true;
 let showMarkers = true;
 let uiSpritesList = {
     "reticule": {
-        name: "reticule"
+        name: "marker"
+    },
+    "sprintmarker": {
+        name: "marker"
     },
     "interact": {
         name: "single",
@@ -50830,8 +50887,27 @@ let uiSpritesList = {
     "follow": {
         name: "toggle",
         quadrant: 3
+    },
+    "sprint": {
+        name: "toggle",
+        quadrant: 3
     }
 };
+let genericMarkers = [
+    {
+        name: "sprintmarker",
+        radius: _render.TILE_SIZE
+    }, 
+];
+let genericButtons = [
+    "safe_off",
+    "safe_on",
+    "sprint_off",
+    "sprint_on",
+    "follow_off",
+    "follow_on",
+    "interact", 
+];
 function clearSpriteHover() {
     spriteHover = new Map();
 }
@@ -50867,6 +50943,7 @@ function renderHUD(world) {
             } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr);
         }
         let reticule = uiSprites.get("reticule");
+        let sprint = uiSprites.get("sprintmarker");
         /*
         let button_sprint_off = uiSprites.get("sprint_off");
         let button_sprint_on = uiSprites.get("sprint_on");
@@ -50879,7 +50956,20 @@ function renderHUD(world) {
                 reticule.x = _render.TILE_SIZE * _control.effTargetLocation.x;
                 reticule.y = _render.TILE_SIZE * _control.effTargetLocation.y;
                 reticule.tint = _control.currentTargeting;
-            } else reticule.visible = false;
+                if (sprint) {
+                    if (_control.currentTargeting == TargetMode.MOVE && _control.UIModes["sprint"] && _math.cDist({
+                        x: world.player.x - _control.effTargetLocation.x,
+                        y: world.player.y - _control.effTargetLocation.y
+                    }) > 1) {
+                        sprint.visible = showMarkers;
+                        sprint.x = _render.TILE_SIZE * _control.effTargetLocation.x;
+                        sprint.y = _render.TILE_SIZE * _control.effTargetLocation.y;
+                    } else sprint.visible = false;
+                }
+            } else {
+                reticule.visible = false;
+                if (sprint) sprint.visible = false;
+            }
         }
         let minDimension = Math.min(_launcher.windowSize.height, _launcher.windowSize.width);
         let player = world.player;
@@ -50986,7 +51076,7 @@ function renderUISprite(name, world, zone, uiElementName) {
         }
     }
     function loadMarker(str, radius, sprite) {
-        let marker = loadGenericButton(str, sprite, uiElementName);
+        let marker = loadGenericButton(str, true, sprite, uiElementName);
         if (marker && radius != undefined) {
             marker.scale.x = radius / marker.texture.width;
             marker.scale.y = radius / marker.texture.height;
@@ -50994,29 +51084,15 @@ function renderUISprite(name, world, zone, uiElementName) {
         ret = marker;
     }
     function loadButton(str, sprite) {
-        ret = loadGenericButton(str, sprite, uiElementName);
+        ret = loadGenericButton(str, false, sprite, uiElementName);
         if (ret) ui = true;
     }
-    let genericButtons = [
-        "sprint_off",
-        "sprint_on",
-        "follow_off",
-        "follow_on",
-        "interact", 
-    ];
-    let genericMarkers = [
-        {
-            name: "sprint",
-            radius: _render.TILE_SIZE,
-            sprite: "ui_sprint_on"
-        }, 
-    ];
     if (genericButtons.includes(name)) loadButton(name);
     else if (genericMarkers.some((element)=>{
         return element.name == name;
     })) {
         for (let gm of genericMarkers)if (gm.name == name) {
-            loadMarker(name, _render.TILE_SIZE, "ui_sprint_on");
+            loadMarker(name, _render.TILE_SIZE);
             break;
         }
     }
@@ -51028,7 +51104,7 @@ function renderUISprite(name, world, zone, uiElementName) {
     }
     return undefined;
 }
-function loadGenericButton(name, sprite, uiElementName) {
+function loadGenericButton(name, marker, sprite, uiElementName) {
     let spr = sprite ? sprite : "ui_" + name;
     let tex = _sprites.textures.get(spr);
     if (tex) {
@@ -51036,10 +51112,12 @@ function loadGenericButton(name, sprite, uiElementName) {
         ret = new _pixiJs.Sprite(tex);
         ret.position.x = 0;
         ret.position.y = 0;
-        ret.anchor.x = 0.5;
-        ret.anchor.y = 0.5;
+        if (!marker) {
+            ret.anchor.x = 0.5;
+            ret.anchor.y = 0.5;
+        }
         ret.visible = false;
-        registerButton(uiElementName ? uiElementName : name, ret);
+        if (!marker) registerButton(uiElementName ? uiElementName : name, ret);
         return ret;
     }
     return undefined;
@@ -51078,7 +51156,7 @@ function uiButtonOut(name) {
     if (currentClick == name) currentClick = "";
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz"}],"aunNh":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz","../world/math":"73WWw"}],"aunNh":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Player", ()=>Player
