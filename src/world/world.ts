@@ -358,6 +358,8 @@ export class Zone {
     }
 
     createMaze(width: number = this.width, height: number = this.height) {
+        let start = performance.now();
+
         let rand = getRandomFunction(this.seed);
 
         if (width > this.width) width = this.width;
@@ -508,6 +510,8 @@ export class Zone {
                     && (rand() > pillar_prob && getCellWallNeighborCount(x, y) == 0)) this.set(x, y, Wall.FLOOR);
                 }
         }
+
+        console.log("Maze generation took " + (performance.now() - start));
     }
 }
 

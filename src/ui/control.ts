@@ -5,7 +5,7 @@ import { Sprite } from "@pixi/sprite";
 import { windowSize } from "../launcher";
 import { UI } from "./ui";
 import { clearSpriteHover, TargetMode } from "./hud";
-import { getGridDir } from "../world/math";
+import { getGridDir, truncGridDir, truncGridDirCon } from "../world/math";
 
 export let mouseLeftDown = false;
 export let mouseRightDown = false;
@@ -21,9 +21,11 @@ export let mouseInActiveArea = true;
 export let mouseEnteringActiveArea = false;
 export let currentTargeting : TargetMode = TargetMode.MOVE;
 export let targetLocation : WorldVec = {x : 0, y : 0};
+export let effTargetLocation : WorldVec = {x : 0, y : 0};
 
 export let UIModes = {
     follow : false,
+    sprint : true,
 };
 
 export function mouseEnterUI() {
@@ -97,12 +99,14 @@ let maxDrag = 5;
 export let touchDown = false;
 
 export function updateMouseTargeting(world : World) {
+    targetLocation = {x: worldMouseX, y: worldMouseY};
+    effTargetLocation = {x : targetLocation.x, y: targetLocation.y};
     if (world.player) {
         if (currentTargeting == TargetMode.MOVE) {
             let dir = {x : 0, y : 0};
             if (worldMouseX != world.player.x || worldMouseY != world.player.y)
-                dir = getGridDir(viewportMouseX - world.player.xx, viewportMouseY - world.player.yy);
-            targetLocation = {x: world.player.x + dir.x, y: world.player.y + dir.y};
+                dir = getGridDir((viewportMouseX - world.player.xx)/TILE_SIZE, (viewportMouseY - world.player.yy)/TILE_SIZE, UIModes.sprint ? 2 : 1);
+            effTargetLocation = {x: world.player.x + dir.x, y: world.player.y + dir.y};
         }
     }
 }
@@ -113,8 +117,8 @@ function controlLeftClick(world : World, camera : Player) {
         updateMouseTargeting(world);
         if (currentTargeting == TargetMode.MOVE && mouseInActiveArea) {
             world.scheduler.sendActorMoveRequest(world.player, {
-                x : targetLocation.x - world.player.x,
-                y : targetLocation.y - world.player.y});
+                x : effTargetLocation.x - world.player.x,
+                y : effTargetLocation.y - world.player.y});
             world.scheduler.requestUpdateTick(1);
         }
     }

@@ -18,6 +18,8 @@ export let ratio = windowSize.width / windowSize.height;
 
 export function LauncherLaunchGame(width: number, height: number): void {
 
+	let start = performance.now();
+
 	setWindowSize(width, height);
 
 	window.onresize = function(event) {
@@ -64,7 +66,6 @@ export function LauncherLaunchGame(width: number, height: number): void {
 		.pinch()
 		.wheel({smooth: 5})
 		.decelerate({friction: .87})
-		//.clamp({direction: "all", })
 		.clampZoom(clampZoomOptions())
 
 	let stage = app.stage;
@@ -97,6 +98,8 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	GUI.player = new Player(player);
 
 	initControls(GUI);
+
+	console.log("Time taken to init: " + (performance.now() - start));
 }
 
 function resize() {
@@ -137,12 +140,12 @@ function resize() {
 }
 
 function clampZoomOptions() {
-	return {
-		minWidth: 10 * Math.round(0.1 * MIN_ZOOM * TILE_SIZE),
-		minHeight: 10 * Math.round(0.1 * MIN_ZOOM * TILE_SIZE),
-		maxWidth: 10 * Math.round(0.1 * MAX_ZOOM * TILE_SIZE * Math.max(1, ratio)),
-		maxHeight: 10 * Math.round(0.1 * MAX_ZOOM * TILE_SIZE / Math.min(1, ratio)),
+	let options = {
+		minScale: Math.round(10 * MIN_ZOOM * TILE_SIZE / Math.min(windowSize.width, windowSize.height))/10,
+		maxScale: Math.round(10 * MAX_ZOOM * TILE_SIZE / Math.min(windowSize.width, windowSize.height) * Math.max(1, ratio))/10,
 	};
+	console.log(options)
+	return options;
 }
 
 function setWindowSize(width: number, height: number) {

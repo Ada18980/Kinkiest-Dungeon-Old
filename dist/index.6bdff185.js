@@ -490,6 +490,7 @@ let windowSize = {
 };
 let ratio = windowSize.width / windowSize.height;
 function LauncherLaunchGame(width, height) {
+    let start = performance.now();
     setWindowSize(width, height);
     window.onresize = function(event) {
         resize();
@@ -527,8 +528,7 @@ function LauncherLaunchGame(width, height) {
         smooth: 5
     }).decelerate({
         friction: 0.87
-    })//.clamp({direction: "all", })
-    .clampZoom(clampZoomOptions());
+    }).clampZoom(clampZoomOptions());
     let stage = app.stage;
     document.body.appendChild(_render.renderer.view);
     resize();
@@ -551,6 +551,7 @@ function LauncherLaunchGame(width, height) {
     GUI.initialize(app);
     GUI.player = new _player.Player(player);
     _control.initControls(GUI);
+    console.log("Time taken to init: " + (performance.now() - start));
 }
 function resize() {
     _render.renderer.view.style.position = "absolute";
@@ -585,12 +586,12 @@ function resize() {
 //viewport.drag();
 }
 function clampZoomOptions() {
-    return {
-        minWidth: 10 * Math.round(0.1 * _render.MIN_ZOOM * _render.TILE_SIZE),
-        minHeight: 10 * Math.round(0.1 * _render.MIN_ZOOM * _render.TILE_SIZE),
-        maxWidth: 10 * Math.round(0.1 * _render.MAX_ZOOM * _render.TILE_SIZE * Math.max(1, ratio)),
-        maxHeight: 10 * Math.round(0.1 * _render.MAX_ZOOM * _render.TILE_SIZE / Math.min(1, ratio))
+    let options = {
+        minScale: Math.round(10 * _render.MIN_ZOOM * _render.TILE_SIZE / Math.min(windowSize.width, windowSize.height)) / 10,
+        maxScale: Math.round(10 * _render.MAX_ZOOM * _render.TILE_SIZE / Math.min(windowSize.width, windowSize.height) * Math.max(1, ratio)) / 10
     };
+    console.log(options);
+    return options;
 }
 function setWindowSize(width, height) {
     windowSize.width = width;
@@ -43606,7 +43607,7 @@ function setRenderer(r) {
 function setViewport(v) {
     viewport = v;
 }
-let blurQuality; // scale of 8 to 2 or OFF
+let blurQuality = 8; // scale of 8 to 2 or OFF
 let blurQualityMax; // scale of 8 to 2 or OFF
 let blurQualityMin; // scale of 8 to 2 or OFF
 let walls = new _pixiJs.Container();
@@ -43784,7 +43785,7 @@ function updateWorldRender(zone) {
         for (let S1 of clight){
             S1.visible = bounds.contains(S1.x, S1.y);
             if (S1.visible) {
-                let weight = 25;
+                let weight = 50;
                 let li = zone.getLight(S1.x * t1, S1.y * t1);
                 let wa = zone.get(S1.x * t1, S1.y * t1);
                 if (li > 0 && !wa) {
@@ -49282,6 +49283,7 @@ class Zone {
         return this.getWallDirectionVision(x, y, false);
     }
     createMaze(width = this.width, height = this.height) {
+        let start = performance.now();
         let rand = _random.getRandomFunction(this.seed);
         if (width > this.width) width = this.width;
         if (height > this.height) height = this.height;
@@ -49419,6 +49421,7 @@ class Zone {
             if (row) for(let x = 2; x < width; x += 2)// Clean up pillars
             if (getCell(x, y5) == Wall.WALL && rand() > pillar_prob && getCellWallNeighborCount(x, y5) == 0) this.set(x, y5, Wall.FLOOR);
         }
+        console.log("Maze generation took " + (performance.now() - start));
     }
 }
 class World {
@@ -50061,6 +50064,7 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Scheduler", ()=>Scheduler
 );
+var _math = require("./math");
 class Scheduler {
     constructor(world1){
         this.requests = [];
@@ -50113,12 +50117,164 @@ class TaskMove extends Task {
         this.direction = dir;
     }
     execute(world) {
-        if (world.player && world.actorCanMove(world.player, world.player.x + this.direction.x, world.player.y + this.direction.y)) world.moveActor(world.player, this.direction);
+        if (world.player && world.actorCanMove(world.player, world.player.x + this.direction.x, world.player.y + this.direction.y)) {
+            let finalDir;
+            for(let r = 1; r <= _math.cDist(this.direction); r++){
+                let newDir1 = _math.truncGridDir(this.direction, r);
+                let newDir2 = _math.truncGridDirCon(this.direction, r);
+                let newDir3 = _math.truncGridDirLib(this.direction, r);
+                if (world.actorCanMove(world.player, world.player.x + newDir1.x, world.player.y + newDir1.y)) finalDir = newDir1;
+                else if (world.actorCanMove(world.player, world.player.x + newDir2.x, world.player.y + newDir2.y)) finalDir = newDir2;
+                else if (world.actorCanMove(world.player, world.player.x + newDir3.x, world.player.y + newDir3.y)) finalDir = newDir3;
+                else break;
+            /*
+                let fdir : WorldVec | undefined;
+                let pass = 0;
+                let newDir1 = truncGridDir(this.direction, r);
+                let newDir2 = truncGridDirCon(this.direction, r);
+                let newDir3 = truncGridDirLib(this.direction, r);
+                if (world.actorCanMove(world.player, world.player.x + newDir1.x, world.player.y + newDir1.y)) {fdir = newDir1; pass += 1;}
+                if ( world.actorCanMove(world.player, world.player.x + newDir2.x, world.player.y + newDir2.y)) {fdir = newDir2; pass += 1;}
+                if (pass < 2 && world.actorCanMove(world.player, world.player.x + newDir3.x, world.player.y + newDir3.y)) {fdir = newDir3; pass += 1;}
+                if (pass < 2) break;
+                else finalDir = fdir;*/ }
+            if (finalDir) world.moveActor(world.player, finalDir);
+        }
         return false;
     }
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"iwMNm":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./math":"73WWw"}],"73WWw":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "cDist", ()=>cDist
+);
+parcelHelpers.export(exports, "truncGridDir", ()=>truncGridDir
+);
+// Conservative version of truncGridDir
+parcelHelpers.export(exports, "truncGridDirCon", ()=>truncGridDirCon
+);
+// Liberal version of truncGridDir
+parcelHelpers.export(exports, "truncGridDirLib", ()=>truncGridDirLib
+);
+parcelHelpers.export(exports, "getGridDir", ()=>getGridDir
+);
+var _utils = require("@pixi/utils");
+function cDist(vec) {
+    return Math.max(Math.abs(vec.x), Math.abs(vec.y));
+}
+function truncGridDir(vec, range) {
+    if (range < 1) return {
+        x: 0,
+        y: 0
+    };
+    let cdist = cDist(vec); //Math.max(Math.abs(vec.x), Math.abs(vec.y)); // Chebyshev dist
+    let factor = range / cdist;
+    return {
+        x: _utils.sign(vec.x) * Math.round(factor * Math.abs(vec.x)),
+        y: _utils.sign(vec.y) * Math.round(factor * Math.abs(vec.y))
+    };
+}
+function truncGridDirCon(vec, range) {
+    if (range < 1) return {
+        x: 0,
+        y: 0
+    };
+    let cdist = cDist(vec); //Math.max(Math.abs(vec.x), Math.abs(vec.y)); // Chebyshev dist
+    let factor = range / cdist;
+    return {
+        x: _utils.sign(vec.x) * Math.floor(factor * Math.abs(vec.x)),
+        y: _utils.sign(vec.y) * Math.floor(factor * Math.abs(vec.y))
+    };
+}
+function truncGridDirLib(vec, range) {
+    if (range < 1) return {
+        x: 0,
+        y: 0
+    };
+    let cdist = cDist(vec); //Math.max(Math.abs(vec.x), Math.abs(vec.y)); // Chebyshev dist
+    let factor = range / cdist;
+    return {
+        x: _utils.sign(vec.x) * Math.ceil(factor * Math.abs(vec.x)),
+        y: _utils.sign(vec.y) * Math.ceil(factor * Math.abs(vec.y))
+    };
+}
+function getGridDir(x, y, range = 1) {
+    if (range > 1) {
+        // Use slower algorithm
+        let cdist = Math.max(Math.abs(x), Math.abs(y)); // Chebyshev dist
+        // Normalize x and y
+        let xx = Math.round(cdist) > range ? range * Math.min(1, Math.abs(x) / cdist) : Math.abs(x);
+        let yy = Math.round(cdist) > range ? range * Math.min(1, Math.abs(y) / cdist) : Math.abs(y);
+        // Now round
+        return {
+            x: _utils.sign(x) * Math.round(xx),
+            y: _utils.sign(y) * Math.round(yy)
+        };
+    }
+    // Otherwise use faster algorithm
+    if (x > 0) {
+        if (y > 0) {
+            if (y < x * 0.38268343236) return {
+                x: 1,
+                y: 0
+            };
+            else if (x < y * 0.38268343236) return {
+                x: 0,
+                y: 1
+            };
+            else return {
+                x: 1,
+                y: 1
+            };
+        } else {
+            if (y > x * -0.38268343236) return {
+                x: 1,
+                y: 0
+            };
+            else if (x < y * -0.38268343236) return {
+                x: 0,
+                y: -1
+            };
+            else return {
+                x: 1,
+                y: -1
+            };
+        }
+    } else if (y > 0) {
+        if (y < x * -0.38268343236) return {
+            x: -1,
+            y: 0
+        };
+        else if (x > y * -0.38268343236) return {
+            x: 0,
+            y: 1
+        };
+        else return {
+            x: -1,
+            y: 1
+        };
+    } else {
+        if (y > x * 0.38268343236) return {
+            x: -1,
+            y: 0
+        };
+        else if (x > y * 0.38268343236) return {
+            x: 0,
+            y: -1
+        };
+        else return {
+            x: -1,
+            y: -1
+        };
+    }
+    return {
+        x: 0,
+        y: 0
+    };
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","@pixi/utils":"joR65"}],"iwMNm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "UI", ()=>UI
@@ -50159,6 +50315,7 @@ class UI {
             if (this.world.scheduler) this.world.scheduler.update();
             this.world.render(d);
             _hud.renderHUD(this.world);
+            if (!_render.viewport.moving) _render.viewport.moveCorner(Math.round(_render.viewport.corner.x), Math.round(_render.viewport.corner.y));
             if (_render.viewport.center.x > _render.viewport.worldWidth || _render.viewport.center.x < 0 || _render.viewport.center.y > _render.viewport.worldHeight || _render.viewport.center.y < 0) {
                 if (!_control.mouseLeftDown) {
                     if (!snapBack) _render.viewport.snap(Math.max(0, Math.min(_render.viewport.center.x, _render.viewport.worldWidth)), Math.max(0, Math.min(_render.viewport.center.y, _render.viewport.worldHeight)), {
@@ -50202,6 +50359,8 @@ parcelHelpers.export(exports, "mouseEnteringActiveArea", ()=>mouseEnteringActive
 parcelHelpers.export(exports, "currentTargeting", ()=>currentTargeting
 );
 parcelHelpers.export(exports, "targetLocation", ()=>targetLocation
+);
+parcelHelpers.export(exports, "effTargetLocation", ()=>effTargetLocation
 );
 parcelHelpers.export(exports, "UIModes", ()=>UIModes
 );
@@ -50248,8 +50407,13 @@ let targetLocation = {
     x: 0,
     y: 0
 };
+let effTargetLocation = {
+    x: 0,
+    y: 0
+};
 let UIModes = {
-    follow: false
+    follow: false,
+    sprint: true
 };
 function mouseEnterUI() {
     mouseInActiveArea = false;
@@ -50336,14 +50500,22 @@ let mouseDragStartY = 0;
 let maxDrag = 5;
 let touchDown = false;
 function updateMouseTargeting(world) {
+    targetLocation = {
+        x: worldMouseX,
+        y: worldMouseY
+    };
+    effTargetLocation = {
+        x: targetLocation.x,
+        y: targetLocation.y
+    };
     if (world.player) {
         if (currentTargeting == _hud.TargetMode.MOVE) {
             let dir = {
                 x: 0,
                 y: 0
             };
-            if (worldMouseX != world.player.x || worldMouseY != world.player.y) dir = _math.getGridDir(viewportMouseX - world.player.xx, viewportMouseY - world.player.yy);
-            targetLocation = {
+            if (worldMouseX != world.player.x || worldMouseY != world.player.y) dir = _math.getGridDir((viewportMouseX - world.player.xx) / _render.TILE_SIZE, (viewportMouseY - world.player.yy) / _render.TILE_SIZE, UIModes.sprint ? 2 : 1);
+            effTargetLocation = {
                 x: world.player.x + dir.x,
                 y: world.player.y + dir.y
             };
@@ -50355,8 +50527,8 @@ function controlLeftClick(world, camera) {
         updateMouseTargeting(world);
         if (currentTargeting == _hud.TargetMode.MOVE && mouseInActiveArea) {
             world.scheduler.sendActorMoveRequest(world.player, {
-                x: targetLocation.x - world.player.x,
-                y: targetLocation.y - world.player.y
+                x: effTargetLocation.x - world.player.x,
+                y: effTargetLocation.y - world.player.y
             });
             world.scheduler.requestUpdateTick(1);
         }
@@ -50642,8 +50814,8 @@ function renderHUD(world) {
             if (world.player && _control.mouseInActiveArea) {
                 _control.updateMouseTargeting(world);
                 reticule.visible = true;
-                reticule.x = _render.TILE_SIZE * _control.targetLocation.x;
-                reticule.y = _render.TILE_SIZE * _control.targetLocation.y;
+                reticule.x = _render.TILE_SIZE * _control.effTargetLocation.x;
+                reticule.y = _render.TILE_SIZE * _control.effTargetLocation.y;
                 reticule.tint = _control.currentTargeting;
             } else reticule.visible = false;
         }
@@ -50784,74 +50956,7 @@ function uiButtonOut(name) {
     _control.mouseEnterIntoActiveArea();
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz"}],"73WWw":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "getGridDir", ()=>getGridDir
-);
-function getGridDir(x, y) {
-    if (x > 0) {
-        if (y > 0) {
-            if (y < x * 0.38268343236) return {
-                x: 1,
-                y: 0
-            };
-            else if (x < y * 0.38268343236) return {
-                x: 0,
-                y: 1
-            };
-            else return {
-                x: 1,
-                y: 1
-            };
-        } else {
-            if (y > x * -0.38268343236) return {
-                x: 1,
-                y: 0
-            };
-            else if (x < y * -0.38268343236) return {
-                x: 0,
-                y: -1
-            };
-            else return {
-                x: 1,
-                y: -1
-            };
-        }
-    } else if (y > 0) {
-        if (y < x * -0.38268343236) return {
-            x: -1,
-            y: 0
-        };
-        else if (x > y * -0.38268343236) return {
-            x: 0,
-            y: 1
-        };
-        else return {
-            x: -1,
-            y: 1
-        };
-    } else {
-        if (y > x * 0.38268343236) return {
-            x: -1,
-            y: 0
-        };
-        else if (x > y * 0.38268343236) return {
-            x: 0,
-            y: -1
-        };
-        else return {
-            x: -1,
-            y: -1
-        };
-    }
-    return {
-        x: 0,
-        y: 0
-    };
-}
-
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"aunNh":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz"}],"aunNh":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Player", ()=>Player

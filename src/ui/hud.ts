@@ -2,7 +2,7 @@ import { WallProperties, World, WorldVec, Zone } from "../world/world";
 import { textures } from "../gfx/sprites";
 import { Player } from "./player";
 import { renderer, TILE_SIZE, viewport } from '../gfx/render';
-import { currentTargeting, mouseEnterUI, mouseEnterIntoActiveArea, mouseInActiveArea, mouseQueueEnterActiveArea, targetLocation, touchDown, UIModes, updateMouseTargeting, viewportMouseX, viewportMouseY, worldMouseX, worldMouseY } from './control';
+import { currentTargeting, mouseEnterUI, mouseEnterIntoActiveArea, mouseInActiveArea, mouseQueueEnterActiveArea, targetLocation, touchDown, UIModes, updateMouseTargeting, viewportMouseX, viewportMouseY, worldMouseX, worldMouseY, effTargetLocation } from './control';
 import { Sprite } from "@pixi/sprite";
 import * as PIXI from 'pixi.js';
 import { Viewport } from "pixi-viewport";
@@ -62,8 +62,8 @@ export function renderHUD(world : World) {
                 updateMouseTargeting(world);
 
                 reticule.visible = true;
-                reticule.x = TILE_SIZE * targetLocation.x;
-                reticule.y = TILE_SIZE * targetLocation.y;
+                reticule.x = TILE_SIZE * effTargetLocation.x;
+                reticule.y = TILE_SIZE * effTargetLocation.y;
                 reticule.tint = currentTargeting;
             } else {
                 reticule.visible = false;

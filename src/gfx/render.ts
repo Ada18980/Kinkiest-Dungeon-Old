@@ -20,7 +20,7 @@ export function setViewport(v : Viewport) {
     viewport = v;
 }
 
-let blurQuality : number | undefined; // scale of 8 to 2 or OFF
+let blurQuality : number | undefined = 8; // scale of 8 to 2 or OFF
 let blurQualityMax : 8; // scale of 8 to 2 or OFF
 let blurQualityMin : 2; // scale of 8 to 2 or OFF
 
@@ -179,7 +179,7 @@ export function updateWorldRender(zone : Zone) {
             for (let S of clight) {
                 S.visible = bounds.contains(S.x, S.y);
                 if (S.visible) {
-                    let weight = 25.0;
+                    let weight = 50.0;
                     let li = zone.getLight(S.x*t1, (S.y)*t1);
                     let wa = zone.get(S.x*t1, (S.y)*t1);
 

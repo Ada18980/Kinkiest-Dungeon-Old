@@ -1,4 +1,5 @@
 import { Actor, Dir } from "./actor";
+import { cDist, truncGridDir, truncGridDirCon, truncGridDirLib } from "./math";
 import { World, WorldVec } from "./world";
 
 export class Scheduler {
@@ -69,7 +70,29 @@ class TaskMove extends Task {
 
     override execute(world : World) : boolean {
         if (world.player && world.actorCanMove(world.player, world.player.x + this.direction.x, world.player.y + this.direction.y)) {
-            world.moveActor(world.player, this.direction);
+            let finalDir : WorldVec | undefined;
+            for (let r = 1; r <= cDist(this.direction); r++) {
+                let newDir1 = truncGridDir(this.direction, r);
+                let newDir2 = truncGridDirCon(this.direction, r);
+                let newDir3 = truncGridDirLib(this.direction, r);
+                if (world.actorCanMove(world.player, world.player.x + newDir1.x, world.player.y + newDir1.y)) finalDir = newDir1;
+                else if (world.actorCanMove(world.player, world.player.x + newDir2.x, world.player.y + newDir2.y)) finalDir = newDir2;
+                else if (world.actorCanMove(world.player, world.player.x + newDir3.x, world.player.y + newDir3.y)) finalDir = newDir3;
+                else break;
+                /*
+                let fdir : WorldVec | undefined;
+                let pass = 0;
+                let newDir1 = truncGridDir(this.direction, r);
+                let newDir2 = truncGridDirCon(this.direction, r);
+                let newDir3 = truncGridDirLib(this.direction, r);
+                if (world.actorCanMove(world.player, world.player.x + newDir1.x, world.player.y + newDir1.y)) {fdir = newDir1; pass += 1;}
+                if ( world.actorCanMove(world.player, world.player.x + newDir2.x, world.player.y + newDir2.y)) {fdir = newDir2; pass += 1;}
+                if (pass < 2 && world.actorCanMove(world.player, world.player.x + newDir3.x, world.player.y + newDir3.y)) {fdir = newDir3; pass += 1;}
+                if (pass < 2) break;
+                else finalDir = fdir;*/
+            }
+            if (finalDir) world.moveActor(world.player, finalDir);
+
         }
         return false;
     }

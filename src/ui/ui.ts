@@ -4,7 +4,7 @@ import * as PIXI from 'pixi.js';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport, renderWorld, updateWorldRender} from '../gfx/render';
 import { mouseLeftDown, mouseRightDown, mouseMiddleDown, initControls, controlTick, controlTicker } from './control';
 import { renderHUD } from './hud';
-import { ratio } from '../launcher';
+import { ratio, windowSize } from '../launcher';
 
 import { Player } from './player';
 import { Actor } from '../world/actor';
@@ -47,6 +47,8 @@ export class UI {
             this.world.render(d);
 
             renderHUD(this.world);
+            if (!viewport.moving)
+                viewport.moveCorner(Math.round(viewport.corner.x), Math.round(viewport.corner.y));
 
             if ((viewport.center.x > viewport.worldWidth || viewport.center.x < 0 || viewport.center.y > viewport.worldHeight || viewport.center.y < 0)) {
                 if (!mouseLeftDown) {
