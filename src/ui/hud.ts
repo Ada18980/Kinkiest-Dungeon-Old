@@ -27,14 +27,29 @@ interface MarkerType {
     radius? : number,
     sprite? : string,
 }
-let uiSpritesList : Record<string, {name: string, quadrant?: number}> = {
-    "reticule" : {name : "marker"},
-    "sprintmarker" : {name : "marker"},
-    "interact" : {name : "single", quadrant : 3},
-    "follow" : {name : "toggle", quadrant : 3},
-    "sprint" : {name : "toggle", quadrant : 3},
-    //"safe" : {name : "toggle", quadrant : 3}, // not implemented yet
+export enum spriteTypeType {
+    SPECIAl = "special",
+    GENERIC = "generic",
+}
+export enum spriteTypeUI {
+    MAIN = "main",
+    MARKER = "marker",
+}
+export interface spriteType {
+    type: spriteTypeType,
+    ui: spriteTypeUI,
+    radius? : number,
+    sprite? : string,
 };
+let uiSpritesList : Record<string, {type: string, sprite: spriteType, quadrant?: number}> = {
+    "reticule" : {type : "marker", sprite : {type: spriteTypeType.SPECIAl, ui: spriteTypeUI.MARKER}},
+    "sprintmarker" : {type : "marker", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MARKER}},
+    "interact" : {type : "single", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
+    "follow" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
+    "sprint" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
+    //"safe" : {name : "toggle", type : {type: "generic_double", ui: "marker"}, , quadrant : 3},
+};
+/*
 let genericMarkers : MarkerType[] = [
     {name : "sprintmarker", radius: TILE_SIZE},
 ];
@@ -46,7 +61,7 @@ let genericButtons : string[] = [
     "follow_off",
     "follow_on",
     "interact",
-];
+];*/
 
 // This is for making things touch friendly
 export function clearSpriteHover() {
@@ -85,7 +100,7 @@ export function renderHUD(world : World) {
     let zone = world.zones[world.currentZone];
     if (zone) {
         for (let spr in uiSpritesList) {
-            if (uiSpritesList[spr]?.name == "toggle") {
+            if (uiSpritesList[spr]?.type == "toggle") {
                 if (!uiSprites.get(spr + "_on")) renderUISprite(spr + "_on", world, zone, spr);
                 if (!uiSprites.get(spr + "_off")) renderUISprite(spr + "_off", world, zone, spr);
             } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr);
@@ -186,8 +201,8 @@ export function renderHUD(world : World) {
             for (let spr in uiSpritesList) {
                 let sprite = uiSpritesList[spr];
                 if (sprite) {
-                    if (sprite.name == "single") updateSingleButton(spr, sprite.quadrant);
-                    else if (sprite.name == "toggle") updateDoubleButton(spr, sprite.quadrant);
+                    if (sprite.type == "single") updateSingleButton(spr, sprite.quadrant);
+                    else if (sprite.type == "toggle") updateDoubleButton(spr, sprite.quadrant);
                 }
             }
         }
@@ -195,9 +210,9 @@ export function renderHUD(world : World) {
     }
 }
 
-function renderUISprite(name : string, world : World, zone : Zone, uiElementName : string) : PIXI.Sprite | undefined{
+function renderSpecialSprite(name : string, world : World, zone : Zone) {
     let ret : PIXI.Sprite | undefined;
-    let ui = false;
+
     if (name == "reticule") {
         let tex = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
         let r1 = new PIXI.Graphics();
@@ -219,7 +234,6 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
         ret.filters = [new filters.BloomFilter(5)]
     }
     if (name == "sprint_marker") {
-        ui = true;
         let tex = textures.get("ui_sprint_on");
         if (tex) {
             ret = new PIXI.Sprite(tex);
@@ -234,21 +248,39 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
             registerButton(name, ret);
         }
     }
+    return ret;
+}
 
-    function loadMarker(str : string, radius?: number, sprite? : string) {
-        let marker = loadGenericButton(str, true, sprite, uiElementName);
-        if (marker && radius != undefined) {
-            marker.scale.x = radius / marker.texture.width;
-            marker.scale.y = radius / marker.texture.height;
-        }
-        ret = marker;
-    }
+function renderUISprite(name : string, world : World, zone : Zone, uiElementName : string) : PIXI.Sprite | undefined{
+    let ret : PIXI.Sprite | undefined;
+
     function loadButton(str : string, sprite? : string) {
         ret = loadGenericButton(str, false, sprite, uiElementName);
-        if (ret) ui = true;
     }
 
-    if (genericButtons.includes(name)) loadButton(name);
+    let uiSprite = uiSpritesList[uiElementName];
+    if (uiSprite) {
+        let type = uiSprite.sprite;
+        if (type) {
+            if (type.type == spriteTypeType.GENERIC) {
+                ret = loadGenericButton(name, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
+            } else ret = renderSpecialSprite(name, world, zone);
+            if (ret) {
+                console.log(name)
+                if (type.radius || type.ui == spriteTypeUI.MARKER) {
+                    let rad = (type.radius != undefined) ? type.radius : TILE_SIZE;
+                    ret.scale.x = rad / ret.texture.width;
+                    ret.scale.y = rad / ret.texture.height;
+                }
+
+                if (type.ui == spriteTypeUI.MARKER) HUDMarkers.addChild(ret);
+                else HUDScreen.addChild(ret);
+                uiSprites.set(name, ret);
+                return ret;
+            }
+        }
+    }
+    /*if (genericButtons.includes(name)) loadButton(name);
     else if (genericMarkers.some((element) => {return (element.name == name);})) {
         for (let gm of genericMarkers) {
             if (gm.name == name) {
@@ -256,16 +288,7 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
                 break;
             }
         }
-    }
-
-    if (ret) {
-        if (ui)
-            HUDScreen.addChild(ret);
-        else
-            HUDMarkers.addChild(ret);
-        uiSprites.set(name, ret);
-        return ret;
-    }
+    }*/
     return undefined;
 }
 
