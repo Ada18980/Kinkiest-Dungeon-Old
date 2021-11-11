@@ -56,8 +56,13 @@ let spriteResources : SpriteResource[] = [
         antialias: true,
     },
     {
-        name: "ui_interact",
-        path: "img/ui/interact.png",
+        name: "ui_interact_on",
+        path: "img/ui/interact_on.png",
+        antialias: true,
+    },
+    {
+        name: "ui_interact_off",
+        path: "img/ui/interact_off.png",
         antialias: true,
     },
 ];

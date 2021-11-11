@@ -528,7 +528,6 @@ export class Zone {
                             && (getCell(x + 2, y) == Wall.WALL || getCell(x - 2, y) == Wall.WALL) && (getCell(x, y + 2) == Wall.FLOOR || getCell(x, y - 2) == Wall.FLOOR)))) {
                                 //
                                 this.set(x, y, Wall.DOOR_CLOSED);
-                                console.log("added a door")
                         }
                     }
                 }

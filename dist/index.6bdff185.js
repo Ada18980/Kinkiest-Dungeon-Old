@@ -482,6 +482,7 @@ var _ui = require("./ui/ui");
 var _control = require("./ui/control");
 var _player = require("./ui/player");
 var _hud = require("./ui/hud");
+var _text = require("./string/text");
 "use strict";
 let app;
 let windowSize = {
@@ -536,7 +537,14 @@ function LauncherLaunchGame(width, height) {
     let world = new _world.World();
     let player = new _actor.Actor(49, 49, {
         sprite: "player_default",
-        player: true
+        player: true,
+        tags: _actor.tags([
+            "player",
+            {
+                tag: "desc",
+                val: _text.Strings.PLAYER
+            }
+        ])
     });
     world.addActor(player);
     world.update(0);
@@ -604,7 +612,7 @@ function changeResolution(width, height) {
     _render.viewport.clampZoom(clampZoomOptions());
 }
 
-},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","./gfx/sprites":"7UxjD","./world/actor":"hVA85","./world/world":"hywN6","./gfx/render":"jTB3f","./ui/ui":"iwMNm","./ui/control":"eAdAj","./ui/player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./ui/hud":"iPuXr"}],"3ZUrV":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","pixi-viewport":"272YU","./gfx/sprites":"7UxjD","./world/actor":"hVA85","./world/world":"hywN6","./gfx/render":"jTB3f","./ui/ui":"iwMNm","./ui/control":"eAdAj","./ui/player":"aunNh","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./ui/hud":"iPuXr","./string/text":"7rxsz"}],"3ZUrV":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "utils", ()=>_utils
@@ -43368,8 +43376,13 @@ let spriteResources = [
         antialias: true
     },
     {
-        name: "ui_interact",
-        path: "img/ui/interact.png",
+        name: "ui_interact_on",
+        path: "img/ui/interact_on.png",
+        antialias: true
+    },
+    {
+        name: "ui_interact_off",
+        path: "img/ui/interact_off.png",
         antialias: true
     }, 
 ];
@@ -49464,11 +49477,8 @@ class Zone {
             if (row) for(let x = 1; x < width; x += 1)// Clean up pillars
             if (getCell(x, y6) == Wall.FLOOR && rand() < door_prob) {
                 let neighbors = getCellWallNeighborCount(x, y6);
-                if (neighbors <= 4 && neighbors >= 2 && (getCell(x + 1, y6) == Wall.FLOOR && getCell(x - 1, y6) == Wall.FLOOR && getCell(x, y6 + 1) == Wall.WALL && getCell(x, y6 - 1) == Wall.WALL && (getCell(x + 2, y6) == Wall.FLOOR || getCell(x - 2, y6) == Wall.FLOOR) && (getCell(x, y6 + 2) == Wall.WALL || getCell(x, y6 - 2) == Wall.WALL) || getCell(x + 1, y6) == Wall.WALL && getCell(x - 1, y6) == Wall.WALL && getCell(x, y6 + 1) == Wall.FLOOR && getCell(x, y6 - 1) == Wall.FLOOR && (getCell(x + 2, y6) == Wall.WALL || getCell(x - 2, y6) == Wall.WALL) && (getCell(x, y6 + 2) == Wall.FLOOR || getCell(x, y6 - 2) == Wall.FLOOR))) {
-                    //
-                    this.set(x, y6, Wall.DOOR_CLOSED);
-                    console.log("added a door");
-                }
+                if (neighbors <= 4 && neighbors >= 2 && (getCell(x + 1, y6) == Wall.FLOOR && getCell(x - 1, y6) == Wall.FLOOR && getCell(x, y6 + 1) == Wall.WALL && getCell(x, y6 - 1) == Wall.WALL && (getCell(x + 2, y6) == Wall.FLOOR || getCell(x - 2, y6) == Wall.FLOOR) && (getCell(x, y6 + 2) == Wall.WALL || getCell(x, y6 - 2) == Wall.WALL) || getCell(x + 1, y6) == Wall.WALL && getCell(x - 1, y6) == Wall.WALL && getCell(x, y6 + 1) == Wall.FLOOR && getCell(x, y6 - 1) == Wall.FLOOR && (getCell(x + 2, y6) == Wall.WALL || getCell(x - 2, y6) == Wall.WALL) && (getCell(x, y6 + 2) == Wall.FLOOR || getCell(x, y6 - 2) == Wall.FLOOR))) //
+                this.set(x, y6, Wall.DOOR_CLOSED);
             }
         }
         // Open some doors
@@ -49705,7 +49715,14 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Dir", ()=>Dir
 );
-parcelHelpers.export(exports, "Actor", ()=>Actor
+parcelHelpers.export(exports, "tags", ()=>tags
+);
+/*export interface ActorData {
+    value? : number;
+    values? : number[];
+    string? : string;
+    strings? : string[];
+}*/ parcelHelpers.export(exports, "Actor", ()=>Actor
 );
 parcelHelpers.export(exports, "ActorContainer", ()=>ActorContainer
 );
@@ -49721,6 +49738,12 @@ var Dir;
     Dir1["RIGHT"] = "_right";
 })(Dir || (Dir = {
 }));
+function tags(list) {
+    let ret = new Map();
+    for (let l of list)if (typeof l === "string") ret.set(l, 1);
+    else ret.set(l.tag, l.val);
+    return ret;
+}
 class Actor extends _quadtree.WorldObject {
     constructor(x, y, type){
         super(x, y);
@@ -50023,6 +50046,7 @@ var _actor = require("./actor");
 var _quadtree = require("./quadtree");
 var _scheduler = require("./scheduler");
 var _zone = require("./zone");
+var _mapActors = require("./mapActors");
 "use strict";
 class World {
     constructor(){
@@ -50033,13 +50057,14 @@ class World {
         this.id_inc // Increment by one each time an actor is added
          = 0;
         this.currentZone = 0;
-        let zone = new _zone.Zone(60, 60);
+        let zone1 = new _zone.Zone(60, 60);
         this.zones = [
-            zone
+            zone1
         ];
         this.scheduler = new _scheduler.Scheduler(this);
         let start = performance.now();
-        zone.createMaze();
+        zone1.createMaze();
+        this.populateZoneActors();
         console.log("Maze generation took " + (performance.now() - start) / 1000);
     }
     actorCanMove(actor, x, y, force) {
@@ -50075,9 +50100,10 @@ class World {
         });
     }
     addActor(actor) {
-        let iterations = 0;
-        let max = 10000;
-        while(this.actors.has(this.id_inc))this.id_inc++;
+        while(this.actors.has(this.id_inc)){
+            this.id_inc++;
+            if (this.id_inc > Number.MAX_SAFE_INTEGER) this.id_inc = 1;
+        }
         actor.id = this.id_inc;
         this.actors.set(this.id_inc, actor);
         this.addActorContainer(actor);
@@ -50108,25 +50134,69 @@ class World {
             }
         });
     }
+    // Populates actors for the current zone
+    populateZoneActors() {
+        let zone1 = this.zones[this.currentZone];
+        if (zone1) {
+            // First step is to clear all Map actors that don't match their grid square
+            for(let y = 0; y < zone1.height; y++)for(let x = 0; x < zone1.width; x++){
+                let actors = this.tree_actors.getAll(x, y, 1.1);
+                let mapActor;
+                for (let a of actors)if (a.data && a.type.tags.get("map") && a.x == x && a.y == y) {
+                    let tile = a.type.tags.get("map");
+                    if (tile != undefined && typeof tile == "number") {
+                        // We have confirmed that it is a map object. Now we will compare the map...
+                        if (zone1.get(x, y) != tile || mapActor) // We delete!
+                        this.removeActor(a);
+                        else mapActor = a;
+                    }
+                }
+                // If we don't have one we generate one...
+                if (!mapActor) this.generateMapActor(x, y, zone1, zone1.get(x, y));
+            }
+        }
+    }
+    // Generate a map actor based on a tile
+    generateMapActor(x, y, zone, tile) {
+        let actor = new _actor.Actor(x, y, _mapActors.getMapActorType(x, y, zone, tile));
+        this.addActor(actor);
+    }
     serialize() {
-        let oldContainers = this.containers;
+        console.log(this.actors);
+        /*let oldContainers = this.containers;
         let oldActorMap = this.tree_actors;
-        this.containers = new Map();
+        this.containers = new Map<number, ActorContainer>();
+        this.tree_actors = new QuadTree<Actor>(1);
         let scheduler = this.scheduler;
         this.scheduler = undefined;
-        // TODO actually serialize
+        this.actorlist = Array.from(this.actors, ([name, value]) => (value));
+        this.actors = new Map<number, Actor>();*/ // TODO actually serialize
         // Blorp
+        let wor = {
+        };
+        wor.actorlist = this.actorlist;
+        wor.zones = this.zones;
+        wor.currentZone = this.currentZone;
+        let str = JSON.stringify(wor);
+        console.log(wor);
         // TODO finish serializing
-        this.scheduler = scheduler;
-        this.containers = oldContainers;
-        this.tree_actors = oldActorMap;
+        //this.scheduler = scheduler;
+        //this.containers = oldContainers;
+        //this.tree_actors = oldActorMap;
+        //this.actors = convertActorList(this.actorlist);
+        return str;
     }
     deserialize(data) {
         this.populateContainers();
     }
 }
+function convertActorList(list) {
+    let ret = new Map();
+    for (let a of list)ret.set(a.id, a);
+    return ret;
+}
 
-},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./scheduler":"gqpkC","./zone":"9xLaY"}],"gqpkC":[function(require,module,exports) {
+},{"./actor":"hVA85","./quadtree":"l75T3","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./scheduler":"gqpkC","./zone":"9xLaY","./mapActors":"4engz"}],"gqpkC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Scheduler", ()=>Scheduler
@@ -50341,7 +50411,42 @@ function getGridDir(x, y, range = 1) {
     };
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","@pixi/utils":"joR65"}],"iwMNm":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","@pixi/utils":"joR65"}],"4engz":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Door", ()=>Door
+);
+parcelHelpers.export(exports, "getMapActorType", ()=>getMapActorType
+);
+var _actor = require("./actor");
+var _zone = require("./zone");
+"use strict";
+var Door;
+(function(Door1) {
+    Door1[Door1["OPEN"] = 1] = "OPEN";
+    Door1[Door1["CLOSED"] = 2] = "CLOSED";
+})(Door || (Door = {
+}));
+function getMapActorType(x, y, zone, tile) {
+    let ret = _actor.tags([
+        {
+            tag: "map",
+            val: tile
+        },
+        {
+            tag: "desc",
+            val: tile
+        }, 
+    ]);
+    let sprite;
+    if (tile == _zone.Wall.DOOR_CLOSED || tile == _zone.Wall.DOOR_OPEN) ret.set("door", tile == _zone.Wall.DOOR_CLOSED ? Door.OPEN : Door.CLOSED);
+    return {
+        sprite: sprite,
+        tags: ret
+    };
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","./actor":"hVA85","./zone":"9xLaY"}],"iwMNm":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "UI", ()=>UI
@@ -50459,6 +50564,7 @@ parcelHelpers.export(exports, "updateCamera", ()=>updateCamera
 parcelHelpers.export(exports, "initControls", ()=>initControls
 );
 var _zone = require("../world/zone");
+var _player = require("./player");
 var _render = require("../gfx/render");
 var _launcher = require("../launcher");
 var _hud = require("./hud");
@@ -50620,22 +50726,28 @@ function updateMouseTargeting(world) {
 function controlLeftClick(world, camera) {
     if (world.scheduler && world.player) {
         updateMouseTargeting(world);
-        if (currentTargeting == _hud.TargetMode.MOVE && mouseInActiveArea) {
-            world.scheduler.sendActorMoveRequest(world.player, {
-                x: effTargetLocation.x - world.player.x,
-                y: effTargetLocation.y - world.player.y
-            });
-            world.scheduler.requestUpdateTick(1);
+        if (mouseInActiveArea) {
+            if (currentTargeting == _hud.TargetMode.MOVE) {
+                world.scheduler.sendActorMoveRequest(world.player, {
+                    x: effTargetLocation.x - world.player.x,
+                    y: effTargetLocation.y - world.player.y
+                });
+                world.scheduler.requestUpdateTick(1);
+            } else if (currentTargeting == _hud.TargetMode.INTERACT) {
+                if (_player.inspect(effTargetLocation.x, effTargetLocation.y, world)) {
+                    currentTargeting = _hud.TargetMode.MOVE;
+                    UIModes["interact"] = false;
+                }
+            }
         }
     }
     if (!mouseInActiveArea && mouseEnteringActiveArea) mouseInActiveArea = true;
 }
 function consuleUIModes(delta, world, camera) {
-    if (UIModes["interact"]) {
-        if (currentTargeting == _hud.TargetMode.INTERACT) currentTargeting = _hud.TargetMode.MOVE;
-        else if (currentTargeting == _hud.TargetMode.MOVE) currentTargeting = _hud.TargetMode.INTERACT;
-        UIModes["interact"] = false;
-    }
+    if (UIModes["interact"]) //if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
+    {
+        if (currentTargeting == _hud.TargetMode.MOVE) currentTargeting = _hud.TargetMode.INTERACT;
+    } else if (currentTargeting == _hud.TargetMode.INTERACT) currentTargeting = _hud.TargetMode.MOVE;
 }
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
@@ -50886,7 +50998,7 @@ function initControls(GUI) {
     });
 }
 
-},{"../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/zone":"9xLaY"}],"iPuXr":[function(require,module,exports) {
+},{"../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/zone":"9xLaY","./player":"aunNh"}],"iPuXr":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "spriteTypeType", ()=>spriteTypeType
@@ -50959,7 +51071,7 @@ let uiSpritesList = {
         }
     },
     "interact": {
-        type: "single",
+        type: "toggle",
         sprite: {
             type: spriteTypeType.GENERIC,
             ui: spriteTypeUI.MAIN
@@ -50992,7 +51104,7 @@ var TargetMode;
     TargetMode1[TargetMode1["AIM"] = 16768324] = "AIM";
     TargetMode1[TargetMode1["ENCHANT"] = 8978329] = "ENCHANT";
     TargetMode1[TargetMode1["SPELL"] = 5605631] = "SPELL";
-    TargetMode1[TargetMode1["INTERACT"] = 16777079] = "INTERACT";
+    TargetMode1[TargetMode1["INTERACT"] = 16777011] = "INTERACT";
 })(TargetMode || (TargetMode = {
 }));
 function addHudElements(stage, viewport) {
@@ -51162,7 +51274,6 @@ function renderUISprite(name, world, zone, uiElementName) {
             if (type.type == spriteTypeType.GENERIC) ret = loadGenericButton(name, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
             else ret = renderSpecialSprite(name, world, zone);
             if (ret) {
-                console.log(name);
                 if (type.radius || type.ui == spriteTypeUI.MARKER) {
                     let rad = type.radius != undefined ? type.radius : _render.TILE_SIZE;
                     ret.scale.x = rad / ret.texture.width;
@@ -51242,6 +51353,10 @@ var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Player", ()=>Player
 );
+parcelHelpers.export(exports, "inspect", ()=>inspect
+);
+var _text = require("../string/text");
+var _math = require("../world/math");
 class Player {
     constructor(player){
         this.controlActor = null;
@@ -51250,7 +51365,71 @@ class Player {
         this.cameraActor = player;
     }
 }
+function inspect(x, y, world) {
+    let actor;
+    let search = world.tree_actors.getAll(x, y, 0);
+    for (let a of search){
+        if (a.type.tags.get("player")) {
+            actor = a;
+            break;
+        } else if (a.type.tags.get("desc")) actor = a;
+    }
+    if (actor) {
+        let d = actor.type.tags.get("desc");
+        if (d) {
+            let desc;
+            if (world.player && _math.cDist({
+                x: world.player.x - actor.x,
+                y: world.player.y - actor.y
+            }) <= 1) desc = _text.DescClose[d];
+            if (!desc) desc = _text.Desc[d];
+            if (desc) {
+                console.log(desc);
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../string/text":"7rxsz","../world/math":"73WWw"}],"7rxsz":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Strings", ()=>Strings
+);
+parcelHelpers.export(exports, "Name", ()=>Name
+);
+parcelHelpers.export(exports, "Desc", ()=>Desc
+);
+parcelHelpers.export(exports, "NameClose", ()=>NameClose
+);
+parcelHelpers.export(exports, "DescClose", ()=>DescClose
+);
+var _zone = require("../world/zone");
+"use strict";
+var Strings;
+(function(Strings1) {
+    Strings1[Strings1["PLAYER"] = 1000000000000] = "PLAYER";
+    Strings1[Strings1["DOOR_LOCKED"] = 1000000000001] = "DOOR_LOCKED";
+})(Strings || (Strings = {
+}));
+let Name = {
+    [Strings.DOOR_LOCKED]: "Door (Closed)"
+};
+let Desc = {
+    [_zone.Wall.DOOR_CLOSED]: "A closed door.",
+    [_zone.Wall.DOOR_OPEN]: "An open door. You can close it or lock it.",
+    [Strings.DOOR_LOCKED]: "A closed door."
+};
+let NameClose = {
+    [Strings.DOOR_LOCKED]: "Door (Locked)",
+    [Strings.PLAYER]: "Me"
+};
+let DescClose = {
+    [Strings.DOOR_LOCKED]: "The door is locked",
+    [Strings.PLAYER]: "That's me!"
+};
+
+},{"../world/zone":"9xLaY","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
 
 //# sourceMappingURL=index.6bdff185.js.map

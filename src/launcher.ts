@@ -4,13 +4,14 @@ import * as PIXI from 'pixi.js';
 import { Viewport } from 'pixi-viewport'
 import { loadSprites } from './gfx/sprites';
 import { AbstractRenderer } from 'pixi.js';
-import { Actor, ActorContainer } from './world/actor';
+import { Actor, ActorContainer, tags } from './world/actor';
 import { World } from './world/world';
 import { MAX_ZOOM, MIN_ZOOM, TILE_SIZE, renderer, viewport, setRenderer, setViewport } from './gfx/render';
 import { UI } from './ui/ui';
 import { initControls }  from './ui/control';
 import { Player } from './ui/player';
 import { addHudElements } from './ui/hud';
+import { Strings } from './string/text';
 
 export let app: PIXI.Application;
 export let windowSize = {width: 1920, height: 1080};
@@ -80,6 +81,7 @@ export function LauncherLaunchGame(width: number, height: number): void {
 	let player = new Actor(49, 49, {
 		sprite: "player_default",
 		player: true,
+		tags: tags(["player", {tag:"desc", val:Strings.PLAYER}]),
 	});
 	world.addActor(player);
 	world.update(0);

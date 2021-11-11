@@ -17,35 +17,41 @@ export enum Dir {
 export interface ActorType  {
     player?: boolean,
     sprite?: string,
-    tags?: Map<string, ActorTag>,
+    tags: Map<string, number>,
     updateHooks? : Map<string, string>,
     drawHooks? : Map<string, string>,
     idleAnim? : boolean,
     noFace? : boolean,
 }
 
-export interface ActorTag {
-    tag: string,
-    val: number,
+export function tags(list : ({tag: string, val: number} | string)[]) : Map<string, number> {
+    let ret = new Map<string, number>();
+
+    for (let l of list) {
+        if (typeof l === "string") ret.set(l, 1);
+        else ret.set(l.tag, l.val);
+    }
+
+    return ret;
 }
 
-export interface ActorData {
+/*export interface ActorData {
     value? : number;
     values? : number[];
     string? : string;
     strings? : string[];
-}
+}*/
 
 export class Actor extends WorldObject {
     direction : Dir;
     type : ActorType;
-    data: Map<string, ActorData>;
+    data: Map<string, any>;
 
     constructor(x : number, y: number, type : ActorType) {
         super(x, y);
         this.type = type;
         this.direction = Dir.DOWN;
-        this.data = new Map<string, ActorData>();
+        this.data = new Map<string, any>();
     }
 
     update(delta: number) {

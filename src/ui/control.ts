@@ -1,6 +1,6 @@
 import { World, WorldVec } from "../world/world";
 import { WallProperties } from '../world/zone';
-import { Player } from "./player";
+import { inspect, Player } from "./player";
 import { TILE_SIZE, viewport } from '../gfx/render';
 import { Sprite } from "@pixi/sprite";
 import { windowSize } from "../launcher";
@@ -131,11 +131,18 @@ function controlLeftClick(world : World, camera : Player) {
 
     if (world.scheduler && world.player) {
         updateMouseTargeting(world);
-        if (currentTargeting == TargetMode.MOVE && mouseInActiveArea) {
-            world.scheduler.sendActorMoveRequest(world.player, {
-                x : effTargetLocation.x - world.player.x,
-                y : effTargetLocation.y - world.player.y});
-            world.scheduler.requestUpdateTick(1);
+        if (mouseInActiveArea) {
+            if (currentTargeting == TargetMode.MOVE) {
+                world.scheduler.sendActorMoveRequest(world.player, {
+                    x : effTargetLocation.x - world.player.x,
+                    y : effTargetLocation.y - world.player.y});
+                world.scheduler.requestUpdateTick(1);
+            } else if (currentTargeting == TargetMode.INTERACT) {
+                if (inspect(effTargetLocation.x, effTargetLocation.y, world)) {
+                    currentTargeting = TargetMode.MOVE;
+                    UIModes["interact"] = false;
+                }
+            }
         }
     }
 
@@ -145,10 +152,13 @@ function controlLeftClick(world : World, camera : Player) {
 }
 
 function consuleUIModes(delta : number, world : World, camera : Player) {
+
     if (UIModes["interact"]) {
+        //if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
+        if (currentTargeting == TargetMode.MOVE) currentTargeting = TargetMode.INTERACT;
+        //UIModes["interact"] = false;
+    } else {
         if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
-        else if (currentTargeting == TargetMode.MOVE) currentTargeting = TargetMode.INTERACT;
-        UIModes["interact"] = false;
     }
 }
 

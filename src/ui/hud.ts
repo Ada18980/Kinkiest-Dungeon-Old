@@ -44,7 +44,7 @@ export interface spriteType {
 let uiSpritesList : Record<string, {type: string, sprite: spriteType, quadrant?: number}> = {
     "reticule" : {type : "marker", sprite : {type: spriteTypeType.SPECIAl, ui: spriteTypeUI.MARKER}},
     "sprintmarker" : {type : "marker", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MARKER}},
-    "interact" : {type : "single", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
+    "interact" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
     "follow" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
     "sprint" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
     //"safe" : {name : "toggle", type : {type: "generic_double", ui: "marker"}, , quadrant : 3},
@@ -73,7 +73,7 @@ export enum TargetMode {
     AIM = 0xffDD44,
     ENCHANT = 0x88ff99,
     SPELL = 0x5588ff,
-    INTERACT = 0xffff77,
+    INTERACT = 0xffff33,
 }
 
 export function addHudElements(stage : PIXI.Container, viewport : Viewport) {
@@ -266,7 +266,6 @@ function renderUISprite(name : string, world : World, zone : Zone, uiElementName
                 ret = loadGenericButton(name, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
             } else ret = renderSpecialSprite(name, world, zone);
             if (ret) {
-                console.log(name)
                 if (type.radius || type.ui == spriteTypeUI.MARKER) {
                     let rad = (type.radius != undefined) ? type.radius : TILE_SIZE;
                     ret.scale.x = rad / ret.texture.width;
