@@ -165,6 +165,7 @@ function consuleUIModes(delta : number, world : World, camera : Player) : boolea
                     if (mode == "close") {
                         closeScreen(screen[1]);
                         UIModes[uimode] = false;
+                        return true;
                     }
                 }
             }
@@ -193,13 +194,14 @@ function consuleUIModes(delta : number, world : World, camera : Player) : boolea
 export function controlTicker(delta : number, world : World, camera : Player) {
     controlTime -= delta;
 
-    consuleUIModes(delta, world, camera);
 
     if (leftClicked && !mouseDragged) {
         // Do left mouse click
         controlLeftClick(world, camera);
         leftClicked = false;
     }
+
+    consuleUIModes(delta, world, camera);
 
     if (controlMove) {
         if (controlDiagGrace < controlDiagGraceTime)

@@ -30,14 +30,14 @@ let RRradius = 30;
 let allowMultipleScreens = false;
 
 export function closeScreen(screen : Screen) {
-    screen.cont.y = windowSize.height * 3;
     screen.cont.visible = false;
+    // TODO add check if in active area
+    mouseEnterIntoActiveArea();
 }
 
 export function openScreen(screen : Screen) {
-    let h = uiScreens[screen.name]?.height || 0;
-    screen.cont.y = windowSize.height*(0.5-h/2);
     screen.cont.visible = true;
+    // TODO add check if in active area
 }
 
 export function setScreen(name : string, open : boolean) {
@@ -74,7 +74,7 @@ export function updateScreens() {
                     screens.delete(name);
                     for (let uiSprite of uiSprites) {
                         if (uiSprite[0].includes(name + "|")) {
-                            uiSprites.delete(name + "|");
+                            uiSprites.delete(uiSprite[0]);
                         }
                     }
                 }
@@ -166,9 +166,14 @@ export function updateScreens() {
                 registerScreen(name, cont);
                 screens.set(name, {name : name, cont: cont, elements: {}});
 
-                console.log(screens)
                 app.stage.addChild(cont);
             }
+        }
+    }
+
+    for (const screen of screens) {
+        if (screen[1].cont.y > windowSize.height) {
+            screen[1].cont.visible = false;
         }
     }
 }

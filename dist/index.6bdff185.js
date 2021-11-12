@@ -50761,6 +50761,7 @@ function consuleUIModes(delta, world, camera) {
             if (mode == "close") {
                 _screen.closeScreen(screen[1]);
                 UIModes[uimode] = false;
+                return true;
             }
         }
         if (!success) UIModes[uimode] = false; // Close out toggles iof the screen is closed
@@ -50780,12 +50781,12 @@ function consuleUIModes(delta, world, camera) {
 }
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
-    consuleUIModes(delta, world, camera);
     if (leftClicked && !mouseDragged) {
         // Do left mouse click
         controlLeftClick(world, camera);
         leftClicked = false;
     }
+    consuleUIModes(delta, world, camera);
     if (controlMove) {
         if (controlDiagGrace < controlDiagGraceTime) controlDiagGrace += delta;
     } else if (controlDiagGrace > 0) controlDiagGrace -= delta;
@@ -51265,7 +51266,10 @@ function renderHUD(world) {
     for (let s of _screen.screens){
         let screen = s[1];
         if (screen && screen.cont.visible) {
-            for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui == _uiElements.spriteTypeUI.SCREEN) uiSpritePopulate(s[0] + "|" + spr, spr);
+            for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui == _uiElements.spriteTypeUI.SCREEN) {
+                console.log(uiSprites.get(s[0] + "|" + spr));
+                uiSpritePopulate(s[0] + "|" + spr, spr);
+            }
         }
     }
     for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui != _uiElements.spriteTypeUI.SCREEN) uiSpritePopulate(spr);
@@ -51683,13 +51687,13 @@ let lastScreenSize = {
 let RRradius = 30;
 let allowMultipleScreens = false;
 function closeScreen(screen) {
-    screen.cont.y = _launcher.windowSize.height * 3;
     screen.cont.visible = false;
+    // TODO add check if in active area
+    _control.mouseEnterIntoActiveArea();
 }
 function openScreen(screen) {
-    let h = _uiElements.uiScreens[screen.name]?.height || 0;
-    screen.cont.y = _launcher.windowSize.height * (0.5 - h / 2);
     screen.cont.visible = true;
+// TODO add check if in active area
 }
 function setScreen(name, open) {
     if (!allowMultipleScreens) for(let s in screens){
@@ -51717,7 +51721,7 @@ function updateScreens() {
                 if (update && scr) {
                     _launcher.app.stage.removeChild(scr.cont);
                     screens.delete(name);
-                    for (let uiSprite of _hud.uiSprites)if (uiSprite[0].includes(name + "|")) _hud.uiSprites.delete(name + "|");
+                    for (let uiSprite of _hud.uiSprites)if (uiSprite[0].includes(name + "|")) _hud.uiSprites.delete(uiSprite[0]);
                 }
                 let cont = new _pixiJs.Container();
                 cont.sortableChildren = true;
@@ -51822,11 +51826,11 @@ function updateScreens() {
                     elements: {
                     }
                 });
-                console.log(screens);
                 _launcher.app.stage.addChild(cont);
             }
         }
     }
+    for (const screen of screens)if (screen[1].cont.y > _launcher.windowSize.height) screen[1].cont.visible = false;
 }
 function registerScreen(name, screen) {
     screen.interactive = true;

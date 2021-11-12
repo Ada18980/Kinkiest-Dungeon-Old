@@ -140,6 +140,7 @@ export function renderHUD(world : World | undefined) {
 
             for (let spr in uiSpritesList) {
                 if (uiSpritesList[spr]?.sprite.ui == spriteTypeUI.SCREEN) {
+                    console.log(uiSprites.get(s[0] + "|" + spr))
                     uiSpritePopulate(s[0] + "|" + spr, spr);
                 }
             }
