@@ -1,3 +1,5 @@
+"use strict";
+
 import { Viewport } from "pixi-viewport";
 import { World} from '../world/world';
 import { Wall, Zone } from '../world/zone';

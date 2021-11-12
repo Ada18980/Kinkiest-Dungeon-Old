@@ -65,6 +65,11 @@ let spriteResources : SpriteResource[] = [
         path: "img/ui/interact_off.png",
         antialias: true,
     },
+    {
+        name: "ui_close",
+        path: "img/ui/close.png",
+        antialias: true,
+    },
 ];
 
 let sprites : Map<string, BaseImage> = new Map<string, BaseImage>();

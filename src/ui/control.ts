@@ -7,6 +7,7 @@ import { windowSize } from "../launcher";
 import { UI } from "./ui";
 import { clearSpriteHover, TargetMode } from "./hud";
 import { getGridDir, truncGridDir, truncGridDirCon } from "../world/math";
+import { closeScreen, screens, setScreen } from "./screen";
 
 export let mouseLeftDown = false;
 export let mouseRightDown = false;
@@ -151,15 +152,42 @@ function controlLeftClick(world : World, camera : Player) {
 
 }
 
-function consuleUIModes(delta : number, world : World, camera : Player) {
+function consuleUIModes(delta : number, world : World, camera : Player) : boolean {
+
+    // Check screen stuff FIRST
+    for (let uimode in UIModes) {
+        if (UIModes[uimode] && uimode.includes('|')) {
+            let success = false;
+            for (let screen of screens) {
+                if (uimode.includes(screen[0] + "|")) {
+                    success = true;
+                    let mode = uimode.substring((screen[0] + "|").length);
+                    if (mode == "close") {
+                        closeScreen(screen[1]);
+                        UIModes[uimode] = false;
+                    }
+                }
+            }
+
+            if (!success) UIModes[uimode] = false; // Close out toggles iof the screen is closed
+            // TODO add property to allow them to be persistent
+        }
+    }
 
     if (UIModes["interact"]) {
         //if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
-        if (currentTargeting == TargetMode.MOVE) currentTargeting = TargetMode.INTERACT;
+        if (currentTargeting == TargetMode.MOVE) {
+            currentTargeting = TargetMode.INTERACT;
+            return true;
+        }
         //UIModes["interact"] = false;
     } else {
-        if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
+        if (currentTargeting == TargetMode.INTERACT) {
+            currentTargeting = TargetMode.MOVE;
+            return true;
+        }
     }
+    return false;
 }
 
 export function controlTicker(delta : number, world : World, camera : Player) {

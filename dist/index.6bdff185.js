@@ -43384,6 +43384,11 @@ let spriteResources = [
         name: "ui_interact_off",
         path: "img/ui/interact_off.png",
         antialias: true
+    },
+    {
+        name: "ui_close",
+        path: "img/ui/close.png",
+        antialias: true
     }, 
 ];
 let sprites = new Map();
@@ -49500,6 +49505,7 @@ parcelHelpers.export(exports, "setSeed", ()=>setSeed
 );
 parcelHelpers.export(exports, "getRandomFunction", ()=>getRandomFunction
 );
+"use strict";
 function xmur3(str) {
     for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)h = Math.imul(h ^ str.charCodeAt(i), 3432918353), h = h << 13 | h >>> 19;
     return function() {
@@ -50455,6 +50461,7 @@ var _render = require("../gfx/render");
 var _control = require("./control");
 var _hud = require("./hud");
 var _player = require("./player");
+"use strict";
 class UI {
     constructor(player, world){
         this.player = new _player.Player(player);
@@ -50569,6 +50576,7 @@ var _render = require("../gfx/render");
 var _launcher = require("../launcher");
 var _hud = require("./hud");
 var _math = require("../world/math");
+var _screen = require("./screen");
 let mouseLeftDown = false;
 let mouseRightDown = false;
 let mouseMiddleDown = false;
@@ -50744,10 +50752,31 @@ function controlLeftClick(world, camera) {
     if (!mouseInActiveArea && mouseEnteringActiveArea) mouseInActiveArea = true;
 }
 function consuleUIModes(delta, world, camera) {
+    // Check screen stuff FIRST
+    for(let uimode in UIModes)if (UIModes[uimode] && uimode.includes('|')) {
+        let success = false;
+        for (let screen of _screen.screens)if (uimode.includes(screen[0] + "|")) {
+            success = true;
+            let mode = uimode.substring((screen[0] + "|").length);
+            if (mode == "close") {
+                _screen.closeScreen(screen[1]);
+                UIModes[uimode] = false;
+            }
+        }
+        if (!success) UIModes[uimode] = false; // Close out toggles iof the screen is closed
+    // TODO add property to allow them to be persistent
+    }
     if (UIModes["interact"]) //if (currentTargeting == TargetMode.INTERACT) currentTargeting = TargetMode.MOVE;
     {
-        if (currentTargeting == _hud.TargetMode.MOVE) currentTargeting = _hud.TargetMode.INTERACT;
-    } else if (currentTargeting == _hud.TargetMode.INTERACT) currentTargeting = _hud.TargetMode.MOVE;
+        if (currentTargeting == _hud.TargetMode.MOVE) {
+            currentTargeting = _hud.TargetMode.INTERACT;
+            return true;
+        }
+    } else if (currentTargeting == _hud.TargetMode.INTERACT) {
+        currentTargeting = _hud.TargetMode.MOVE;
+        return true;
+    }
+    return false;
 }
 function controlTicker(delta, world, camera) {
     controlTime -= delta;
@@ -50998,12 +51027,16 @@ function initControls(GUI) {
     });
 }
 
-},{"../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/zone":"9xLaY","./player":"aunNh"}],"iPuXr":[function(require,module,exports) {
+},{"../gfx/render":"jTB3f","../launcher":"7Wuwz","./hud":"iPuXr","../world/math":"73WWw","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../world/zone":"9xLaY","./player":"aunNh","./screen":"jd51Y"}],"iPuXr":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "spriteTypeType", ()=>spriteTypeType
+parcelHelpers.export(exports, "uiSprites", ()=>uiSprites
 );
-parcelHelpers.export(exports, "spriteTypeUI", ()=>spriteTypeUI
+parcelHelpers.export(exports, "getQuadrantXY", ()=>getQuadrantXY
+);
+parcelHelpers.export(exports, "getQuadrantMult", ()=>getQuadrantMult
+);
+parcelHelpers.export(exports, "getQuadrantIndexMod", ()=>getQuadrantIndexMod
 );
 /*
 let genericMarkers : MarkerType[] = [
@@ -51026,75 +51059,174 @@ parcelHelpers.export(exports, "addHudElements", ()=>addHudElements
 );
 parcelHelpers.export(exports, "renderHUD", ()=>renderHUD
 );
+parcelHelpers.export(exports, "registerButton", ()=>registerButton
+);
 var _sprites = require("../gfx/sprites");
 var _render = require("../gfx/render");
 var _control = require("./control");
 var _sprite = require("@pixi/sprite");
 var _pixiJs = require("pixi.js");
-var _pixiFilters = require("pixi-filters");
 var _launcher = require("../launcher");
 var _math = require("../world/math");
+var _uiElements = require("./uiElements");
+var _screen = require("./screen");
 let uiSprites = new Map();
 let HUDMarkers = new _pixiJs.Container(); // Displayed on the field
 let HUDScreen = new _pixiJs.Container(); // Displayed on the screen
 let lastViewport;
 let spriteHover = new Map();
+let spriteScale = new Map();
 let scaleHover = 1.2;
 let currentClick = "";
+let buttonSize = 0.15; // Fraction of screen for min button size
 let showUI = true;
 let showMarkers = true;
-var spriteTypeType;
-(function(spriteTypeType1) {
-    spriteTypeType1["SPECIAl"] = "special";
-    spriteTypeType1["GENERIC"] = "generic";
-})(spriteTypeType || (spriteTypeType = {
-}));
-var spriteTypeUI;
-(function(spriteTypeUI1) {
-    spriteTypeUI1["MAIN"] = "main";
-    spriteTypeUI1["MARKER"] = "marker";
-})(spriteTypeUI || (spriteTypeUI = {
-}));
-let uiSpritesList = {
-    "reticule": {
-        type: "marker",
-        sprite: {
-            type: spriteTypeType.SPECIAl,
-            ui: spriteTypeUI.MARKER
-        }
-    },
-    "sprintmarker": {
-        type: "marker",
-        sprite: {
-            type: spriteTypeType.GENERIC,
-            ui: spriteTypeUI.MARKER
-        }
-    },
-    "interact": {
-        type: "toggle",
-        sprite: {
-            type: spriteTypeType.GENERIC,
-            ui: spriteTypeUI.MAIN
-        },
-        quadrant: 3
-    },
-    "follow": {
-        type: "toggle",
-        sprite: {
-            type: spriteTypeType.GENERIC,
-            ui: spriteTypeUI.MAIN
-        },
-        quadrant: 3
-    },
-    "sprint": {
-        type: "toggle",
-        sprite: {
-            type: spriteTypeType.GENERIC,
-            ui: spriteTypeUI.MAIN
-        },
-        quadrant: 3
+function getQuadrantXY(quadrant, w, h) {
+    if (!w) w = _launcher.windowSize.width;
+    if (!h) h = _launcher.windowSize.height;
+    switch(quadrant){
+        case _uiElements.QUADRANT.BOTTOMCENTER:
+            return {
+                x: w * 0.5,
+                y: h
+            };
+        case _uiElements.QUADRANT.TOPCENTER:
+            return {
+                x: w * 0.5,
+                y: h
+            };
+        case _uiElements.QUADRANT.LEFTCENTER:
+            return {
+                x: 0,
+                y: h * 0.5
+            };
+        case _uiElements.QUADRANT.RIGHTCENTER:
+            return {
+                x: w,
+                y: h * 0.5
+            };
+        case _uiElements.QUADRANT.BOTTOMLEFT:
+            return {
+                x: 0,
+                y: h
+            };
+        case _uiElements.QUADRANT.TOPLEFT:
+            return {
+                x: 0,
+                y: 0
+            };
+        case _uiElements.QUADRANT.BOTTOMRIGHT:
+            return {
+                x: w,
+                y: h
+            };
+        case _uiElements.QUADRANT.TOPRIGHT:
+            return {
+                x: w,
+                y: 0
+            };
     }
-};
+    return {
+        x: 0,
+        y: 0
+    };
+}
+function getQuadrantMult(quadrant) {
+    switch(quadrant){
+        case _uiElements.QUADRANT.BOTTOMCENTER:
+            return {
+                x: 0,
+                y: -0.5
+            };
+        case _uiElements.QUADRANT.TOPCENTER:
+            return {
+                x: 0,
+                y: 0.5
+            };
+        case _uiElements.QUADRANT.LEFTCENTER:
+            return {
+                x: 0.5,
+                y: 0
+            };
+        case _uiElements.QUADRANT.RIGHTCENTER:
+            return {
+                x: -0.5,
+                y: 0
+            };
+        case _uiElements.QUADRANT.BOTTOMLEFT:
+            return {
+                x: 0.5,
+                y: -0.5
+            };
+        case _uiElements.QUADRANT.TOPLEFT:
+            return {
+                x: 0.5,
+                y: 0.5
+            };
+        case _uiElements.QUADRANT.BOTTOMRIGHT:
+            return {
+                x: -0.5,
+                y: -0.5
+            };
+        case _uiElements.QUADRANT.TOPRIGHT:
+            return {
+                x: -0.5,
+                y: 0.5
+            };
+    }
+    return {
+        x: 0,
+        y: 0
+    };
+}
+function getQuadrantIndexMod(quadrant) {
+    switch(quadrant){
+        case _uiElements.QUADRANT.BOTTOMCENTER:
+            return {
+                x: 0,
+                y: -1
+            };
+        case _uiElements.QUADRANT.TOPCENTER:
+            return {
+                x: 0,
+                y: 1
+            };
+        case _uiElements.QUADRANT.LEFTCENTER:
+            return {
+                x: 1,
+                y: 0
+            };
+        case _uiElements.QUADRANT.RIGHTCENTER:
+            return {
+                x: -1,
+                y: 0
+            };
+        case _uiElements.QUADRANT.BOTTOMLEFT:
+            return {
+                x: 1,
+                y: 0
+            };
+        case _uiElements.QUADRANT.TOPLEFT:
+            return {
+                x: 1,
+                y: 0
+            };
+        case _uiElements.QUADRANT.BOTTOMRIGHT:
+            return {
+                x: -1,
+                y: 0
+            };
+        case _uiElements.QUADRANT.TOPRIGHT:
+            return {
+                x: -1,
+                y: 0
+            };
+    }
+    return {
+        x: 0,
+        y: 0
+    };
+}
 function clearSpriteHover() {
     spriteHover = new Map();
 }
@@ -51116,172 +51248,190 @@ function addHudElements(stage, viewport) {
     HUDScreen.zIndex = 1000;
 }
 function renderHUD(world) {
+    _screen.updateScreens();
     if (lastViewport != _render.viewport) {
         if (lastViewport) lastViewport.removeChild(HUDMarkers);
         lastViewport = _render.viewport;
         _render.viewport.addChild(HUDMarkers);
     }
-    let zone = world.zones[world.currentZone];
-    if (zone) {
-        for(let spr in uiSpritesList){
-            if (uiSpritesList[spr]?.type == "toggle") {
-                if (!uiSprites.get(spr + "_on")) renderUISprite(spr + "_on", world, zone, spr);
-                if (!uiSprites.get(spr + "_off")) renderUISprite(spr + "_off", world, zone, spr);
-            } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr);
+    let zone = world ? world.zones[world.currentZone] : undefined;
+    function uiSpritePopulate(spr, oldname) {
+        let name = oldname ? oldname : spr;
+        if (_uiElements.uiSpritesList[name]?.type == "toggle") {
+            if (!uiSprites.get(spr + "_on")) renderUISprite(spr + "_on", world, zone, spr, oldname);
+            if (!uiSprites.get(spr + "_off")) renderUISprite(spr + "_off", world, zone, spr, oldname);
+        } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr, oldname);
+    }
+    for (let s of _screen.screens){
+        let screen = s[1];
+        if (screen && screen.cont.visible) {
+            for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui == _uiElements.spriteTypeUI.SCREEN) uiSpritePopulate(s[0] + "|" + spr, spr);
         }
-        let reticule = uiSprites.get("reticule");
-        let sprint = uiSprites.get("sprintmarker");
-        /*
-        let button_sprint_off = uiSprites.get("sprint_off");
-        let button_sprint_on = uiSprites.get("sprint_on");
-        let button_follow_off = uiSprites.get("follow_off");
-        let button_follow_on = uiSprites.get("follow_on");
-        let button_interact = uiSprites.get("interact");*/ if (reticule) {
-            if (world.player && _control.mouseInActiveArea) {
-                _control.updateMouseTargeting(world);
-                reticule.visible = showMarkers;
-                reticule.x = _render.TILE_SIZE * _control.effTargetLocation.x;
-                reticule.y = _render.TILE_SIZE * _control.effTargetLocation.y;
-                reticule.tint = _control.currentTargeting;
-                if (sprint) {
-                    if (_control.currentTargeting == TargetMode.MOVE && _control.UIModes["sprint"] && _math.cDist({
-                        x: world.player.x - _control.effTargetLocation.x,
-                        y: world.player.y - _control.effTargetLocation.y
-                    }) > 1) {
-                        sprint.visible = showMarkers;
-                        sprint.x = _render.TILE_SIZE * _control.effTargetLocation.x;
-                        sprint.y = _render.TILE_SIZE * _control.effTargetLocation.y;
-                    } else sprint.visible = false;
+    }
+    for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui != _uiElements.spriteTypeUI.SCREEN) uiSpritePopulate(spr);
+    let reticule = uiSprites.get("reticule");
+    let sprint = uiSprites.get("sprintmarker");
+    /*
+    let button_sprint_off = uiSprites.get("sprint_off");
+    let button_sprint_on = uiSprites.get("sprint_on");
+    let button_follow_off = uiSprites.get("follow_off");
+    let button_follow_on = uiSprites.get("follow_on");
+    let button_interact = uiSprites.get("interact");*/ if (reticule && world) {
+        if (world.player && _control.mouseInActiveArea) {
+            _control.updateMouseTargeting(world);
+            reticule.visible = showMarkers;
+            reticule.x = _render.TILE_SIZE * _control.effTargetLocation.x;
+            reticule.y = _render.TILE_SIZE * _control.effTargetLocation.y;
+            reticule.tint = _control.currentTargeting;
+            if (sprint) {
+                if (_control.currentTargeting == TargetMode.MOVE && _control.UIModes["sprint"] && _math.cDist({
+                    x: world.player.x - _control.effTargetLocation.x,
+                    y: world.player.y - _control.effTargetLocation.y
+                }) > 1) {
+                    sprint.visible = showMarkers;
+                    sprint.x = _render.TILE_SIZE * _control.effTargetLocation.x;
+                    sprint.y = _render.TILE_SIZE * _control.effTargetLocation.y;
+                } else sprint.visible = false;
+            }
+        } else {
+            reticule.visible = false;
+            if (sprint) sprint.visible = false;
+        }
+    }
+    let minDimension = Math.min(_launcher.windowSize.height, _launcher.windowSize.width);
+    let player = world ? world.player : undefined;
+    function getIndex(quadrant, screen = "main") {
+        if (quadrant == _uiElements.QUADRANT.BOTTOMRIGHT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        else if (quadrant == _uiElements.QUADRANT.TOPRIGHT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        else if (quadrant == _uiElements.QUADRANT.TOPLEFT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        else if (quadrant == _uiElements.QUADRANT.BOTTOMLEFT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        return 0;
+    }
+    function setIndex(quadrant, amount, screen = "main") {
+        if (quadrant == _uiElements.QUADRANT.BOTTOMRIGHT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+        else if (quadrant == _uiElements.QUADRANT.TOPRIGHT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+        else if (quadrant == _uiElements.QUADRANT.TOPLEFT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+        else if (quadrant == _uiElements.QUADRANT.BOTTOMLEFT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+    }
+    function updateSingleButton(name, quadrant, show = showUI, screen = "main", w, h) {
+        let sprite = uiSprites.get(name);
+        if (sprite) {
+            let index = getIndex(quadrant, screen);
+            let scale = spriteHover.get(name) || 1;
+            let ss = spriteScale.get(name);
+            sprite.visible = show;
+            sprite.scale.x = scale * (ss ? ss : Math.min(buttonSize * minDimension / sprite.texture.width, 1));
+            sprite.scale.y = sprite.scale.x;
+            sprite.x = getQuadrantXY(quadrant, w, h).x + sprite.texture.width * getQuadrantMult(quadrant).x * sprite.scale.x / scale + getQuadrantIndexMod(quadrant).x * index;
+            sprite.y = getQuadrantXY(quadrant, w, h).y + sprite.texture.height * getQuadrantMult(quadrant).y * sprite.scale.y / scale + getQuadrantIndexMod(quadrant).y * index;
+            if (quadrant != undefined) setIndex(quadrant, sprite.width / scale, screen);
+        }
+    }
+    function updateDoubleButton(name, quadrant, show = showUI, screen = "main", w, h) {
+        let sprite_on = uiSprites.get(name + "_on");
+        let sprite_off = uiSprites.get(name + "_off");
+        if (sprite_off && sprite_on) {
+            let index = getIndex(quadrant, screen);
+            let scale = spriteHover.get(name) || 1;
+            let ss = spriteScale.get(name);
+            sprite_off.visible = show && !_control.UIModes[name];
+            sprite_off.scale.x = scale * (ss ? ss : Math.min(buttonSize * minDimension / sprite_off.texture.width, 1));
+            sprite_off.scale.y = sprite_off.scale.x;
+            sprite_off.x = getQuadrantXY(quadrant, w, h).x + sprite_off.texture.width * getQuadrantMult(quadrant).x * sprite_off.scale.x / scale + getQuadrantIndexMod(quadrant).x * index;
+            sprite_off.y = getQuadrantXY(quadrant, w, h).y + sprite_off.texture.height * getQuadrantMult(quadrant).y * sprite_off.scale.y / scale + getQuadrantIndexMod(quadrant).y * index;
+            sprite_on.visible = show && !sprite_off.visible;
+            sprite_on.x = sprite_off.x;
+            sprite_on.y = sprite_off.y;
+            sprite_on.scale.x = sprite_off.scale.x;
+            sprite_on.scale.y = sprite_off.scale.y;
+            //bottomRightIndex += sprite_on.width;
+            if (quadrant != undefined) setIndex(quadrant, sprite_on.width / scale, screen);
+        }
+    }
+    function updateSprite(sprite, prefix, spr1, show = showUI, screen = "main", w, h) {
+        if (sprite.type == "single") updateSingleButton(prefix + spr1, sprite.quadrant, show, screen, w, h);
+        else if (sprite.type == "toggle") updateDoubleButton(prefix + spr1, sprite.quadrant, show, screen, w, h);
+    }
+    /*
+    let bottomRightIndex = 0;
+    let bottomLeftIndex = 0;
+    let topRightIndex = 0;
+    let topLeftIndex = 0;*/ let quadrantIndex = new Map();
+    for (const quad of Object.values(_uiElements.QUADRANT)){
+        const map = new Map();
+        map.set("main", 0);
+        for (let s1 of _screen.screens)map.set(s1[0], 0);
+        quadrantIndex.set(quad, map);
+    }
+    for(const spr1 in _uiElements.uiSpritesList){
+        let sprite = _uiElements.uiSpritesList[spr1];
+        if (sprite) {
+            if (sprite.sprite.ui == _uiElements.spriteTypeUI.SCREEN) {
+                for (let screen of _screen.screens)if (!sprite.sprite.screen || screen[0] == sprite.sprite.screen) {
+                    let w = (_uiElements.uiScreens[screen[0]]?.width || 1) * _launcher.windowSize.height;
+                    let h = (_uiElements.uiScreens[screen[0]]?.height || 1) * _launcher.windowSize.height;
+                    updateSprite(sprite, screen[0] + "|", spr1, screen[1].cont.visible, screen[0], w, h);
                 }
-            } else {
-                reticule.visible = false;
-                if (sprint) sprint.visible = false;
-            }
-        }
-        let minDimension = Math.min(_launcher.windowSize.height, _launcher.windowSize.width);
-        let player = world.player;
-        let bottomRightIndex = 0;
-        let bottomLeftIndex = 0;
-        let topRightIndex = 0;
-        let topLeftIndex = 0;
-        function getIndex(quadrant) {
-            if (quadrant == 1) return topRightIndex;
-            else if (quadrant == 2) return topLeftIndex;
-            else if (quadrant == 3) return bottomLeftIndex;
-            else return bottomRightIndex;
-        }
-        function setIndex(quadrant, amount) {
-            if (quadrant == 1) topRightIndex += amount;
-            else if (quadrant == 2) topLeftIndex += amount;
-            else if (quadrant == 3) bottomLeftIndex += amount;
-            else bottomRightIndex += amount;
-        }
-        function updateSingleButton(name, quadrant) {
-            let sprite = uiSprites.get(name);
-            if (sprite) {
-                let index = getIndex(quadrant ? quadrant : 3);
-                let scale = spriteHover.get(name) || 1;
-                sprite.visible = showUI;
-                sprite.scale.x = scale * Math.min(0.15 * minDimension / sprite.texture.width, 1);
-                sprite.scale.y = sprite.scale.x;
-                sprite.x = _launcher.windowSize.width - sprite.texture.width * 0.5 * sprite.scale.x / scale - index;
-                sprite.y = _launcher.windowSize.height - sprite.texture.height * 0.5 * sprite.scale.y / scale;
-                setIndex(quadrant ? quadrant : 3, sprite.width / scale);
-            }
-        }
-        function updateDoubleButton(name, quadrant) {
-            let sprite_on = uiSprites.get(name + "_on");
-            let sprite_off = uiSprites.get(name + "_off");
-            if (sprite_off && sprite_on) {
-                let index = getIndex(quadrant ? quadrant : 3);
-                let scale = spriteHover.get(name) || 1;
-                sprite_off.visible = showUI && !_control.UIModes[name];
-                sprite_off.scale.x = scale * Math.min(0.15 * minDimension / sprite_off.texture.width, 1);
-                sprite_off.scale.y = sprite_off.scale.x;
-                sprite_off.x = _launcher.windowSize.width - sprite_off.texture.width * 0.5 * sprite_off.scale.x / scale - index;
-                sprite_off.y = _launcher.windowSize.height - sprite_off.texture.height * 0.5 * sprite_off.scale.y / scale;
-                sprite_on.visible = showUI && !sprite_off.visible;
-                sprite_on.x = sprite_off.x;
-                sprite_on.y = sprite_off.y;
-                sprite_on.scale.x = sprite_off.scale.x;
-                sprite_on.scale.y = sprite_off.scale.y;
-                bottomRightIndex += sprite_on.width;
-                setIndex(quadrant ? quadrant : 3, sprite_on.width / scale);
-            }
-        }
-        if (player) for(let spr1 in uiSpritesList){
-            let sprite = uiSpritesList[spr1];
-            if (sprite) {
-                if (sprite.type == "single") updateSingleButton(spr1, sprite.quadrant);
-                else if (sprite.type == "toggle") updateDoubleButton(spr1, sprite.quadrant);
-            }
+            } else updateSprite(sprite, "", spr1);
         }
     }
 }
-function renderSpecialSprite(name, world, zone) {
-    let ret;
-    if (name == "reticule") {
-        let tex = _pixiJs.RenderTexture.create({
-            width: _render.TILE_SIZE,
-            height: _render.TILE_SIZE
-        });
-        let r1 = new _pixiJs.Graphics();
-        r1.beginFill(16777215);
-        r1.drawRect(0, 0, _render.TILE_SIZE, _render.TILE_SIZE);
-        r1.endFill();
-        r1.beginHole();
-        let holethickness = 2;
-        r1.drawRect(holethickness, holethickness, _render.TILE_SIZE - holethickness * 2, _render.TILE_SIZE - holethickness * 2);
-        r1.endFill();
-        _render.renderer.render(r1, {
-            renderTexture: tex
-        });
-        ret = new _pixiJs.Sprite(tex);
-        ret.position.x = 0;
-        ret.position.y = 0;
-        ret.anchor.x = 0;
-        ret.anchor.y = 0;
-        ret.visible = false;
-        ret.filters = [
-            new _pixiFilters.BloomFilter(5)
-        ];
-    }
-    if (name == "sprint_marker") {
-        let tex = _sprites.textures.get("ui_sprint_on");
-        if (tex) {
-            ret = new _pixiJs.Sprite(tex);
-            ret.position.x = 0;
-            ret.position.y = 0;
-            ret.scale.x = _render.TILE_SIZE / tex.width;
-            ret.scale.y = _render.TILE_SIZE / tex.height;
-            ret.anchor.x = 0.5;
-            ret.anchor.y = 0.5;
-            ret.visible = false;
-            registerButton(name, ret);
-        }
-    }
-    return ret;
-}
-function renderUISprite(name, world, zone, uiElementName) {
+function renderUISprite(name, world, zone, uiElementName, origName) {
+    let orig = origName ? origName : uiElementName;
+    let origSprite = origName ? origName : name;
     let ret;
     function loadButton(str, sprite) {
         ret = loadGenericButton(str, false, sprite, uiElementName);
     }
-    let uiSprite = uiSpritesList[uiElementName];
+    let uiSprite = _uiElements.uiSpritesList[orig];
     if (uiSprite) {
         let type = uiSprite.sprite;
         if (type) {
-            if (type.type == spriteTypeType.GENERIC) ret = loadGenericButton(name, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
-            else ret = renderSpecialSprite(name, world, zone);
+            // We dont run this if there is not a relevant screen
+            let screenToRender;
+            if (type.ui == _uiElements.spriteTypeUI.SCREEN) {
+                if (!type.screen || _screen.screens.get(type.screen)) {
+                    // We found a screen, now check if it's visible
+                    let sucess = false;
+                    for (let s of _screen.screens)if (!type.screen || s[0] == type.screen) {
+                        let screen = s[1];
+                        if (screen && screen.cont.visible) {
+                            screenToRender = s[0];
+                            sucess = true;
+                            break;
+                        }
+                    }
+                    if (!sucess) return undefined;
+                } else return undefined;
+            }
+            if (type.type == _uiElements.spriteTypeType.GENERIC) ret = loadGenericButton(origSprite, type.ui == _uiElements.spriteTypeUI.MARKER, type.sprite, uiElementName);
+            else ret = _uiElements.renderSpecialSprite(origSprite, world, zone);
             if (ret) {
-                if (type.radius || type.ui == spriteTypeUI.MARKER) {
-                    let rad = type.radius != undefined ? type.radius : _render.TILE_SIZE;
-                    ret.scale.x = rad / ret.texture.width;
-                    ret.scale.y = rad / ret.texture.height;
+                if (type.radius || type.ui == _uiElements.spriteTypeUI.MARKER) {
+                    if (type.ui == _uiElements.spriteTypeUI.MARKER) {
+                        let rad = type.radius != undefined ? type.radius * _render.TILE_SIZE : _render.TILE_SIZE;
+                        ret.scale.x = rad / ret.texture.width;
+                        ret.scale.y = rad / ret.texture.height;
+                    } else if (type.radius) {
+                        let rad = type.radius * _launcher.windowSize.height;
+                        spriteScale.set(name, rad / ret.texture.height);
+                    }
                 }
-                if (type.ui == spriteTypeUI.MARKER) HUDMarkers.addChild(ret);
-                else HUDScreen.addChild(ret);
-                uiSprites.set(name, ret);
+                let set = false;
+                if (type.ui == _uiElements.spriteTypeUI.MARKER) {
+                    HUDMarkers.addChild(ret);
+                    set = true;
+                } else if (type.ui == _uiElements.spriteTypeUI.MAIN) {
+                    HUDScreen.addChild(ret);
+                    set = true;
+                } else if (type.ui == _uiElements.spriteTypeUI.SCREEN && screenToRender) {
+                    let screen = _screen.screens.get(screenToRender);
+                    if (screen) {
+                        screen.cont.addChild(ret);
+                        set = true;
+                    }
+                }
+                if (set) uiSprites.set(name, ret);
                 return ret;
             }
         }
@@ -51348,54 +51498,365 @@ function uiButtonOut(name) {
     if (currentClick == name) currentClick = "";
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz","../world/math":"73WWw"}],"aunNh":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","./control":"eAdAj","../gfx/sprites":"7UxjD","../launcher":"7Wuwz","../world/math":"73WWw","./uiElements":"cDVoK","./screen":"jd51Y"}],"cDVoK":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Player", ()=>Player
+parcelHelpers.export(exports, "QUADRANT", ()=>QUADRANT
 );
-parcelHelpers.export(exports, "inspect", ()=>inspect
+parcelHelpers.export(exports, "spriteTypeType", ()=>spriteTypeType
 );
+parcelHelpers.export(exports, "spriteTypeUI", ()=>spriteTypeUI
+);
+parcelHelpers.export(exports, "uiSpritesList", ()=>uiSpritesList
+);
+parcelHelpers.export(exports, "uiScreens", ()=>uiScreens
+);
+parcelHelpers.export(exports, "renderSpecialSprite", ()=>renderSpecialSprite
+);
+var _render = require("../gfx/render");
+var _hud = require("./hud");
+var _pixiJs = require("pixi.js");
+var _sprite = require("@pixi/sprite");
+var _pixiFilters = require("pixi-filters");
+var _sprites = require("../gfx/sprites");
+var QUADRANT;
+(function(QUADRANT1) {
+    QUADRANT1[QUADRANT1["BOTTOMLEFT"] = 3] = "BOTTOMLEFT";
+    QUADRANT1[QUADRANT1["BOTTOMRIGHT"] = 0] = "BOTTOMRIGHT";
+    QUADRANT1[QUADRANT1["TOPLEFT"] = 2] = "TOPLEFT";
+    QUADRANT1[QUADRANT1["TOPRIGHT"] = 1] = "TOPRIGHT";
+    QUADRANT1[QUADRANT1["BOTTOMCENTER"] = 4] = "BOTTOMCENTER";
+    QUADRANT1[QUADRANT1["TOPCENTER"] = 5] = "TOPCENTER";
+    QUADRANT1[QUADRANT1["LEFTCENTER"] = 6] = "LEFTCENTER";
+    QUADRANT1[QUADRANT1["RIGHTCENTER"] = 7] = "RIGHTCENTER";
+})(QUADRANT || (QUADRANT = {
+}));
+var spriteTypeType;
+(function(spriteTypeType1) {
+    spriteTypeType1["SPECIAL"] = "special";
+    spriteTypeType1["GENERIC"] = "generic";
+})(spriteTypeType || (spriteTypeType = {
+}));
+var spriteTypeUI;
+(function(spriteTypeUI1) {
+    spriteTypeUI1["MAIN"] = "main";
+    spriteTypeUI1["MARKER"] = "marker";
+    spriteTypeUI1["SCREEN"] = "screen";
+})(spriteTypeUI || (spriteTypeUI = {
+}));
+let uiSpritesList = {
+    "reticule": {
+        type: "marker",
+        sprite: {
+            type: spriteTypeType.SPECIAL,
+            ui: spriteTypeUI.MARKER
+        }
+    },
+    "sprintmarker": {
+        type: "marker",
+        sprite: {
+            type: spriteTypeType.GENERIC,
+            ui: spriteTypeUI.MARKER
+        }
+    },
+    "interact": {
+        type: "toggle",
+        sprite: {
+            type: spriteTypeType.GENERIC,
+            ui: spriteTypeUI.MAIN
+        },
+        quadrant: QUADRANT.BOTTOMRIGHT
+    },
+    "follow": {
+        type: "toggle",
+        sprite: {
+            type: spriteTypeType.GENERIC,
+            ui: spriteTypeUI.MAIN
+        },
+        quadrant: QUADRANT.BOTTOMRIGHT
+    },
+    "sprint": {
+        type: "toggle",
+        sprite: {
+            type: spriteTypeType.GENERIC,
+            ui: spriteTypeUI.MAIN
+        },
+        quadrant: QUADRANT.BOTTOMRIGHT
+    },
+    "close": {
+        type: "single",
+        sprite: {
+            type: spriteTypeType.GENERIC,
+            ui: spriteTypeUI.SCREEN,
+            radius: 0.1
+        },
+        quadrant: QUADRANT.BOTTOMCENTER
+    }
+};
+let uiScreens = {
+    "door": {
+        width: 0.3,
+        height: 0.4,
+        type: {
+            title: "screen_door",
+            colorInner: 1118481,
+            colorOuter: 16777215,
+            alpha: 0.9
+        }
+    }
+};
+function renderSpecialSprite(name, world, zone) {
+    let ret;
+    if (name == "reticule") {
+        let tex = _pixiJs.RenderTexture.create({
+            width: _render.TILE_SIZE,
+            height: _render.TILE_SIZE
+        });
+        let r1 = new _pixiJs.Graphics();
+        r1.beginFill(16777215);
+        r1.drawRect(0, 0, _render.TILE_SIZE, _render.TILE_SIZE);
+        r1.endFill();
+        r1.beginHole();
+        let holethickness = 2;
+        r1.drawRect(holethickness, holethickness, _render.TILE_SIZE - holethickness * 2, _render.TILE_SIZE - holethickness * 2);
+        r1.endFill();
+        _render.renderer.render(r1, {
+            renderTexture: tex
+        });
+        ret = new _pixiJs.Sprite(tex);
+        ret.position.x = 0;
+        ret.position.y = 0;
+        ret.anchor.x = 0;
+        ret.anchor.y = 0;
+        ret.visible = false;
+        ret.filters = [
+            new _pixiFilters.BloomFilter(5)
+        ];
+    }
+    if (name == "sprint_marker") {
+        let tex = _sprites.textures.get("ui_sprint_on");
+        if (tex) {
+            ret = new _pixiJs.Sprite(tex);
+            ret.position.x = 0;
+            ret.position.y = 0;
+            ret.scale.x = _render.TILE_SIZE / tex.width;
+            ret.scale.y = _render.TILE_SIZE / tex.height;
+            ret.anchor.x = 0.5;
+            ret.anchor.y = 0.5;
+            ret.visible = false;
+            _hud.registerButton(name, ret);
+        }
+    }
+    return ret;
+}
+
+},{"./hud":"iPuXr","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","../gfx/sprites":"7UxjD"}],"jd51Y":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "screens", ()=>screens
+);
+parcelHelpers.export(exports, "closeScreen", ()=>closeScreen
+);
+parcelHelpers.export(exports, "openScreen", ()=>openScreen
+);
+parcelHelpers.export(exports, "setScreen", ()=>setScreen
+);
+parcelHelpers.export(exports, "updateScreens", ()=>updateScreens
+);
+parcelHelpers.export(exports, "registerScreen", ()=>registerScreen
+);
+var _pixiJs = require("pixi.js");
+var _render = require("../gfx/render");
+var _control = require("./control");
+var _hud = require("./hud");
+var _launcher = require("../launcher");
 var _text = require("../string/text");
-var _math = require("../world/math");
-class Player {
-    constructor(player){
-        this.controlActor = null;
-        this.cameraActor = null;
-        this.controlActor = player;
-        this.cameraActor = player;
+var _uiElements = require("./uiElements");
+var _sprites = require("../gfx/sprites");
+var _pixiFilters = require("pixi-filters");
+"use strict";
+let screens = new Map();
+let lastScreenSize = {
+    x: 0,
+    y: 0
+};
+let RRradius = 30;
+let allowMultipleScreens = false;
+function closeScreen(screen) {
+    screen.cont.y = _launcher.windowSize.height * 3;
+    screen.cont.visible = false;
+}
+function openScreen(screen) {
+    let h = _uiElements.uiScreens[screen.name]?.height || 0;
+    screen.cont.y = _launcher.windowSize.height * (0.5 - h / 2);
+    screen.cont.visible = true;
+}
+function setScreen(name, open) {
+    if (!allowMultipleScreens) for(let s in screens){
+        let ss = screens.get(s);
+        if (ss && s != name) closeScreen(ss);
+    }
+    let ss = screens.get(name);
+    if (ss) {
+        if (!ss.cont.visible && open) openScreen(ss);
+        else if (ss.cont.visible && !open) closeScreen(ss);
     }
 }
-function inspect(x, y, world) {
-    let actor;
-    let search = world.tree_actors.getAll(x, y, 0);
-    for (let a of search){
-        if (a.type.tags.get("player")) {
-            actor = a;
-            break;
-        } else if (a.type.tags.get("desc")) actor = a;
+function updateScreens() {
+    let update = false;
+    if (lastScreenSize.x != _launcher.windowSize.width || lastScreenSize.y != _launcher.windowSize.height) {
+        update = true;
+        lastScreenSize.x = _launcher.windowSize.width;
+        lastScreenSize.y = _launcher.windowSize.height;
     }
-    if (actor) {
-        let d = actor.type.tags.get("desc");
-        if (d) {
-            let desc;
-            if (world.player && _math.cDist({
-                x: world.player.x - actor.x,
-                y: world.player.y - actor.y
-            }) <= 1) desc = _text.DescClose[d];
-            if (!desc) desc = _text.Desc[d];
-            if (desc) {
-                console.log(desc);
-                return true;
+    for(let name in _uiElements.uiScreens){
+        let screen = _uiElements.uiScreens[name];
+        if (screen) {
+            if (!screens.get(name) || update) {
+                let scr = screens.get(name);
+                if (update && scr) {
+                    _launcher.app.stage.removeChild(scr.cont);
+                    screens.delete(name);
+                    for (let uiSprite of _hud.uiSprites)if (uiSprite[0].includes(name + "|")) _hud.uiSprites.delete(name + "|");
+                }
+                let cont = new _pixiJs.Container();
+                cont.sortableChildren = true;
+                let w = _launcher.windowSize.height * screen.width;
+                let h = _launcher.windowSize.height * screen.height;
+                if (screen.type.sprite) {
+                    let spr = new _pixiJs.Sprite(_sprites.textures.get(screen.type.sprite));
+                    spr.zIndex = -999;
+                    cont.addChild(spr);
+                } else {
+                    let tex = _pixiJs.RenderTexture.create({
+                        width: w + 2 * RRradius,
+                        height: h + 2 * RRradius
+                    });
+                    tex.baseTexture.scaleMode = _pixiJs.SCALE_MODES.LINEAR;
+                    let r1 = new _pixiJs.Graphics();
+                    r1.beginFill(screen.type.colorOuter);
+                    r1.drawRoundedRect(0, 0, w + 2 * RRradius, h + 2 * RRradius, RRradius);
+                    r1.endFill();
+                    r1.beginHole();
+                    let holethickness = 1;
+                    r1.drawRoundedRect(holethickness, holethickness, w + 2 * RRradius - holethickness * 2, h + 2 * RRradius - holethickness * 2, RRradius - holethickness);
+                    r1.endFill();
+                    _render.renderer.render(r1, {
+                        renderTexture: tex
+                    });
+                    let tex2 = _pixiJs.RenderTexture.create({
+                        width: w + 2 * RRradius,
+                        height: h + 2 * RRradius
+                    });
+                    tex2.baseTexture.scaleMode = _pixiJs.SCALE_MODES.LINEAR;
+                    r1 = new _pixiJs.Graphics();
+                    r1.beginFill(screen.type.colorInner);
+                    r1.drawRoundedRect(0, 0, w + 2 * RRradius, h + 2 * RRradius, RRradius);
+                    r1.endFill();
+                    _render.renderer.render(r1, {
+                        renderTexture: tex2
+                    });
+                    let inner = new _pixiJs.Sprite(tex2);
+                    inner.position.x = -RRradius;
+                    inner.position.y = -RRradius;
+                    inner.anchor.x = 0;
+                    inner.anchor.y = 0;
+                    inner.visible = true;
+                    inner.zIndex = -999;
+                    inner.alpha = screen.type.alpha ? screen.type.alpha : 1;
+                    let outer = new _pixiJs.Sprite(tex);
+                    outer.position.x = -RRradius;
+                    outer.position.y = -RRradius;
+                    outer.anchor.x = 0;
+                    outer.anchor.y = 0;
+                    outer.visible = true;
+                    outer.zIndex = -998;
+                    outer.filters = [
+                        new _pixiFilters.GlowFilter({
+                            color: screen.type.colorOuter,
+                            distance: 5,
+                            innerStrength: 0.2,
+                            outerStrength: 1
+                        })
+                    ];
+                    cont.addChild(inner);
+                    cont.addChild(outer);
+                }
+                if (screen.type.title) {
+                    const style = new _pixiJs.TextStyle({
+                        fontFamily: 'Arial',
+                        fontSize: Math.round(RRradius * 0.9),
+                        fontWeight: 'bold',
+                        fill: [
+                            '#ffffff',
+                            '#888888'
+                        ],
+                        stroke: '#000000',
+                        strokeThickness: 3,
+                        dropShadow: true,
+                        dropShadowColor: '#000000',
+                        dropShadowBlur: 4,
+                        dropShadowAngle: Math.PI * 1.5,
+                        dropShadowDistance: 6,
+                        wordWrap: true,
+                        wordWrapWidth: cont.width - RRradius * 2,
+                        lineJoin: 'round',
+                        align: "center"
+                    });
+                    const richText = new _pixiJs.Text(_text.textGet(screen.type.title), style);
+                    richText.anchor.x = 0.5;
+                    richText.anchor.y = 0;
+                    richText.x = w * 0.5;
+                    richText.y = -0.9 * RRradius;
+                    richText.zIndex = 1000;
+                    cont.addChild(richText);
+                }
+                cont.x = _launcher.windowSize.width / 2 - w / 2;
+                cont.y = _launcher.windowSize.height / 2 - h / 2;
+                cont.visible = false;
+                cont.interactive = true;
+                registerScreen(name, cont);
+                screens.set(name, {
+                    name: name,
+                    cont: cont,
+                    elements: {
+                    }
+                });
+                console.log(screens);
+                _launcher.app.stage.addChild(cont);
             }
         }
     }
-    return false;
+}
+function registerScreen(name, screen) {
+    screen.interactive = true;
+    screen.on('pointerdown', (event)=>uiScreenClick(name, event)
+    ).on('pointerup', (event)=>uiScreenClickEnd(name, event)
+    ).on('pointerupout', (event)=>uiScreenClickEndOutside(name)
+    ).on('pointerover', (event)=>uiScreenOver(name)
+    ).on('pointerout', (event)=>uiScreenOut(name)
+    );
+}
+function uiScreenClick(name, event) {
+    _control.mouseEnterUI();
+}
+function uiScreenClickEnd(name, event) {
+}
+function uiScreenClickEndOutside(name) {
+}
+function uiScreenOver(name) {
+    _control.mouseEnterUI();
+}
+function uiScreenOut(name) {
+    _control.mouseEnterIntoActiveArea();
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../string/text":"7rxsz","../world/math":"73WWw"}],"7rxsz":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","../launcher":"7Wuwz","./uiElements":"cDVoK","pixi-filters":"kxbrB","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD","./control":"eAdAj","../string/text":"7rxsz","./hud":"iPuXr"}],"7rxsz":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Strings", ()=>Strings
+);
+parcelHelpers.export(exports, "StringType", ()=>StringType
 );
 parcelHelpers.export(exports, "Name", ()=>Name
 );
@@ -51405,6 +51866,10 @@ parcelHelpers.export(exports, "NameClose", ()=>NameClose
 );
 parcelHelpers.export(exports, "DescClose", ()=>DescClose
 );
+parcelHelpers.export(exports, "Dialogue", ()=>Dialogue
+);
+parcelHelpers.export(exports, "textGet", ()=>textGet
+);
 var _zone = require("../world/zone");
 "use strict";
 var Strings;
@@ -51412,6 +51877,14 @@ var Strings;
     Strings1[Strings1["PLAYER"] = 1000000000000] = "PLAYER";
     Strings1[Strings1["DOOR_LOCKED"] = 1000000000001] = "DOOR_LOCKED";
 })(Strings || (Strings = {
+}));
+var StringType;
+(function(StringType1) {
+    StringType1[StringType1["DESC"] = 0] = "DESC";
+    StringType1[StringType1["DESC_CLOSE"] = 1] = "DESC_CLOSE";
+    StringType1[StringType1["NAME"] = 2] = "NAME";
+    StringType1[StringType1["NAME_CLOSE"] = 3] = "NAME_CLOSE";
+})(StringType || (StringType = {
 }));
 let Name = {
     [Strings.DOOR_LOCKED]: "Door (Closed)"
@@ -51429,7 +51902,103 @@ let DescClose = {
     [Strings.DOOR_LOCKED]: "The door is locked",
     [Strings.PLAYER]: "That's me!"
 };
+let Dialogue = {
+    "screen_door": "Door Menu"
+};
+function textGet(str, type = StringType.DESC) {
+    let result = "";
+    if (typeof str === "number") {
+        let record_lang = Desc;
+        let record = Desc;
+        switch(type){
+            case StringType.DESC:
+                record_lang = Desc;
+                record = Desc;
+                break;
+            case StringType.NAME:
+                record_lang = Name;
+                record = Name;
+                break;
+            case StringType.NAME_CLOSE:
+                record_lang = NameClose;
+                record = NameClose;
+                break;
+            case StringType.DESC_CLOSE:
+                record_lang = DescClose;
+                record = DescClose;
+                break;
+        }
+        if (record_lang[str] != undefined) result = record_lang[str] || "";
+        else if (record[str] != undefined) result = record[str] || "";
+    } else {
+        let record_lang = Dialogue;
+        let record = Dialogue;
+        if (record_lang[str] != undefined) result = record_lang[str] || "";
+        else if (record[str] != undefined) result = record[str] || "";
+    }
+    return result;
+}
 
-},{"../world/zone":"9xLaY","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
+},{"../world/zone":"9xLaY","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"aunNh":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Player", ()=>Player
+);
+parcelHelpers.export(exports, "inspectActor", ()=>inspectActor
+);
+parcelHelpers.export(exports, "inspect", ()=>inspect
+);
+var _text = require("../string/text");
+var _math = require("../world/math");
+var _screen = require("./screen");
+class Player {
+    constructor(player){
+        this.controlActor = null;
+        this.cameraActor = null;
+        this.controlActor = player;
+        this.cameraActor = player;
+    }
+}
+function inspectActor(actor, world) {
+    let close = world.player && _math.cDist({
+        x: world.player.x - actor.x,
+        y: world.player.y - actor.y
+    }) <= 1;
+    if (close && actor.type.tags.get("door")) {
+        _screen.setScreen("door", true);
+        return true;
+    }
+    return false;
+}
+function inspect(x, y, world) {
+    let actor;
+    let search = world.tree_actors.getAll(x, y, 0);
+    for (let a of search){
+        if (a.type.tags.get("player")) {
+            actor = a;
+            break;
+        } else if (a.type.tags.get("desc")) actor = a;
+    }
+    if (actor) {
+        if (!inspectActor(actor, world)) {
+            let d = actor.type.tags.get("desc");
+            if (d) {
+                let desc;
+                if (world.player && _math.cDist({
+                    x: world.player.x - actor.x,
+                    y: world.player.y - actor.y
+                }) <= 1) desc = _text.DescClose[d];
+                if (!desc) desc = _text.Desc[d];
+                if (desc) {
+                    console.log(desc);
+                    return true;
+                }
+            }
+        } else return true;
+    }
+    return false;
+}
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../string/text":"7rxsz","../world/math":"73WWw","./screen":"jd51Y"}]},["hKKWW","xpO2s"], "xpO2s", "parcelRequire0b18")
 
 //# sourceMappingURL=index.6bdff185.js.map

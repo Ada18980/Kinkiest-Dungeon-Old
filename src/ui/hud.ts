@@ -10,45 +10,70 @@ import { Viewport } from "pixi-viewport";
 import * as filters from 'pixi-filters';
 import { app, windowSize } from "../launcher";
 import { cDist } from "../world/math";
+import { renderSpecialSprite, uiSpritesList, spriteType, spriteTypeType, spriteTypeUI, QUADRANT, SpriteListed, uiScreens } from "./uiElements";
+import { screens, updateScreens } from "./screen";
 
-let uiSprites = new Map<string, Sprite>();
+export let uiSprites = new Map<string, Sprite>();
 let HUDMarkers = new PIXI.Container(); // Displayed on the field
 let HUDScreen = new PIXI.Container(); // Displayed on the screen
 let lastViewport : Viewport | undefined;
 
 let spriteHover = new Map<string, number>();
+let spriteScale = new Map<string, number>();
 let scaleHover = 1.2;
 let currentClick = "";
 
+let buttonSize = 0.15; // Fraction of screen for min button size
+
 let showUI = true;
 let showMarkers = true;
-interface MarkerType {
-    name : string,
-    radius? : number,
-    sprite? : string,
+
+
+export function getQuadrantXY(quadrant? : QUADRANT, w? : number, h? : number) : {x: number, y: number} {
+    if (!w) w = windowSize.width;
+    if (!h) h = windowSize.height;
+    switch (quadrant) {
+        case QUADRANT.BOTTOMCENTER: return {x: w*0.5, y:h};
+        case QUADRANT.TOPCENTER: return {x: w*0.5, y:h};
+        case QUADRANT.LEFTCENTER: return {x: 0, y:h*0.5};
+        case QUADRANT.RIGHTCENTER: return {x: w, y:h*0.5};
+        case QUADRANT.BOTTOMLEFT: return {x: 0, y:h};
+        case QUADRANT.TOPLEFT: return {x: 0, y:0};
+        case QUADRANT.BOTTOMRIGHT: return {x: w, y:h};
+        case QUADRANT.TOPRIGHT: return {x: w, y:0};
+    }
+    return {x:0, y:0};
 }
-export enum spriteTypeType {
-    SPECIAl = "special",
-    GENERIC = "generic",
+
+export function getQuadrantMult(quadrant? : QUADRANT) : {x: number, y: number} {
+    switch (quadrant) {
+        case QUADRANT.BOTTOMCENTER: return {x: 0, y:-0.5};
+        case QUADRANT.TOPCENTER: return {x: 0, y:0.5};
+        case QUADRANT.LEFTCENTER: return {x: 0.5, y:0};
+        case QUADRANT.RIGHTCENTER: return {x: -0.5, y:0};
+        case QUADRANT.BOTTOMLEFT: return {x: 0.5, y:-0.5};
+        case QUADRANT.TOPLEFT: return {x: 0.5, y:0.5};
+        case QUADRANT.BOTTOMRIGHT: return {x: -0.5, y:-0.5};
+        case QUADRANT.TOPRIGHT: return {x: -0.5, y:0.5};
+    }
+    return {x:0, y:0};
 }
-export enum spriteTypeUI {
-    MAIN = "main",
-    MARKER = "marker",
+
+export function getQuadrantIndexMod(quadrant? : QUADRANT) : {x: number, y: number} {
+    switch (quadrant) {
+        case QUADRANT.BOTTOMCENTER: return {x: 0, y:-1};
+        case QUADRANT.TOPCENTER: return {x: 0, y:1};
+        case QUADRANT.LEFTCENTER: return {x: 1, y:0};
+        case QUADRANT.RIGHTCENTER: return {x: -1, y:0};
+        case QUADRANT.BOTTOMLEFT: return {x: 1, y:0};
+        case QUADRANT.TOPLEFT: return {x: 1, y:0};
+        case QUADRANT.BOTTOMRIGHT: return {x: -1, y:0};
+        case QUADRANT.TOPRIGHT: return {x: -1, y:0};
+    }
+    return {x:0, y:0};
 }
-export interface spriteType {
-    type: spriteTypeType,
-    ui: spriteTypeUI,
-    radius? : number,
-    sprite? : string,
-};
-let uiSpritesList : Record<string, {type: string, sprite: spriteType, quadrant?: number}> = {
-    "reticule" : {type : "marker", sprite : {type: spriteTypeType.SPECIAl, ui: spriteTypeUI.MARKER}},
-    "sprintmarker" : {type : "marker", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MARKER}},
-    "interact" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
-    "follow" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
-    "sprint" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : 3},
-    //"safe" : {name : "toggle", type : {type: "generic_double", ui: "marker"}, , quadrant : 3},
-};
+
+
 /*
 let genericMarkers : MarkerType[] = [
     {name : "sprintmarker", radius: TILE_SIZE},
@@ -88,7 +113,9 @@ export function addHudElements(stage : PIXI.Container, viewport : Viewport) {
     HUDScreen.zIndex = 1000;
 }
 
-export function renderHUD(world : World) {
+export function renderHUD(world : World | undefined) {
+    updateScreens();
+
     if (lastViewport != viewport) {
         if (lastViewport) {
             lastViewport.removeChild(HUDMarkers);
@@ -97,184 +124,226 @@ export function renderHUD(world : World) {
         viewport.addChild(HUDMarkers);
     }
 
-    let zone = world.zones[world.currentZone];
-    if (zone) {
-        for (let spr in uiSpritesList) {
-            if (uiSpritesList[spr]?.type == "toggle") {
-                if (!uiSprites.get(spr + "_on")) renderUISprite(spr + "_on", world, zone, spr);
-                if (!uiSprites.get(spr + "_off")) renderUISprite(spr + "_off", world, zone, spr);
-            } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr);
+    let zone = world ? world.zones[world.currentZone] : undefined;
+
+    function uiSpritePopulate(spr : string, oldname? :string) {
+        let name = oldname ? oldname : spr;
+        if (uiSpritesList[name]?.type == "toggle") {
+            if (!uiSprites.get(spr + "_on")) renderUISprite(spr + "_on", world, zone, spr, oldname);
+            if (!uiSprites.get(spr + "_off")) renderUISprite(spr + "_off", world, zone, spr, oldname);
+        } else if (!uiSprites.get(spr)) renderUISprite(spr, world, zone, spr, oldname);
+    }
+
+    for (let s of screens) {
+        let screen = s[1];
+        if (screen && screen.cont.visible) {
+
+            for (let spr in uiSpritesList) {
+                if (uiSpritesList[spr]?.sprite.ui == spriteTypeUI.SCREEN) {
+                    uiSpritePopulate(s[0] + "|" + spr, spr);
+                }
+            }
         }
-        let reticule = uiSprites.get("reticule");
-        let sprint = uiSprites.get("sprintmarker");
-        /*
-        let button_sprint_off = uiSprites.get("sprint_off");
-        let button_sprint_on = uiSprites.get("sprint_on");
-        let button_follow_off = uiSprites.get("follow_off");
-        let button_follow_on = uiSprites.get("follow_on");
-        let button_interact = uiSprites.get("interact");*/
+    }
+    for (let spr in uiSpritesList) {
+        if (uiSpritesList[spr]?.sprite.ui != spriteTypeUI.SCREEN) uiSpritePopulate(spr);
+    }
+    let reticule = uiSprites.get("reticule");
+    let sprint = uiSprites.get("sprintmarker");
+    /*
+    let button_sprint_off = uiSprites.get("sprint_off");
+    let button_sprint_on = uiSprites.get("sprint_on");
+    let button_follow_off = uiSprites.get("follow_off");
+    let button_follow_on = uiSprites.get("follow_on");
+    let button_interact = uiSprites.get("interact");*/
 
-        if (reticule) {
-            if (world.player && mouseInActiveArea) {
-                updateMouseTargeting(world);
+    if (reticule && world) {
+        if (world.player && mouseInActiveArea) {
+            updateMouseTargeting(world);
 
-                reticule.visible = showMarkers;
-                reticule.x = TILE_SIZE * effTargetLocation.x;
-                reticule.y = TILE_SIZE * effTargetLocation.y;
-                reticule.tint = currentTargeting;
+            reticule.visible = showMarkers;
+            reticule.x = TILE_SIZE * effTargetLocation.x;
+            reticule.y = TILE_SIZE * effTargetLocation.y;
+            reticule.tint = currentTargeting;
 
-                if (sprint) {
-                    if (currentTargeting == TargetMode.MOVE && UIModes["sprint"] && cDist({x: world.player.x - effTargetLocation.x, y: world.player.y - effTargetLocation.y}) > 1) {
-                        sprint.visible = showMarkers;
-                        sprint.x = TILE_SIZE * effTargetLocation.x;
-                        sprint.y = TILE_SIZE * effTargetLocation.y;
-                    } else {
-                        sprint.visible = false;
+            if (sprint) {
+                if (currentTargeting == TargetMode.MOVE && UIModes["sprint"] && cDist({x: world.player.x - effTargetLocation.x, y: world.player.y - effTargetLocation.y}) > 1) {
+                    sprint.visible = showMarkers;
+                    sprint.x = TILE_SIZE * effTargetLocation.x;
+                    sprint.y = TILE_SIZE * effTargetLocation.y;
+                } else {
+                    sprint.visible = false;
+                }
+            }
+        } else {
+            reticule.visible = false;
+            if (sprint) sprint.visible = false;
+        }
+    }
+
+    let minDimension = Math.min(windowSize.height, windowSize.width);
+    let player = world ? world.player : undefined;
+
+    function getIndex(quadrant? : QUADRANT, screen: string = "main") : number {
+        if (quadrant == QUADRANT.BOTTOMRIGHT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        else if (quadrant == QUADRANT.TOPRIGHT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        else if (quadrant == QUADRANT.TOPLEFT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        else if (quadrant == QUADRANT.BOTTOMLEFT) return quadrantIndex.get(quadrant)?.get(screen) || 0;
+        return 0;
+    }
+    function setIndex(quadrant : number, amount : QUADRANT, screen: string = "main") {
+        if (quadrant == QUADRANT.BOTTOMRIGHT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+        else if (quadrant == QUADRANT.TOPRIGHT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+        else if (quadrant == QUADRANT.TOPLEFT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+        else if (quadrant == QUADRANT.BOTTOMLEFT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
+    }
+    function updateSingleButton(name : string, quadrant? : QUADRANT, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
+
+        let sprite = uiSprites.get(name);
+        if (sprite) {
+            let index = getIndex(quadrant, screen);
+
+            let scale = spriteHover.get(name) || 1.0;
+            let ss = spriteScale.get(name);
+            sprite.visible = show;
+            sprite.scale.x = scale * (ss ? ss : Math.min(buttonSize * minDimension / sprite.texture.width, 1));
+            sprite.scale.y = sprite.scale.x;
+            sprite.x = getQuadrantXY(quadrant, w, h).x + sprite.texture.width*getQuadrantMult(quadrant).x * sprite.scale.x / scale + getQuadrantIndexMod(quadrant).x * index;
+            sprite.y = getQuadrantXY(quadrant, w, h).y + sprite.texture.height*getQuadrantMult(quadrant).y * sprite.scale.y / scale + getQuadrantIndexMod(quadrant).y * index;
+
+            if (quadrant != undefined) setIndex(quadrant, sprite.width / scale, screen);
+        }
+    }
+    function updateDoubleButton(name : string, quadrant? : QUADRANT, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
+        let sprite_on = uiSprites.get(name + "_on");
+        let sprite_off = uiSprites.get(name + "_off");
+        if (sprite_off && sprite_on) {
+            let index = getIndex(quadrant, screen);
+
+            let scale : number = spriteHover.get(name) || 1.0;
+            let ss = spriteScale.get(name);
+            sprite_off.visible = show && !(UIModes[name]);
+            sprite_off.scale.x = scale * (ss ? ss : Math.min(buttonSize * minDimension / sprite_off.texture.width, 1));
+            sprite_off.scale.y = sprite_off.scale.x;
+            sprite_off.x = getQuadrantXY(quadrant, w, h).x + sprite_off.texture.width*getQuadrantMult(quadrant).x * sprite_off.scale.x / scale + getQuadrantIndexMod(quadrant).x * index;
+            sprite_off.y = getQuadrantXY(quadrant, w, h).y + sprite_off.texture.height*getQuadrantMult(quadrant).y * sprite_off.scale.y / scale + getQuadrantIndexMod(quadrant).y * index;
+
+            sprite_on.visible = show && !sprite_off.visible;
+            sprite_on.x = sprite_off.x;
+            sprite_on.y = sprite_off.y;
+            sprite_on.scale.x = sprite_off.scale.x;
+            sprite_on.scale.y = sprite_off.scale.y;
+
+            //bottomRightIndex += sprite_on.width;
+            if (quadrant != undefined) setIndex(quadrant, sprite_on.width / scale, screen);
+        }
+    }
+
+    function updateSprite(sprite : SpriteListed, prefix : string, spr : string, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
+
+        if (sprite.type == "single") updateSingleButton(prefix + spr, sprite.quadrant, show, screen, w, h);
+        else if (sprite.type == "toggle") updateDoubleButton(prefix + spr, sprite.quadrant, show, screen, w, h);
+    }
+
+    /*
+    let bottomRightIndex = 0;
+    let bottomLeftIndex = 0;
+    let topRightIndex = 0;
+    let topLeftIndex = 0;*/
+    let quadrantIndex = new Map<QUADRANT, Map<string, number>>();
+    for (const quad of Object.values(QUADRANT)) {
+        const map = new Map<string, number>();
+        map.set("main", 0);
+        for (let s of screens) {
+            map.set(s[0], 0);
+        }
+        quadrantIndex.set(quad as QUADRANT, map);
+    }
+    for (const spr in uiSpritesList) {
+        let sprite = uiSpritesList[spr];
+        if (sprite) {
+            if (sprite.sprite.ui == spriteTypeUI.SCREEN) {
+
+                for (let screen of screens) {
+                    if (!sprite.sprite.screen || screen[0] == sprite.sprite.screen) {
+                        let w = (uiScreens[screen[0]]?.width || 1) * windowSize.height;
+                        let h = (uiScreens[screen[0]]?.height || 1) * windowSize.height;
+                        updateSprite(sprite, screen[0] + "|", spr, screen[1].cont.visible, screen[0], w, h);
                     }
                 }
             } else {
-                reticule.visible = false;
-                if (sprint) sprint.visible = false;
+                updateSprite(sprite, "", spr);
             }
+
         }
-
-        let minDimension = Math.min(windowSize.height, windowSize.width);
-        let player = world.player;
-        let bottomRightIndex = 0;
-        let bottomLeftIndex = 0;
-        let topRightIndex = 0;
-        let topLeftIndex = 0;
-
-        function getIndex(quadrant : number) {
-            if (quadrant == 1) return topRightIndex;
-            else if (quadrant == 2) return topLeftIndex;
-            else if (quadrant == 3) return bottomLeftIndex;
-            else return bottomRightIndex;
-        }
-        function setIndex(quadrant : number, amount : number) {
-            if (quadrant == 1) topRightIndex += amount;
-            else if (quadrant == 2) topLeftIndex += amount;
-            else if (quadrant == 3) bottomLeftIndex += amount;
-            else bottomRightIndex += amount;
-        }
-        function updateSingleButton(name : string, quadrant? : number) {
-            let sprite = uiSprites.get(name);
-            if (sprite) {
-                let index = getIndex(quadrant ? quadrant : 3);
-
-                let scale = spriteHover.get(name) || 1.0;
-                sprite.visible = showUI;
-                sprite.scale.x = scale * Math.min(0.15 * minDimension / sprite.texture.width, 1);
-                sprite.scale.y = sprite.scale.x;
-                sprite.x = windowSize.width - sprite.texture.width*0.5 * sprite.scale.x / scale - index;
-                sprite.y = windowSize.height - sprite.texture.height*0.5 * sprite.scale.y / scale;
-
-                setIndex(quadrant ? quadrant : 3, sprite.width / scale);
-            }
-        }
-        function updateDoubleButton(name : string, quadrant? : number) {
-            let sprite_on = uiSprites.get(name + "_on");
-            let sprite_off = uiSprites.get(name + "_off");
-            if (sprite_off && sprite_on) {
-                let index = getIndex(quadrant ? quadrant : 3);
-
-                let scale : number = spriteHover.get(name) || 1.0;
-                sprite_off.visible = showUI && !(UIModes[name]);
-                sprite_off.scale.x = scale * Math.min(0.15 * minDimension / sprite_off.texture.width, 1);
-                sprite_off.scale.y = sprite_off.scale.x;
-                sprite_off.x = windowSize.width - sprite_off.texture.width*0.5 * sprite_off.scale.x / scale - index;
-                sprite_off.y = windowSize.height - sprite_off.texture.height*0.5 * sprite_off.scale.y / scale;
-
-                sprite_on.visible = showUI && !sprite_off.visible;
-                sprite_on.x = sprite_off.x;
-                sprite_on.y = sprite_off.y;
-                sprite_on.scale.x = sprite_off.scale.x;
-                sprite_on.scale.y = sprite_off.scale.y;
-
-                bottomRightIndex += sprite_on.width;
-
-                setIndex(quadrant ? quadrant : 3, sprite_on.width / scale);
-            }
-        }
-
-        if (player) {
-            for (let spr in uiSpritesList) {
-                let sprite = uiSpritesList[spr];
-                if (sprite) {
-                    if (sprite.type == "single") updateSingleButton(spr, sprite.quadrant);
-                    else if (sprite.type == "toggle") updateDoubleButton(spr, sprite.quadrant);
-                }
-            }
-        }
-
     }
 }
 
-function renderSpecialSprite(name : string, world : World, zone : Zone) {
-    let ret : PIXI.Sprite | undefined;
-
-    if (name == "reticule") {
-        let tex = PIXI.RenderTexture.create({ width: TILE_SIZE, height: TILE_SIZE });
-        let r1 = new PIXI.Graphics();
-        r1.beginFill(0xffffff);
-        r1.drawRect(0, 0, TILE_SIZE, TILE_SIZE);
-        r1.endFill();
-        r1.beginHole();
-        let holethickness = 2;
-        r1.drawRect(holethickness, holethickness, TILE_SIZE - holethickness*2.0, TILE_SIZE - holethickness*2.0);
-        r1.endFill();
-        renderer.render(r1,{renderTexture: tex});
-
-        ret = new PIXI.Sprite(tex);
-        ret.position.x = 0;
-        ret.position.y = 0;
-        ret.anchor.x = 0;
-        ret.anchor.y = 0;
-        ret.visible = false;
-        ret.filters = [new filters.BloomFilter(5)]
-    }
-    if (name == "sprint_marker") {
-        let tex = textures.get("ui_sprint_on");
-        if (tex) {
-            ret = new PIXI.Sprite(tex);
-            ret.position.x = 0;
-            ret.position.y = 0;
-            ret.scale.x = TILE_SIZE / tex.width;
-            ret.scale.y = TILE_SIZE / tex.height;
-            ret.anchor.x = 0.5;
-            ret.anchor.y = 0.5;
-            ret.visible = false;
-
-            registerButton(name, ret);
-        }
-    }
-    return ret;
-}
-
-function renderUISprite(name : string, world : World, zone : Zone, uiElementName : string) : PIXI.Sprite | undefined{
+function renderUISprite(name : string, world : World | undefined, zone : Zone | undefined, uiElementName : string, origName? : string) : PIXI.Sprite | undefined{
+    let orig = origName ? origName : uiElementName;
+    let origSprite = origName ? origName : name;
     let ret : PIXI.Sprite | undefined;
 
     function loadButton(str : string, sprite? : string) {
         ret = loadGenericButton(str, false, sprite, uiElementName);
     }
 
-    let uiSprite = uiSpritesList[uiElementName];
+    let uiSprite = uiSpritesList[orig];
     if (uiSprite) {
+
         let type = uiSprite.sprite;
         if (type) {
-            if (type.type == spriteTypeType.GENERIC) {
-                ret = loadGenericButton(name, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
-            } else ret = renderSpecialSprite(name, world, zone);
-            if (ret) {
-                if (type.radius || type.ui == spriteTypeUI.MARKER) {
-                    let rad = (type.radius != undefined) ? type.radius : TILE_SIZE;
-                    ret.scale.x = rad / ret.texture.width;
-                    ret.scale.y = rad / ret.texture.height;
-                }
 
-                if (type.ui == spriteTypeUI.MARKER) HUDMarkers.addChild(ret);
-                else HUDScreen.addChild(ret);
-                uiSprites.set(name, ret);
+            // We dont run this if there is not a relevant screen
+            let screenToRender : string | undefined;
+            if (type.ui == spriteTypeUI.SCREEN) {
+                if (!type.screen || screens.get(type.screen)) {
+                    // We found a screen, now check if it's visible
+                    let sucess = false;
+                    for (let s of screens) {
+                        if (!type.screen || s[0] == type.screen) {
+
+                            let screen = s[1];
+                            if (screen && screen.cont.visible) {
+                                screenToRender = s[0];
+                                sucess = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!sucess) return undefined;
+                } else return undefined;
+            }
+
+            if (type.type == spriteTypeType.GENERIC) {
+                ret = loadGenericButton(origSprite, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
+            } else ret = renderSpecialSprite(origSprite, world, zone);
+            if (ret) {
+
+                if (type.radius || type.ui == spriteTypeUI.MARKER) {
+                    if (type.ui == spriteTypeUI.MARKER) {
+                        let rad = (type.radius != undefined) ? type.radius * TILE_SIZE : TILE_SIZE;
+                        ret.scale.x = rad / ret.texture.width;
+                        ret.scale.y = rad / ret.texture.height;
+                    } else if (type.radius) {
+                        let rad = type.radius * windowSize.height;
+                        spriteScale.set(name, rad / ret.texture.height)
+                    }
+
+                }
+                let set = false;
+                if (type.ui == spriteTypeUI.MARKER) {HUDMarkers.addChild(ret); set = true;}
+                else if (type.ui == spriteTypeUI.MAIN) {HUDScreen.addChild(ret); set = true;}
+                else if (type.ui == spriteTypeUI.SCREEN && screenToRender) {
+                    let screen = screens.get(screenToRender);
+                    if (screen) {
+                        screen.cont.addChild(ret);
+                        set = true;
+                    }
+                }
+                if (set) {
+                    uiSprites.set(name, ret);
+                }
                 return ret;
             }
         }
@@ -312,7 +381,7 @@ function loadGenericButton(name : string, marker: boolean, sprite? : string, uiE
     return undefined;
 }
 
-function registerButton(name : string, button : PIXI.Sprite) {
+export function registerButton(name : string, button : PIXI.Sprite) {
     button.interactive = true;
     button  .on('pointerdown', (event) => uiButtonClick(name, event))
             .on('pointerup', (event) => uiButtonClickEnd(name, event))

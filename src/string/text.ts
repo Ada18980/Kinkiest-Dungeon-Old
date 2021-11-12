@@ -18,6 +18,13 @@ export enum Strings {
     DOOR_LOCKED,
 }
 
+export enum StringType {
+    DESC,
+    DESC_CLOSE,
+    NAME,
+    NAME_CLOSE,
+}
+
 export let Name : Record<number, string> = {
     [Strings.DOOR_LOCKED] : "Door (Closed)",
 };
@@ -37,3 +44,43 @@ export let DescClose : Record<number, string> = {
     [Strings.DOOR_LOCKED] : "The door is locked",
     [Strings.PLAYER] : "That's me!",
 };
+
+export let Dialogue : Record<string, string> = {
+    "screen_door" : "Door Menu",
+};
+
+export function textGet(str: string | number, type : StringType = StringType.DESC) {
+    let result = "";
+    if (typeof str === "number") {
+        let record_lang : Record<number, string> = Desc;
+        let record : Record<number, string> = Desc;
+        switch (type) {
+            case StringType.DESC:
+                record_lang = Desc;
+                record = Desc;
+                break;
+            case StringType.NAME:
+                record_lang = Name;
+                record = Name;
+                break;
+            case StringType.NAME_CLOSE:
+                record_lang = NameClose;
+                record = NameClose;
+                break;
+            case StringType.DESC_CLOSE:
+                record_lang = DescClose;
+                record = DescClose;
+                break;
+        }
+
+        if (record_lang[str] != undefined) result = record_lang[str] || "";
+        else if (record[str] != undefined) result = record[str] || "";
+    } else {
+        let record_lang : Record<string, string> = Dialogue;
+        let record : Record<string, string> = Dialogue;
+
+        if (record_lang[str] != undefined) result = record_lang[str] || "";
+        else if (record[str] != undefined) result = record[str] || "";
+    }
+    return result;
+}
