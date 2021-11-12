@@ -10,8 +10,8 @@ import { Viewport } from "pixi-viewport";
 import * as filters from 'pixi-filters';
 import { app, windowSize } from "../launcher";
 import { cDist } from "../world/math";
-import { renderSpecialSprite, uiSpritesList, spriteType, spriteTypeType, spriteTypeUI, QUADRANT, SpriteListed, uiScreens } from "./uiElements";
-import { screens, updateScreens } from "./screen";
+import { renderSpecialSprite, uiSpritesList, spriteType, spriteTypeType, spriteTypeUI, QUADRANT, SpriteListed, uiScreens, renderTextSprite } from "./uiElements";
+import { RRradius, screens, updateScreens } from "./screen";
 
 export let uiSprites = new Map<string, Sprite>();
 let HUDMarkers = new PIXI.Container(); // Displayed on the field
@@ -41,6 +41,9 @@ export function getQuadrantXY(quadrant? : QUADRANT, w? : number, h? : number) : 
         case QUADRANT.TOPLEFT: return {x: 0, y:0};
         case QUADRANT.BOTTOMRIGHT: return {x: w, y:h};
         case QUADRANT.TOPRIGHT: return {x: w, y:0};
+        case QUADRANT.TOPRIGHTCORNER: return {x: w + RRradius*0.7, y:-RRradius * 0.7};
+        case QUADRANT.TOPRIGHTVERTICAL: return {x: w, y:0};
+        case QUADRANT.TOPLEFTVERTICAL: return {x: 0, y:0};
     }
     return {x:0, y:0};
 }
@@ -55,6 +58,9 @@ export function getQuadrantMult(quadrant? : QUADRANT) : {x: number, y: number} {
         case QUADRANT.TOPLEFT: return {x: 0.5, y:0.5};
         case QUADRANT.BOTTOMRIGHT: return {x: -0.5, y:-0.5};
         case QUADRANT.TOPRIGHT: return {x: -0.5, y:0.5};
+        case QUADRANT.TOPRIGHTCORNER: return {x: -0.5, y:0.5};
+        case QUADRANT.TOPRIGHTVERTICAL: return {x: -0.5, y:0.5};
+        case QUADRANT.TOPLEFTVERTICAL: return {x: 0.5, y:0.5};
     }
     return {x:0, y:0};
 }
@@ -69,6 +75,9 @@ export function getQuadrantIndexMod(quadrant? : QUADRANT) : {x: number, y: numbe
         case QUADRANT.TOPLEFT: return {x: 1, y:0};
         case QUADRANT.BOTTOMRIGHT: return {x: -1, y:0};
         case QUADRANT.TOPRIGHT: return {x: -1, y:0};
+        case QUADRANT.TOPRIGHTCORNER: return {x: -1, y:0};
+        case QUADRANT.TOPRIGHTVERTICAL: return {x: 0, y:1};
+        case QUADRANT.TOPLEFTVERTICAL: return {x: 0, y:1};
     }
     return {x:0, y:0};
 }
@@ -140,7 +149,7 @@ export function renderHUD(world : World | undefined) {
 
             for (let spr in uiSpritesList) {
                 if (uiSpritesList[spr]?.sprite.ui == spriteTypeUI.SCREEN) {
-                    console.log(uiSprites.get(s[0] + "|" + spr))
+                    //console.log(uiSprites.get(s[0] + "|" + spr))
                     uiSpritePopulate(s[0] + "|" + spr, spr);
                 }
             }
@@ -318,20 +327,25 @@ function renderUISprite(name : string, world : World | undefined, zone : Zone | 
 
             if (type.type == spriteTypeType.GENERIC) {
                 ret = loadGenericButton(origSprite, type.ui == spriteTypeUI.MARKER, type.sprite, uiElementName);
-            } else ret = renderSpecialSprite(origSprite, world, zone);
+            } else if (type.type == spriteTypeType.SPECIAL) {
+                ret = renderSpecialSprite(origSprite, world, zone);
+            } else if (type.type == spriteTypeType.TEXT && type.text) {
+                ret = renderTextSprite(origSprite, world, zone, type.text, type.radius ? (type.radius * windowSize.height) : 12, type.wrap);
+            }
             if (ret) {
 
-                if (type.radius || type.ui == spriteTypeUI.MARKER) {
-                    if (type.ui == spriteTypeUI.MARKER) {
-                        let rad = (type.radius != undefined) ? type.radius * TILE_SIZE : TILE_SIZE;
-                        ret.scale.x = rad / ret.texture.width;
-                        ret.scale.y = rad / ret.texture.height;
-                    } else if (type.radius) {
-                        let rad = type.radius * windowSize.height;
-                        spriteScale.set(name, rad / ret.texture.height)
-                    }
+                if (type.type != spriteTypeType.TEXT)
+                    if (type.radius || type.ui == spriteTypeUI.MARKER) {
+                        if (type.ui == spriteTypeUI.MARKER) {
+                            let rad = (type.radius != undefined) ? type.radius * TILE_SIZE : TILE_SIZE;
+                            ret.scale.x = rad / ret.texture.width;
+                            ret.scale.y = rad / ret.texture.height;
+                        } else if (type.radius) {
+                            let rad = type.radius * windowSize.height;
+                            spriteScale.set(name, rad / ret.texture.height)
+                        }
 
-                }
+                    }
                 let set = false;
                 if (type.ui == spriteTypeUI.MARKER) {HUDMarkers.addChild(ret); set = true;}
                 else if (type.ui == spriteTypeUI.MAIN) {HUDScreen.addChild(ret); set = true;}

@@ -1,6 +1,6 @@
 import { renderer, TILE_SIZE } from "../gfx/render";
 import { windowSize } from "launcher";
-import { Strings } from "string/text";
+import { Strings, textGet } from "../string/text";
 import { World } from "../world/world";
 import { Zone } from "../world/zone";
 import { registerButton,  } from "./hud";
@@ -19,6 +19,9 @@ export enum QUADRANT {
     TOPCENTER = 5,
     LEFTCENTER = 6,
     RIGHTCENTER = 7,
+    TOPRIGHTCORNER,
+    TOPRIGHTVERTICAL,
+    TOPLEFTVERTICAL,
 }
 
 export interface MarkerType {
@@ -29,6 +32,7 @@ export interface MarkerType {
 export enum spriteTypeType {
     SPECIAL = "special",
     GENERIC = "generic",
+    TEXT = "text",
 }
 export enum spriteTypeUI {
     MAIN = "main",
@@ -41,6 +45,8 @@ export interface spriteType {
     screen? : string, // Name of the screen it belongs to. If undefined, it will apply to all screens!
     radius? : number, // Radius of the marker on the screen in tile size OR height increments. Default is 1
     sprite? : string, // The sprite to render if it's not special
+    text? : string, // The text string from Dialogue to render
+    wrap? : number, // Word wrap amount in height units
 };
 export interface ScreenType {
     title?: string, // Title displayed at top
@@ -59,7 +65,8 @@ export let uiSpritesList : Record<string, SpriteListed> = {
     "interact" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : QUADRANT.BOTTOMRIGHT},
     "follow" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : QUADRANT.BOTTOMRIGHT},
     "sprint" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : QUADRANT.BOTTOMRIGHT},
-    "close" : {type : "single", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.SCREEN, radius: 0.1}, quadrant : QUADRANT.BOTTOMCENTER},
+    "close" : {type : "single", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.SCREEN, radius: 0.04}, quadrant : QUADRANT.TOPRIGHTCORNER},
+    "door_close" : {type : "single", sprite : {type: spriteTypeType.TEXT, ui: spriteTypeUI.SCREEN, radius: 0.03, text: "door_close"}, quadrant : QUADRANT.TOPLEFTVERTICAL},
     //"safe" : {name : "toggle", type : {type: "generic_double", ui: "marker"}, , quadrant : 3},
 };
 
@@ -112,5 +119,31 @@ export function renderSpecialSprite(name : string, world : World | undefined, zo
             registerButton(name, ret);
         }
     }
+    return ret;
+}
+
+export function renderTextSprite(name : string, world : World | undefined, zone : Zone | undefined, text : string, size : number, wrap : number | undefined) {
+    let ret : PIXI.Sprite | undefined;
+
+    console.log(name)
+
+    const style = new PIXI.TextStyle({
+        fontFamily: 'Arial',
+        fontSize: Math.round(size),
+        fill: ['#ffffff', '#888888'], // gradient
+        stroke: '#000000',
+        strokeThickness: 1,
+        dropShadow: true,
+        wordWrap: wrap != undefined,
+        wordWrapWidth: wrap,
+        lineJoin: 'round',
+        align: 'left',
+    });
+
+    ret = new PIXI.Text(textGet(text), style);
+    ret.anchor.x = 0.5;
+    ret.anchor.y = 0.5;
+    ret.visible = false;
+
     return ret;
 }

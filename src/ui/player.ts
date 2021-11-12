@@ -40,9 +40,9 @@ export function inspect(x : number, y : number, world : World) : boolean {
             if (d) {
                 let desc : string | undefined;
                 if (world.player && cDist({x:world.player.x - actor.x, y:world.player.y - actor.y}) <= 1) {
-                    desc = DescClose[d];
+                    desc = DescClose.get(d);
                 }
-                if (!desc) desc = Desc[d];
+                if (!desc) desc = Desc.get(d);
                 if (desc) {
                     console.log(desc);
                     return true;

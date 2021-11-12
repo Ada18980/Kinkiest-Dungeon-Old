@@ -51126,6 +51126,21 @@ function getQuadrantXY(quadrant, w, h) {
                 x: w,
                 y: 0
             };
+        case _uiElements.QUADRANT.TOPRIGHTCORNER:
+            return {
+                x: w + _screen.RRradius * 0.7,
+                y: -_screen.RRradius * 0.7
+            };
+        case _uiElements.QUADRANT.TOPRIGHTVERTICAL:
+            return {
+                x: w,
+                y: 0
+            };
+        case _uiElements.QUADRANT.TOPLEFTVERTICAL:
+            return {
+                x: 0,
+                y: 0
+            };
     }
     return {
         x: 0,
@@ -51172,6 +51187,21 @@ function getQuadrantMult(quadrant) {
         case _uiElements.QUADRANT.TOPRIGHT:
             return {
                 x: -0.5,
+                y: 0.5
+            };
+        case _uiElements.QUADRANT.TOPRIGHTCORNER:
+            return {
+                x: -0.5,
+                y: 0.5
+            };
+        case _uiElements.QUADRANT.TOPRIGHTVERTICAL:
+            return {
+                x: -0.5,
+                y: 0.5
+            };
+        case _uiElements.QUADRANT.TOPLEFTVERTICAL:
+            return {
+                x: 0.5,
                 y: 0.5
             };
     }
@@ -51222,6 +51252,21 @@ function getQuadrantIndexMod(quadrant) {
                 x: -1,
                 y: 0
             };
+        case _uiElements.QUADRANT.TOPRIGHTCORNER:
+            return {
+                x: -1,
+                y: 0
+            };
+        case _uiElements.QUADRANT.TOPRIGHTVERTICAL:
+            return {
+                x: 0,
+                y: 1
+            };
+        case _uiElements.QUADRANT.TOPLEFTVERTICAL:
+            return {
+                x: 0,
+                y: 1
+            };
     }
     return {
         x: 0,
@@ -51266,10 +51311,8 @@ function renderHUD(world) {
     for (let s of _screen.screens){
         let screen = s[1];
         if (screen && screen.cont.visible) {
-            for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui == _uiElements.spriteTypeUI.SCREEN) {
-                console.log(uiSprites.get(s[0] + "|" + spr));
-                uiSpritePopulate(s[0] + "|" + spr, spr);
-            }
+            for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui == _uiElements.spriteTypeUI.SCREEN) //console.log(uiSprites.get(s[0] + "|" + spr))
+            uiSpritePopulate(s[0] + "|" + spr, spr);
         }
     }
     for(let spr in _uiElements.uiSpritesList)if (_uiElements.uiSpritesList[spr]?.sprite.ui != _uiElements.spriteTypeUI.SCREEN) uiSpritePopulate(spr);
@@ -51409,16 +51452,19 @@ function renderUISprite(name, world, zone, uiElementName, origName) {
                 } else return undefined;
             }
             if (type.type == _uiElements.spriteTypeType.GENERIC) ret = loadGenericButton(origSprite, type.ui == _uiElements.spriteTypeUI.MARKER, type.sprite, uiElementName);
-            else ret = _uiElements.renderSpecialSprite(origSprite, world, zone);
+            else if (type.type == _uiElements.spriteTypeType.SPECIAL) ret = _uiElements.renderSpecialSprite(origSprite, world, zone);
+            else if (type.type == _uiElements.spriteTypeType.TEXT && type.text) ret = _uiElements.renderTextSprite(origSprite, world, zone, type.text, type.radius ? type.radius * _launcher.windowSize.height : 12, type.wrap);
             if (ret) {
-                if (type.radius || type.ui == _uiElements.spriteTypeUI.MARKER) {
-                    if (type.ui == _uiElements.spriteTypeUI.MARKER) {
-                        let rad = type.radius != undefined ? type.radius * _render.TILE_SIZE : _render.TILE_SIZE;
-                        ret.scale.x = rad / ret.texture.width;
-                        ret.scale.y = rad / ret.texture.height;
-                    } else if (type.radius) {
-                        let rad = type.radius * _launcher.windowSize.height;
-                        spriteScale.set(name, rad / ret.texture.height);
+                if (type.type != _uiElements.spriteTypeType.TEXT) {
+                    if (type.radius || type.ui == _uiElements.spriteTypeUI.MARKER) {
+                        if (type.ui == _uiElements.spriteTypeUI.MARKER) {
+                            let rad = type.radius != undefined ? type.radius * _render.TILE_SIZE : _render.TILE_SIZE;
+                            ret.scale.x = rad / ret.texture.width;
+                            ret.scale.y = rad / ret.texture.height;
+                        } else if (type.radius) {
+                            let rad = type.radius * _launcher.windowSize.height;
+                            spriteScale.set(name, rad / ret.texture.height);
+                        }
                     }
                 }
                 let set = false;
@@ -51517,7 +51563,10 @@ parcelHelpers.export(exports, "uiScreens", ()=>uiScreens
 );
 parcelHelpers.export(exports, "renderSpecialSprite", ()=>renderSpecialSprite
 );
+parcelHelpers.export(exports, "renderTextSprite", ()=>renderTextSprite
+);
 var _render = require("../gfx/render");
+var _text = require("../string/text");
 var _hud = require("./hud");
 var _pixiJs = require("pixi.js");
 var _sprite = require("@pixi/sprite");
@@ -51533,12 +51582,16 @@ var QUADRANT;
     QUADRANT1[QUADRANT1["TOPCENTER"] = 5] = "TOPCENTER";
     QUADRANT1[QUADRANT1["LEFTCENTER"] = 6] = "LEFTCENTER";
     QUADRANT1[QUADRANT1["RIGHTCENTER"] = 7] = "RIGHTCENTER";
+    QUADRANT1[QUADRANT1["TOPRIGHTCORNER"] = 8] = "TOPRIGHTCORNER";
+    QUADRANT1[QUADRANT1["TOPRIGHTVERTICAL"] = 9] = "TOPRIGHTVERTICAL";
+    QUADRANT1[QUADRANT1["TOPLEFTVERTICAL"] = 10] = "TOPLEFTVERTICAL";
 })(QUADRANT || (QUADRANT = {
 }));
 var spriteTypeType;
 (function(spriteTypeType1) {
     spriteTypeType1["SPECIAL"] = "special";
     spriteTypeType1["GENERIC"] = "generic";
+    spriteTypeType1["TEXT"] = "text";
 })(spriteTypeType || (spriteTypeType = {
 }));
 var spriteTypeUI;
@@ -51592,9 +51645,19 @@ let uiSpritesList = {
         sprite: {
             type: spriteTypeType.GENERIC,
             ui: spriteTypeUI.SCREEN,
-            radius: 0.1
+            radius: 0.04
         },
-        quadrant: QUADRANT.BOTTOMCENTER
+        quadrant: QUADRANT.TOPRIGHTCORNER
+    },
+    "door_close": {
+        type: "single",
+        sprite: {
+            type: spriteTypeType.TEXT,
+            ui: spriteTypeUI.SCREEN,
+            radius: 0.03,
+            text: "door_close"
+        },
+        quadrant: QUADRANT.TOPLEFTVERTICAL
     }
 };
 let uiScreens = {
@@ -51653,11 +51716,156 @@ function renderSpecialSprite(name, world, zone) {
     }
     return ret;
 }
+function renderTextSprite(name, world, zone, text, size, wrap) {
+    let ret;
+    console.log(name);
+    const style = new _pixiJs.TextStyle({
+        fontFamily: 'Arial',
+        fontSize: Math.round(size),
+        fill: [
+            '#ffffff',
+            '#888888'
+        ],
+        stroke: '#000000',
+        strokeThickness: 1,
+        dropShadow: true,
+        wordWrap: wrap != undefined,
+        wordWrapWidth: wrap,
+        lineJoin: 'round',
+        align: 'left'
+    });
+    ret = new _pixiJs.Text(_text.textGet(text), style);
+    ret.anchor.x = 0.5;
+    ret.anchor.y = 0.5;
+    ret.visible = false;
+    return ret;
+}
 
-},{"./hud":"iPuXr","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","../gfx/sprites":"7UxjD"}],"jd51Y":[function(require,module,exports) {
+},{"./hud":"iPuXr","pixi.js":"3ZUrV","@pixi/sprite":"aeiZG","pixi-filters":"kxbrB","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/render":"jTB3f","../gfx/sprites":"7UxjD","../string/text":"7rxsz"}],"7rxsz":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "Strings", ()=>Strings
+);
+parcelHelpers.export(exports, "StringType", ()=>StringType
+);
+parcelHelpers.export(exports, "Name", ()=>Name
+);
+parcelHelpers.export(exports, "Desc", ()=>Desc
+);
+parcelHelpers.export(exports, "NameClose", ()=>NameClose
+);
+parcelHelpers.export(exports, "DescClose", ()=>DescClose
+);
+parcelHelpers.export(exports, "Dialogue", ()=>Dialogue
+);
+parcelHelpers.export(exports, "textGet", ()=>textGet
+);
+var _zone = require("../world/zone");
+"use strict";
+var Strings;
+(function(Strings1) {
+    Strings1[Strings1["PLAYER"] = 1000000000000] = "PLAYER";
+    Strings1[Strings1["DOOR_LOCKED"] = 1000000000001] = "DOOR_LOCKED";
+})(Strings || (Strings = {
+}));
+var StringType;
+(function(StringType1) {
+    StringType1[StringType1["DESC"] = 0] = "DESC";
+    StringType1[StringType1["DESC_CLOSE"] = 1] = "DESC_CLOSE";
+    StringType1[StringType1["NAME"] = 2] = "NAME";
+    StringType1[StringType1["NAME_CLOSE"] = 3] = "NAME_CLOSE";
+})(StringType || (StringType = {
+}));
+let Name = new Map([
+    [
+        Strings.DOOR_LOCKED,
+        "Door (Closed)"
+    ], 
+]);
+let Desc = new Map([
+    [
+        _zone.Wall.DOOR_CLOSED,
+        "A closed door."
+    ],
+    [
+        _zone.Wall.DOOR_OPEN,
+        "An open door. You can close it or lock it."
+    ],
+    [
+        Strings.DOOR_LOCKED,
+        "A closed door."
+    ], 
+]);
+let NameClose = new Map([
+    [
+        Strings.DOOR_LOCKED,
+        "Door (Locked)"
+    ],
+    [
+        Strings.PLAYER,
+        "Me"
+    ], 
+]);
+let DescClose = new Map([
+    [
+        Strings.DOOR_LOCKED,
+        "The door is locked"
+    ],
+    [
+        Strings.PLAYER,
+        "That's me!"
+    ], 
+]);
+let Dialogue = new Map([
+    [
+        "screen_door",
+        "Door Menu"
+    ],
+    [
+        "door_close",
+        "Close Door"
+    ], 
+]);
+function textGet(str, type = StringType.DESC) {
+    let result = "";
+    if (typeof str === "number") {
+        let record_lang = Desc;
+        let record = Desc;
+        switch(type){
+            case StringType.DESC:
+                record_lang = Desc;
+                record = Desc;
+                break;
+            case StringType.NAME:
+                record_lang = Name;
+                record = Name;
+                break;
+            case StringType.NAME_CLOSE:
+                record_lang = NameClose;
+                record = NameClose;
+                break;
+            case StringType.DESC_CLOSE:
+                record_lang = DescClose;
+                record = DescClose;
+                break;
+        }
+        if (record_lang.get(str) != undefined) result = record_lang.get(str) || "";
+        else if (record.get(str) != undefined) result = record.get(str) || "";
+    } else {
+        let record_lang = Dialogue;
+        let record = Dialogue;
+        if (record_lang.get(str) != undefined) result = record_lang.get(str) || "";
+        else if (record.get(str) != undefined) result = record.get(str) || "";
+    }
+    return result;
+}
+
+},{"../world/zone":"9xLaY","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"jd51Y":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "screens", ()=>screens
+);
+parcelHelpers.export(exports, "RRradius", ()=>RRradius
 );
 parcelHelpers.export(exports, "closeScreen", ()=>closeScreen
 );
@@ -51855,95 +52063,7 @@ function uiScreenOut(name) {
     _control.mouseEnterIntoActiveArea();
 }
 
-},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","../launcher":"7Wuwz","./uiElements":"cDVoK","pixi-filters":"kxbrB","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD","./control":"eAdAj","../string/text":"7rxsz","./hud":"iPuXr"}],"7rxsz":[function(require,module,exports) {
-var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
-parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Strings", ()=>Strings
-);
-parcelHelpers.export(exports, "StringType", ()=>StringType
-);
-parcelHelpers.export(exports, "Name", ()=>Name
-);
-parcelHelpers.export(exports, "Desc", ()=>Desc
-);
-parcelHelpers.export(exports, "NameClose", ()=>NameClose
-);
-parcelHelpers.export(exports, "DescClose", ()=>DescClose
-);
-parcelHelpers.export(exports, "Dialogue", ()=>Dialogue
-);
-parcelHelpers.export(exports, "textGet", ()=>textGet
-);
-var _zone = require("../world/zone");
-"use strict";
-var Strings;
-(function(Strings1) {
-    Strings1[Strings1["PLAYER"] = 1000000000000] = "PLAYER";
-    Strings1[Strings1["DOOR_LOCKED"] = 1000000000001] = "DOOR_LOCKED";
-})(Strings || (Strings = {
-}));
-var StringType;
-(function(StringType1) {
-    StringType1[StringType1["DESC"] = 0] = "DESC";
-    StringType1[StringType1["DESC_CLOSE"] = 1] = "DESC_CLOSE";
-    StringType1[StringType1["NAME"] = 2] = "NAME";
-    StringType1[StringType1["NAME_CLOSE"] = 3] = "NAME_CLOSE";
-})(StringType || (StringType = {
-}));
-let Name = {
-    [Strings.DOOR_LOCKED]: "Door (Closed)"
-};
-let Desc = {
-    [_zone.Wall.DOOR_CLOSED]: "A closed door.",
-    [_zone.Wall.DOOR_OPEN]: "An open door. You can close it or lock it.",
-    [Strings.DOOR_LOCKED]: "A closed door."
-};
-let NameClose = {
-    [Strings.DOOR_LOCKED]: "Door (Locked)",
-    [Strings.PLAYER]: "Me"
-};
-let DescClose = {
-    [Strings.DOOR_LOCKED]: "The door is locked",
-    [Strings.PLAYER]: "That's me!"
-};
-let Dialogue = {
-    "screen_door": "Door Menu"
-};
-function textGet(str, type = StringType.DESC) {
-    let result = "";
-    if (typeof str === "number") {
-        let record_lang = Desc;
-        let record = Desc;
-        switch(type){
-            case StringType.DESC:
-                record_lang = Desc;
-                record = Desc;
-                break;
-            case StringType.NAME:
-                record_lang = Name;
-                record = Name;
-                break;
-            case StringType.NAME_CLOSE:
-                record_lang = NameClose;
-                record = NameClose;
-                break;
-            case StringType.DESC_CLOSE:
-                record_lang = DescClose;
-                record = DescClose;
-                break;
-        }
-        if (record_lang[str] != undefined) result = record_lang[str] || "";
-        else if (record[str] != undefined) result = record[str] || "";
-    } else {
-        let record_lang = Dialogue;
-        let record = Dialogue;
-        if (record_lang[str] != undefined) result = record_lang[str] || "";
-        else if (record[str] != undefined) result = record[str] || "";
-    }
-    return result;
-}
-
-},{"../world/zone":"9xLaY","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc"}],"aunNh":[function(require,module,exports) {
+},{"pixi.js":"3ZUrV","../gfx/render":"jTB3f","../launcher":"7Wuwz","./uiElements":"cDVoK","pixi-filters":"kxbrB","@parcel/transformer-js/src/esmodule-helpers.js":"JacNc","../gfx/sprites":"7UxjD","./control":"eAdAj","../string/text":"7rxsz","./hud":"iPuXr"}],"aunNh":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "Player", ()=>Player
@@ -51991,8 +52111,8 @@ function inspect(x, y, world) {
                 if (world.player && _math.cDist({
                     x: world.player.x - actor.x,
                     y: world.player.y - actor.y
-                }) <= 1) desc = _text.DescClose[d];
-                if (!desc) desc = _text.Desc[d];
+                }) <= 1) desc = _text.DescClose.get(d);
+                if (!desc) desc = _text.Desc.get(d);
                 if (desc) {
                     console.log(desc);
                     return true;

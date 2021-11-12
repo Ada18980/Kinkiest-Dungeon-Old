@@ -25,7 +25,7 @@ export interface Screen {
 
 export let screens : Map<string, Screen> = new Map<string, Screen>();
 let lastScreenSize = {x: 0, y: 0};
-let RRradius = 30;
+export let RRradius = 30;
 
 let allowMultipleScreens = false;
 

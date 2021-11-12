@@ -25,35 +25,36 @@ export enum StringType {
     NAME_CLOSE,
 }
 
-export let Name : Record<number, string> = {
-    [Strings.DOOR_LOCKED] : "Door (Closed)",
-};
+export let Name : Map<number, string> = new Map<number, string>([
+    [Strings.DOOR_LOCKED, "Door (Closed)"],
+]);
 
-export let Desc : Record<number, string> = {
-    [Wall.DOOR_CLOSED] : "A closed door.",
-    [Wall.DOOR_OPEN] : "An open door. You can close it or lock it.",
-    [Strings.DOOR_LOCKED] : "A closed door.",
-};
+export let Desc : Map<number, string> = new Map<number, string>([
+    [Wall.DOOR_CLOSED, "A closed door."],
+    [Wall.DOOR_OPEN, "An open door. You can close it or lock it."],
+    [Strings.DOOR_LOCKED, "A closed door."],
+]);
 
-export let NameClose : Record<number, string> = {
-    [Strings.DOOR_LOCKED] : "Door (Locked)",
-    [Strings.PLAYER] : "Me",
-};
+export let NameClose : Map<number, string> = new Map<number, string>([
+    [Strings.DOOR_LOCKED, "Door (Locked)"],
+    [Strings.PLAYER, "Me"],
+]);
 
-export let DescClose : Record<number, string> = {
-    [Strings.DOOR_LOCKED] : "The door is locked",
-    [Strings.PLAYER] : "That's me!",
-};
+export let DescClose : Map<number, string> = new Map<number, string>([
+    [Strings.DOOR_LOCKED, "The door is locked"],
+    [Strings.PLAYER, "That's me!"],
+]);
 
-export let Dialogue : Record<string, string> = {
-    "screen_door" : "Door Menu",
-};
+export let Dialogue : Map<string, string> = new Map<string, string>([
+    ["screen_door", "Door Menu"],
+    ["door_close", "Close Door"],
+]);
 
 export function textGet(str: string | number, type : StringType = StringType.DESC) {
     let result = "";
     if (typeof str === "number") {
-        let record_lang : Record<number, string> = Desc;
-        let record : Record<number, string> = Desc;
+        let record_lang : Map<number, string> = Desc;
+        let record : Map<number, string> = Desc;
         switch (type) {
             case StringType.DESC:
                 record_lang = Desc;
@@ -73,14 +74,14 @@ export function textGet(str: string | number, type : StringType = StringType.DES
                 break;
         }
 
-        if (record_lang[str] != undefined) result = record_lang[str] || "";
-        else if (record[str] != undefined) result = record[str] || "";
+        if (record_lang.get(str) != undefined) result = record_lang.get(str) || "";
+        else if (record.get(str) != undefined) result = record.get(str) || "";
     } else {
-        let record_lang : Record<string, string> = Dialogue;
-        let record : Record<string, string> = Dialogue;
+        let record_lang : Map<string, string> = Dialogue;
+        let record : Map<string, string> = Dialogue;
 
-        if (record_lang[str] != undefined) result = record_lang[str] || "";
-        else if (record[str] != undefined) result = record[str] || "";
+        if (record_lang.get(str) != undefined) result = record_lang.get(str) || "";
+        else if (record.get(str) != undefined) result = record.get(str) || "";
     }
     return result;
 }
