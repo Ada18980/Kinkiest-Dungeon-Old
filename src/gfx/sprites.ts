@@ -317,7 +317,8 @@ export function addSprite(name: string, path: string, columns? : number, width? 
 export function loadSprites() {
 
     for (let element of spriteResources) {
-        PIXI.Loader.shared.add(element.name, element.path)
+        if (!PIXI.Loader.shared.resources[element.name])
+            PIXI.Loader.shared.add(element.name, element.path)
     }
 
     PIXI.Loader.shared.load((loader, resources) => {

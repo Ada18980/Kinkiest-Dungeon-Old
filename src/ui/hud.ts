@@ -41,7 +41,7 @@ export function getQuadrantXY(quadrant? : QUADRANT, w? : number, h? : number) : 
         case QUADRANT.TOPLEFT: return {x: 0, y:0};
         case QUADRANT.BOTTOMRIGHT: return {x: w, y:h};
         case QUADRANT.TOPRIGHT: return {x: w, y:0};
-        case QUADRANT.TOPRIGHTCORNER: return {x: w + RRradius*0.7, y:-RRradius * 0.7};
+        case QUADRANT.TOPRIGHTCORNER: return {x: w + RRradius*0.7, y:-RRradius * 1.7};
         case QUADRANT.TOPRIGHTVERTICAL: return {x: w, y:0};
         case QUADRANT.TOPLEFTVERTICAL: return {x: 0, y:0};
     }
@@ -207,24 +207,26 @@ export function renderHUD(world : World | undefined) {
         else if (quadrant == QUADRANT.TOPLEFT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
         else if (quadrant == QUADRANT.BOTTOMLEFT) quadrantIndex.get(quadrant)?.set(screen, (quadrantIndex.get(quadrant)?.get(screen) || 0) + amount);
     }
-    function updateSingleButton(name : string, quadrant? : QUADRANT, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
+    function updateSingleButton(name : string, toScale: boolean, quadrant? : QUADRANT, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
 
         let sprite = uiSprites.get(name);
         if (sprite) {
             let index = getIndex(quadrant, screen);
 
             let scale = spriteHover.get(name) || 1.0;
-            let ss = spriteScale.get(name);
-            sprite.visible = show;
-            sprite.scale.x = scale * (ss ? ss : Math.min(buttonSize * minDimension / sprite.texture.width, 1));
+            let ss = spriteScale.get(name) || 1.0;
+            sprite.scale.x = scale * (ss ? ss : Math.min(!toScale ? 1 : (buttonSize * minDimension / sprite.texture.width), 1));
             sprite.scale.y = sprite.scale.x;
             sprite.x = getQuadrantXY(quadrant, w, h).x + sprite.texture.width*getQuadrantMult(quadrant).x * sprite.scale.x / scale + getQuadrantIndexMod(quadrant).x * index;
             sprite.y = getQuadrantXY(quadrant, w, h).y + sprite.texture.height*getQuadrantMult(quadrant).y * sprite.scale.y / scale + getQuadrantIndexMod(quadrant).y * index;
+            if (sprite.visible) sprite.alpha = 1;
+            else sprite.alpha = 0;
+            sprite.visible = show;
 
             if (quadrant != undefined) setIndex(quadrant, sprite.width / scale, screen);
         }
     }
-    function updateDoubleButton(name : string, quadrant? : QUADRANT, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
+    function updateDoubleButton(name : string, toScale: boolean, quadrant? : QUADRANT, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
         let sprite_on = uiSprites.get(name + "_on");
         let sprite_off = uiSprites.get(name + "_off");
         if (sprite_off && sprite_on) {
@@ -232,17 +234,21 @@ export function renderHUD(world : World | undefined) {
 
             let scale : number = spriteHover.get(name) || 1.0;
             let ss = spriteScale.get(name);
-            sprite_off.visible = show && !(UIModes[name]);
-            sprite_off.scale.x = scale * (ss ? ss : Math.min(buttonSize * minDimension / sprite_off.texture.width, 1));
+            sprite_off.scale.x = scale * (ss ? ss : Math.min(!toScale ? 1 : (buttonSize * minDimension / sprite_off.texture.width), 1));
             sprite_off.scale.y = sprite_off.scale.x;
             sprite_off.x = getQuadrantXY(quadrant, w, h).x + sprite_off.texture.width*getQuadrantMult(quadrant).x * sprite_off.scale.x / scale + getQuadrantIndexMod(quadrant).x * index;
             sprite_off.y = getQuadrantXY(quadrant, w, h).y + sprite_off.texture.height*getQuadrantMult(quadrant).y * sprite_off.scale.y / scale + getQuadrantIndexMod(quadrant).y * index;
+            if (sprite_off.visible) sprite_off.alpha = 1;
+            else sprite_off.alpha = 0;
+            sprite_off.visible = show && !(UIModes[name]);
 
-            sprite_on.visible = show && !sprite_off.visible;
             sprite_on.x = sprite_off.x;
             sprite_on.y = sprite_off.y;
             sprite_on.scale.x = sprite_off.scale.x;
             sprite_on.scale.y = sprite_off.scale.y;
+            if (sprite_on.visible) sprite_on.alpha = 1;
+            else sprite_on.alpha = 0;
+            sprite_on.visible = show && !sprite_off.visible;
 
             //bottomRightIndex += sprite_on.width;
             if (quadrant != undefined) setIndex(quadrant, sprite_on.width / scale, screen);
@@ -250,9 +256,10 @@ export function renderHUD(world : World | undefined) {
     }
 
     function updateSprite(sprite : SpriteListed, prefix : string, spr : string, show : boolean = showUI, screen : string = "main", w? : number, h? : number) {
+        let toScale = sprite.sprite.type != spriteTypeType.TEXT;
 
-        if (sprite.type == "single") updateSingleButton(prefix + spr, sprite.quadrant, show, screen, w, h);
-        else if (sprite.type == "toggle") updateDoubleButton(prefix + spr, sprite.quadrant, show, screen, w, h);
+        if (sprite.type == "single") updateSingleButton(prefix + spr, toScale, sprite.quadrant, show, screen, w, h);
+        else if (sprite.type == "toggle") updateDoubleButton(prefix + spr, toScale, sprite.quadrant, show, screen, w, h);
     }
 
     /*
@@ -330,7 +337,7 @@ function renderUISprite(name : string, world : World | undefined, zone : Zone | 
             } else if (type.type == spriteTypeType.SPECIAL) {
                 ret = renderSpecialSprite(origSprite, world, zone);
             } else if (type.type == spriteTypeType.TEXT && type.text) {
-                ret = renderTextSprite(origSprite, world, zone, type.text, type.radius ? (type.radius * windowSize.height) : 12, type.wrap);
+                ret = renderTextSprite(origSprite, world, zone, type.text, type.radius ? type.radius : 12, type.wrap);
             }
             if (ret) {
 

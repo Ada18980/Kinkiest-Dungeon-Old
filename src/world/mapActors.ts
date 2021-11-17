@@ -1,6 +1,6 @@
 "use strict";
 
-import { Text, Desc } from "../string/text";
+import { Strings, Desc } from "../string/text";
 import { ActorType, tags } from "./actor";
 import { Wall, WallProperties, Zone } from "./zone";
 

@@ -66,7 +66,7 @@ export let uiSpritesList : Record<string, SpriteListed> = {
     "follow" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : QUADRANT.BOTTOMRIGHT},
     "sprint" : {type : "toggle", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.MAIN}, quadrant : QUADRANT.BOTTOMRIGHT},
     "close" : {type : "single", sprite : {type: spriteTypeType.GENERIC, ui: spriteTypeUI.SCREEN, radius: 0.04}, quadrant : QUADRANT.TOPRIGHTCORNER},
-    "door_close" : {type : "single", sprite : {type: spriteTypeType.TEXT, ui: spriteTypeUI.SCREEN, radius: 0.03, text: "door_close"}, quadrant : QUADRANT.TOPLEFTVERTICAL},
+    "door_close" : {type : "single", sprite : {type: spriteTypeType.TEXT, ui: spriteTypeUI.SCREEN, radius: 20, text: "door_close"}, quadrant : QUADRANT.TOPLEFTVERTICAL},
     //"safe" : {name : "toggle", type : {type: "generic_double", ui: "marker"}, , quadrant : 3},
 };
 

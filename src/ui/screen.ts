@@ -87,30 +87,30 @@ export function updateScreens() {
                     spr.zIndex = -999;
                     cont.addChild(spr);
                 } else {
-                    let tex = PIXI.RenderTexture.create({ width: w + 2 * RRradius, height: h + 2 * RRradius});
+                    let tex = PIXI.RenderTexture.create({ width: w + 2 * RRradius, height: h + 3 * RRradius});
                     tex.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
                     let r1 = new PIXI.Graphics();
                     r1.beginFill(screen.type.colorOuter);
-                    r1.drawRoundedRect(0, 0, w + 2 * RRradius, h + 2 * RRradius, RRradius);
+                    r1.drawRoundedRect(0, 0, w + 2 * RRradius, h + 3 * RRradius, RRradius);
                     r1.endFill();
                     r1.beginHole();
                     let holethickness = 1;
-                    r1.drawRoundedRect(holethickness, holethickness, w + 2 * RRradius - holethickness*2, h + 2 * RRradius - holethickness*2, RRradius - holethickness);
+                    r1.drawRoundedRect(holethickness, holethickness, w + 2 * RRradius - holethickness*2, h + 3 * RRradius - holethickness*2, RRradius - holethickness);
                     r1.endFill();
                     renderer.render(r1,{renderTexture: tex});
 
 
-                    let tex2 = PIXI.RenderTexture.create({ width: w + 2 * RRradius, height: h + 2 * RRradius });
+                    let tex2 = PIXI.RenderTexture.create({ width: w + 2 * RRradius, height: h + 3 * RRradius });
                     tex2.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
                     r1 = new PIXI.Graphics();
                     r1.beginFill(screen.type.colorInner);
-                    r1.drawRoundedRect(0, 0, w + 2 * RRradius, h + 2 * RRradius, RRradius);
+                    r1.drawRoundedRect(0, 0, w + 2 * RRradius, h + 3 * RRradius, RRradius);
                     r1.endFill();
                     renderer.render(r1,{renderTexture: tex2});
 
                     let inner = new PIXI.Sprite(tex2);
                     inner.position.x = -RRradius;
-                    inner.position.y = -RRradius;
+                    inner.position.y = -RRradius * 2;
                     inner.anchor.x = 0;
                     inner.anchor.y = 0;
                     inner.visible = true;
@@ -119,7 +119,7 @@ export function updateScreens() {
 
                     let outer = new PIXI.Sprite(tex);
                     outer.position.x = -RRradius;
-                    outer.position.y = -RRradius;
+                    outer.position.y = -RRradius * 2;
                     outer.anchor.x = 0;
                     outer.anchor.y = 0;
                     outer.visible = true;
@@ -153,7 +153,7 @@ export function updateScreens() {
                     richText.anchor.x = 0.5;
                     richText.anchor.y = 0;
                     richText.x = w*0.5;
-                    richText.y = -0.9 * RRradius;
+                    richText.y = -1.9 * RRradius;
                     richText.zIndex = 1000;
 
                     cont.addChild(richText);

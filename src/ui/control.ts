@@ -152,7 +152,7 @@ function controlLeftClick(world : World, camera : Player) {
 
 }
 
-function consuleUIModes(delta : number, world : World, camera : Player) : boolean {
+function consumeUIModes(delta : number, world : World, camera : Player) : boolean {
 
     // Check screen stuff FIRST
     for (let uimode in UIModes) {
@@ -201,7 +201,7 @@ export function controlTicker(delta : number, world : World, camera : Player) {
         leftClicked = false;
     }
 
-    consuleUIModes(delta, world, camera);
+    consumeUIModes(delta, world, camera);
 
     if (controlMove) {
         if (controlDiagGrace < controlDiagGraceTime)
